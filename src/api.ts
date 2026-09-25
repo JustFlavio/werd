@@ -72,38 +72,38 @@ const demoProjects: Project[] = [
     php: "8.5",
     services: ["postgres", "redis"],
     status: "error",
-    error: "Porta 52031 di postgres occupata. Ferma il processo che la usa o riassegna le porte del progetto",
+    error: "Port 52031 (postgres) is in use by another process. Stop it or reassign the project's ports",
   },
 ];
 
 export async function listProjects(): Promise<Snapshot> {
   if (demo) return { projects: demoProjects, daemon_version: "0.1.1 (demo)" };
-  if (!desktop) return { projects: [], daemon_version: "modalità anteprima" };
+  if (!desktop) return { projects: [], daemon_version: "browser preview" };
   return invoke<Snapshot>("list_projects");
 }
 
 export async function addProject(path: string): Promise<Project> {
-  if (!desktop) throw new Error("Apri l’app desktop per aggiungere un progetto.");
+  if (!desktop) throw new Error("Open the desktop app to add a project.");
   return invoke<Project>("add_project", { path });
 }
 
 export async function startProject(id: string): Promise<Project> {
-  if (!desktop) throw new Error("Apri l’app desktop per avviare un progetto.");
+  if (!desktop) throw new Error("Open the desktop app to start a project.");
   return invoke<Project>("start_project", { id });
 }
 
 export async function stopProject(id: string): Promise<Project> {
-  if (!desktop) throw new Error("Apri l’app desktop per fermare un progetto.");
+  if (!desktop) throw new Error("Open the desktop app to stop a project.");
   return invoke<Project>("stop_project", { id });
 }
 
 export async function resetPorts(id: string): Promise<Project> {
-  if (!desktop) throw new Error("Apri l’app desktop per riassegnare le porte.");
+  if (!desktop) throw new Error("Open the desktop app to reassign ports.");
   return invoke<Project>("reset_ports", { id });
 }
 
 export async function openSite(id: string): Promise<string> {
-  if (!desktop) throw new Error("Apri l’app desktop per aprire il sito.");
+  if (!desktop) throw new Error("Open the desktop app to open the site.");
   return invoke<string>("open_site", { id });
 }
 
@@ -120,9 +120,9 @@ export async function openUrl(url: string): Promise<void> {
 export async function projectLogs(id: string, service = "werd"): Promise<string[]> {
   if (demo)
     return [
-      `[12:04:10] ${id}: avvio ${service}`,
-      `[12:04:11] ${id}: pronto`,
-      `[12:04:11] Sito avviato: https://localhost:52011`,
+      `[12:04:10] ${id}: starting ${service}`,
+      `[12:04:11] ${id}: ready`,
+      `[12:04:11] Site started: https://localhost:52011`,
     ];
   if (!desktop) return [];
   return invoke<string[]>("project_logs", { id, service });
@@ -131,9 +131,9 @@ export async function projectLogs(id: string, service = "werd"): Promise<string[
 export async function doctor(): Promise<DoctorResult[]> {
   if (demo)
     return [
-      { label: "Gestore Werd", ok: true, detail: "Il gestore locale risponde" },
-      { label: "Porta web 443", ok: true, detail: "Libera" },
-      { label: "pgvector", ok: false, detail: "Richiede Visual Studio Build Tools" },
+      { label: "Werd daemon", ok: true, detail: "The local daemon is responding" },
+      { label: "Web port 443", ok: true, detail: "Free" },
+      { label: "pgvector", ok: false, detail: "Needs Visual Studio Build Tools" },
     ];
   if (!desktop) return [];
   return invoke<DoctorResult[]>("doctor");
@@ -142,25 +142,25 @@ export async function doctor(): Promise<DoctorResult[]> {
 export async function runtimes(): Promise<RuntimeInfo[]> {
   if (demo)
     return [
-      { id: "php", version: "8.5.11", installed: true, note: "PHP NTS ufficiale" },
-      { id: "caddy", version: "2.11.4", installed: true, note: "Server HTTPS locale" },
-      { id: "postgres", version: "18.6", installed: true, note: "Binari EDB" },
+      { id: "php", version: "8.5.11", installed: true, note: "Official PHP NTS build" },
+      { id: "caddy", version: "2.11.4", installed: true, note: "Local HTTPS server" },
+      { id: "postgres", version: "18.6", installed: true, note: "EDB binaries" },
       {
         id: "pgvector",
         version: "0.8.6",
         installed: false,
-        note: "Compilato su richiesta; richiede Visual Studio Build Tools",
+        note: "Built on demand; needs Visual Studio Build Tools",
       },
-      { id: "redis", version: "7.2.8", installed: true, note: "Port comunitario Windows" },
-      { id: "mailpit", version: "1.31.2", installed: false, note: "SMTP e inbox locali" },
-      { id: "rustfs", version: "1.0.0", installed: false, note: "Storage oggetti S3 locale" },
+      { id: "redis", version: "7.2.8", installed: true, note: "Community Windows port" },
+      { id: "mailpit", version: "1.31.2", installed: false, note: "Local SMTP and inbox" },
+      { id: "rustfs", version: "1.0.0", installed: false, note: "Local S3-compatible storage" },
     ];
   if (!desktop) return [];
   return invoke<RuntimeInfo[]>("runtimes");
 }
 
 export async function installRuntime(id: string): Promise<RuntimeInfo> {
-  if (!desktop) throw new Error("Apri l’app desktop per installare un runtime.");
+  if (!desktop) throw new Error("Open the desktop app to install a runtime.");
   return invoke<RuntimeInfo>("install_runtime", { id });
 }
 
@@ -172,6 +172,6 @@ export async function projectEnv(id: string): Promise<string> {
 }
 
 export async function trustCa(): Promise<string> {
-  if (!desktop) throw new Error("Apri l’app desktop per installare il certificato locale.");
+  if (!desktop) throw new Error("Open the desktop app to trust the local certificate.");
   return invoke<string>("trust_ca");
 }

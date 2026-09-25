@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 triple="$(rustc --print host-tuple)"
 if [[ "$triple" != "aarch64-apple-darwin" ]]; then
-  echo "Target non supportato: $triple" >&2
+  echo "Unsupported target: $triple" >&2
   exit 1
 fi
 cargo build --release -p werd-core -p werd-cli
