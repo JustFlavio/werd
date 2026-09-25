@@ -683,13 +683,11 @@ pub fn run_daemon() -> Result<()> {
             }
         }
     });
-    for connection in listener.incoming() {
-        if let Ok(stream) = connection {
-            let root = root.clone();
-            let shared = Arc::clone(&state);
-            let token = endpoint.token.clone();
-            thread::spawn(move || { let _ = serve_connection(root, shared, token, stream); });
-        }
+    for stream in listener.incoming().flatten() {
+        let root = root.clone();
+        let shared = Arc::clone(&state);
+        let token = endpoint.token.clone();
+        thread::spawn(move || { let _ = serve_connection(root, shared, token, stream); });
     }
     Ok(())
 }

@@ -1,3 +1,6 @@
+// Printing to stdout is this binary's job.
+#![allow(clippy::print_stdout)]
+
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
 use std::env;

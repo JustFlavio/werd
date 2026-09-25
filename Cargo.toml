@@ -1,3 +1,20 @@
 [workspace]
 members = ["crates/werd-core", "crates/werd-cli", "src-tauri"]
 resolver = "2"
+
+[workspace.package]
+version = "0.1.1"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/JustFlavio/werd"
+authors = ["Werd contributors"]
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+dbg_macro = "warn"
+todo = "warn"
+print_stdout = "warn"
+unwrap_used = "warn"
