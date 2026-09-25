@@ -51,7 +51,7 @@ export function Dashboard({
           <Section
             title="Servizi attivi"
             action={
-              <button className="button" disabled={running.length === 0 || busy} onClick={onStopAll}>
+              <button type="button" className="button" disabled={running.length === 0 || busy} onClick={onStopAll}>
                 Ferma tutto
               </button>
             }
@@ -59,7 +59,7 @@ export function Dashboard({
             {active.length === 0 ? (
               <p className="muted">
                 Nessun servizio in esecuzione. Avvia un sito dalla pagina{" "}
-                <button className="link" onClick={() => onNavigate("sites")}>
+                <button type="button" className="link" onClick={() => onNavigate("sites")}>
                   Siti
                 </button>
                 .
@@ -82,6 +82,7 @@ export function Dashboard({
           <aside className="quick-links">
             <h2>Collegamenti rapidi</h2>
             <button
+              type="button"
               className="button button-block"
               disabled={inboxes.length === 0}
               title={inboxes.length === 0 ? "Avvia un sito con Mailpit" : undefined}
@@ -89,10 +90,10 @@ export function Dashboard({
             >
               Apri Mail
             </button>
-            <button className="button button-block" onClick={() => onNavigate("logs")}>
+            <button type="button" className="button button-block" onClick={() => onNavigate("logs")}>
               Apri log
             </button>
-            <button className="button button-block" onClick={() => onNavigate("general")}>
+            <button type="button" className="button button-block" onClick={() => onNavigate("general")}>
               Diagnostica
             </button>
           </aside>
@@ -103,7 +104,7 @@ export function Dashboard({
           description={
             <>
               Tutti i siti usano PHP 8.5. Le altre versioni arriveranno dalla pagina{" "}
-              <button className="link" onClick={() => onNavigate("php")}>
+              <button type="button" className="link" onClick={() => onNavigate("php")}>
                 PHP
               </button>
               .
@@ -120,7 +121,7 @@ export function Dashboard({
           title="Siti"
           description={`${projects.length} ${projects.length === 1 ? "sito collegato" : "siti collegati"}, ${running.length} in esecuzione.`}
           action={
-            <button className="button" onClick={() => onNavigate("sites")}>
+            <button type="button" className="button" onClick={() => onNavigate("sites")}>
               Gestisci siti
             </button>
           }

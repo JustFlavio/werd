@@ -21,7 +21,7 @@ export function General({
           title="Certificato HTTPS"
           description="Werd firma i certificati dei siti con una CA locale. Rendila attendibile per il tuo utente per aprire i siti senza avvisi del browser."
           action={
-            <button className="button" onClick={onTrustCa}>
+            <button type="button" className="button" onClick={onTrustCa}>
               Rendi attendibile
             </button>
           }
@@ -46,7 +46,7 @@ export function General({
           title="Diagnostica"
           description="Controlli sull’ambiente: porte, runtime installati e prerequisiti."
           action={
-            <button className="button" onClick={onRecheck}>
+            <button type="button" className="button" onClick={onRecheck}>
               <RefreshCw size={14} /> Ricontrolla
             </button>
           }

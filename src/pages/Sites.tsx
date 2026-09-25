@@ -1,5 +1,5 @@
 import { ExternalLink, FolderPlus, Play, Square } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { type Project, projectEnv } from "../api";
 import { PORT_LABELS, SERVICES, serviceUrl } from "../services";
 import { CopyButton, EmptyState, Modal, PageHeader, Section, StatusDot } from "../ui";
@@ -34,7 +34,7 @@ export function Sites({
     <>
       <PageHeader title="Siti">
         {projects.length > 0 && (
-          <button className="button button-primary" onClick={() => setAdding(true)}>
+          <button type="button" className="button button-primary" onClick={() => setAdding(true)}>
             <FolderPlus size={15} /> Aggiungi sito
           </button>
         )}
@@ -45,28 +45,30 @@ export function Sites({
           title="Nessun sito"
           description="Collega la cartella di un progetto Laravel per servirlo in HTTPS con i suoi servizi."
         >
-          <button className="button button-primary" onClick={() => setAdding(true)}>
+          <button type="button" className="button button-primary" onClick={() => setAdding(true)}>
             <FolderPlus size={15} /> Aggiungi sito
           </button>
         </EmptyState>
       ) : (
         <div className="split">
-          <div className="site-list" role="list">
+          <ul className="site-list">
             {projects.map((project) => (
-              <button
-                key={project.id}
-                role="listitem"
-                className={`site-row ${project.id === selectedId ? "selected" : ""}`}
-                onClick={() => onSelect(project.id)}
-              >
-                <StatusDot status={project.status} />
-                <span className="site-row-text">
-                  <strong>{project.name}</strong>
-                  <small>{project.path}</small>
-                </span>
-              </button>
+              <li key={project.id}>
+                <button
+                  type="button"
+                  aria-current={project.id === selectedId ? "true" : undefined}
+                  className={`site-row ${project.id === selectedId ? "selected" : ""}`}
+                  onClick={() => onSelect(project.id)}
+                >
+                  <StatusDot status={project.status} />
+                  <span className="site-row-text">
+                    <strong>{project.name}</strong>
+                    <small>{project.path}</small>
+                  </span>
+                </button>
+              </li>
             ))}
-          </div>
+          </ul>
           <div className="split-detail">
             {selected ? (
               <SiteDetail
@@ -138,11 +140,12 @@ function SiteDetail({
         </div>
         <div className="button-row">
           {running && (
-            <button className="button" onClick={() => onOpenSite(project)}>
+            <button type="button" className="button" onClick={() => onOpenSite(project)}>
               <ExternalLink size={14} /> Apri
             </button>
           )}
           <button
+            type="button"
             className={`button ${running ? "" : "button-primary"}`}
             disabled={busy}
             onClick={() => onToggle(project)}
@@ -204,7 +207,7 @@ function SiteDetail({
                     </td>
                     <td className="cell-action">
                       {url && (
-                        <button className="button button-small" onClick={() => onOpenUrl(url)}>
+                        <button type="button" className="button button-small" onClick={() => onOpenUrl(url)}>
                           Apri
                         </button>
                       )}
@@ -227,10 +230,11 @@ function SiteDetail({
 
       <Section title="Manutenzione">
         <div className="button-row">
-          <button className="button" onClick={() => onShowLogs(project)}>
+          <button type="button" className="button" onClick={() => onShowLogs(project)}>
             Vedi log
           </button>
           <button
+            type="button"
             className="button"
             disabled={running || busy}
             title={running ? "Ferma prima il sito" : undefined}
@@ -254,6 +258,9 @@ function AddSiteModal({
   onSubmit: (path: string) => void;
 }) {
   const [path, setPath] = useState("");
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => input.current?.focus(), []);
+
   return (
     <Modal title="Aggiungi sito" onClose={onClose}>
       <form
@@ -269,8 +276,8 @@ function AddSiteModal({
         <label className="field">
           <span>Cartella del progetto</span>
           <input
+            ref={input}
             className="input mono"
-            autoFocus
             value={path}
             onChange={(event) => setPath(event.target.value)}
             placeholder="C:\Users\nome\Developer\progetto"

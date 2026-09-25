@@ -45,7 +45,7 @@ export function Services({ projects, onOpenUrl }: { projects: Project[]; onOpenU
                           </td>
                           <td className="cell-action">
                             {url && (
-                              <button className="button button-small" onClick={() => onOpenUrl(url)}>
+                              <button type="button" className="button button-small" onClick={() => onOpenUrl(url)}>
                                 Apri
                               </button>
                             )}

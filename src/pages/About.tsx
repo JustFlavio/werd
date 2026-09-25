@@ -21,7 +21,7 @@ export function About({ daemonVersion, onOpenUrl }: { daemonVersion: string; onO
           title="Open source"
           description="Werd è software libero rilasciato con licenza MIT. Segnalazioni e contributi sono benvenuti."
           action={
-            <button className="button" onClick={() => onOpenUrl(REPOSITORY_URL)}>
+            <button type="button" className="button" onClick={() => onOpenUrl(REPOSITORY_URL)}>
               GitHub
             </button>
           }

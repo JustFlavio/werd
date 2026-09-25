@@ -50,7 +50,7 @@ export default function App() {
   const [checks, setChecks] = useState<DoctorResult[]>([]);
   const [runtimeList, setRuntimeList] = useState<RuntimeInfo[]>([]);
 
-  const fail = (cause: unknown) => setToast({ tone: "error", text: String(cause) });
+  const fail = useCallback((cause: unknown) => setToast({ tone: "error", text: String(cause) }), []);
 
   const refresh = useCallback(async () => {
     try {
@@ -72,7 +72,7 @@ export default function App() {
   useEffect(() => {
     if (page === "general") void doctor().then(setChecks).catch(fail);
     if (page === "php") void runtimes().then(setRuntimeList).catch(fail);
-  }, [page]);
+  }, [page, fail]);
 
   async function run(key: string, action: () => Promise<unknown>) {
     setBusy(key);
@@ -121,6 +121,7 @@ export default function App() {
         <nav aria-label="Navigazione principale">
           {NAV.map(({ id, label, icon: Icon }) => (
             <button
+              type="button"
               key={id}
               className={`nav-item ${page === id ? "active" : ""}`}
               aria-current={page === id ? "page" : undefined}
@@ -144,7 +145,7 @@ export default function App() {
         {offline && (
           <div className="banner banner-error" role="alert">
             <span>Impossibile contattare il gestore Werd: {offline}</span>
-            <button className="button button-small" onClick={() => void refresh()}>
+            <button type="button" className="button button-small" onClick={() => void refresh()}>
               Riprova
             </button>
           </div>
@@ -216,7 +217,7 @@ export default function App() {
       {toast && (
         <div className={`toast toast-${toast.tone}`} role={toast.tone === "error" ? "alert" : "status"}>
           <span>{toast.text}</span>
-          <button className="icon-button" aria-label="Chiudi" onClick={() => setToast(null)}>
+          <button type="button" className="icon-button" aria-label="Chiudi" onClick={() => setToast(null)}>
             <X size={14} />
           </button>
         </div>

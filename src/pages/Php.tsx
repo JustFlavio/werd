@@ -41,7 +41,12 @@ function RuntimeTable({
               {runtime.installed ? (
                 <Check size={16} className="ok-icon" aria-label="Installato" />
               ) : (
-                <button className="button button-small" disabled={busy !== null} onClick={() => onInstall(runtime.id)}>
+                <button
+                  type="button"
+                  className="button button-small"
+                  disabled={busy !== null}
+                  onClick={() => onInstall(runtime.id)}
+                >
                   {busy === runtime.id ? "Download…" : "Installa"}
                 </button>
               )}

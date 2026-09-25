@@ -1,5 +1,5 @@
 import { Check, Copy, X } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import type { ProjectStatus } from "./api";
 
 export function PageHeader({ title, children }: { title: ReactNode; children?: ReactNode }) {
@@ -82,6 +82,7 @@ export function CopyButton({ text, label = "Copia" }: { text: string; label?: st
   const [copied, setCopied] = useState(false);
   return (
     <button
+      type="button"
       className="button"
       onClick={() => {
         void navigator.clipboard.writeText(text).then(() => {
@@ -97,9 +98,19 @@ export function CopyButton({ text, label = "Copia" }: { text: string; label?: st
 }
 
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: backdrop click is a mouse shortcut; keyboard users close with Escape (handled above).
     <div
       className="modal-backdrop"
+      role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -107,7 +118,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
       <div className="modal" role="dialog" aria-modal aria-label={title}>
         <div className="modal-head">
           <h2>{title}</h2>
-          <button className="icon-button" aria-label="Chiudi" onClick={onClose}>
+          <button type="button" className="icon-button" aria-label="Chiudi" onClick={onClose}>
             <X size={16} />
           </button>
         </div>

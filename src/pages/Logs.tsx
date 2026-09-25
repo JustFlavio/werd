@@ -16,30 +16,31 @@ export function Logs({
   const [lines, setLines] = useState<string[]>([]);
   const viewer = useRef<HTMLPreElement>(null);
   const current = projects.find((project) => project.id === projectId) ?? projects[0] ?? null;
+  const currentId = current?.id;
 
   useEffect(() => {
-    if (!current) return;
+    if (!currentId) return;
     let cancelled = false;
+    const show = (next: string[]) => {
+      if (cancelled) return;
+      setLines(next);
+      // Keep the newest lines in view after React paints them.
+      requestAnimationFrame(() => {
+        const element = viewer.current;
+        if (element) element.scrollTop = element.scrollHeight;
+      });
+    };
     const load = () =>
-      void projectLogs(current.id, source)
-        .then((next) => {
-          if (!cancelled) setLines(next);
-        })
-        .catch(() => {
-          if (!cancelled) setLines([]);
-        });
+      void projectLogs(currentId, source)
+        .then(show)
+        .catch(() => show([]));
     load();
     const timer = window.setInterval(load, 2500);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [current?.id, source]);
-
-  useEffect(() => {
-    const element = viewer.current;
-    if (element) element.scrollTop = element.scrollHeight;
-  }, [lines]);
+  }, [currentId, source]);
 
   if (!current)
     return (
