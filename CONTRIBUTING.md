@@ -54,7 +54,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/). The commit-
 ```
 
 - **Types:** `feat`, `fix`, `perf`, `refactor`, `test`, `docs`, `build`, `ci`, `style`, `chore`, `revert`.
-- **Scopes:** `core`, `cli`, `desktop`, `ui`, `runtimes`, `services`, `proxy`, `i18n`, `ci`, `docs`, `deps`, `release`.
+- **Scopes:** `core`, `cli`, `desktop`, `ui`, `runtimes`, `services`, `proxy`, `i18n`, `ci`, `docs`, `deps`, `deps-dev`, `release`.
 - **Granularity:** keep commits small and focused. A formatting-only change goes in its own `style:` commit.
 
 `CHANGELOG.md` is generated from commit messages with `git cliff`.
