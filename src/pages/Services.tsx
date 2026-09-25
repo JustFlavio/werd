@@ -1,30 +1,29 @@
 import type { Project } from "../api";
-import { PORT_LABELS, SERVICE_NAMES, SERVICES, serviceUrl } from "../services";
+import { useT } from "../i18n";
+import { describePorts, SERVICE_NAMES, SERVICES, serviceUrl } from "../services";
 import { PageHeader, Section, StatusDot } from "../ui";
 
 export function Services({ projects, onOpenUrl }: { projects: Project[]; onOpenUrl: (url: string) => void }) {
+  const t = useT();
   return (
     <>
-      <PageHeader title="Servizi" />
+      <PageHeader title={t.services.title} />
       <div className="page-body">
-        <p className="muted lead">
-          I servizi partono insieme al sito che li richiede in <code>werd.yml</code>. Ogni sito ha istanze, porte e dati
-          separati, quindi fermarne uno non tocca gli altri.
-        </p>
+        <p className="muted lead">{t.services.lead(<code key="file">werd.yml</code>)}</p>
         {SERVICE_NAMES.map((service) => {
           const meta = SERVICES[service];
           const using = projects.filter((project) => project.services.includes(service));
           return (
-            <Section key={service} title={meta.label} description={`Versione ${meta.version}`}>
+            <Section key={service} title={meta.label} description={t.services.version(meta.version)}>
               {using.length === 0 ? (
-                <p className="muted">Nessun sito usa questo servizio.</p>
+                <p className="muted">{t.services.unused}</p>
               ) : (
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>Sito</th>
-                      <th>Stato</th>
-                      <th>Porte</th>
+                      <th>{t.services.site}</th>
+                      <th>{t.services.status}</th>
+                      <th>{t.services.ports}</th>
                       <th />
                     </tr>
                   </thead>
@@ -37,16 +36,11 @@ export function Services({ projects, onOpenUrl }: { projects: Project[]; onOpenU
                           <td>
                             <StatusDot status={project.status} label />
                           </td>
-                          <td className="mono muted">
-                            {meta.ports
-                              .map((key) => (project.ports?.[key] ? `${PORT_LABELS[key]} ${project.ports[key]}` : null))
-                              .filter(Boolean)
-                              .join(" · ") || "—"}
-                          </td>
+                          <td className="mono muted">{describePorts(project, service, t.ports)}</td>
                           <td className="cell-action">
                             {url && (
                               <button type="button" className="button button-small" onClick={() => onOpenUrl(url)}>
-                                Apri
+                                {t.common.open}
                               </button>
                             )}
                           </td>

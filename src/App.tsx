@@ -16,6 +16,7 @@ import {
   stopProject,
   trustCa,
 } from "./api";
+import { useT } from "./i18n";
 import { Logo } from "./Logo";
 import { About } from "./pages/About";
 import { Dashboard } from "./pages/Dashboard";
@@ -27,19 +28,20 @@ import { Sites } from "./pages/Sites";
 
 export type Page = "dashboard" | "sites" | "php" | "services" | "logs" | "general" | "about";
 
-const NAV: { id: Page; label: string; icon: typeof Globe }[] = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "sites", label: "Siti", icon: Globe },
-  { id: "php", label: "PHP", icon: Cpu },
-  { id: "services", label: "Servizi", icon: Boxes },
-  { id: "logs", label: "Log", icon: ScrollText },
-  { id: "general", label: "Generale", icon: Settings },
-  { id: "about", label: "Informazioni", icon: Info },
+const NAV: { id: Page; icon: typeof Globe }[] = [
+  { id: "dashboard", icon: LayoutDashboard },
+  { id: "sites", icon: Globe },
+  { id: "php", icon: Cpu },
+  { id: "services", icon: Boxes },
+  { id: "logs", icon: ScrollText },
+  { id: "general", icon: Settings },
+  { id: "about", icon: Info },
 ];
 
 type Toast = { tone: "error" | "info"; text: string };
 
 export default function App() {
+  const t = useT();
   const [page, setPage] = useState<Page>("dashboard");
   const [projects, setProjects] = useState<Project[]>([]);
   const [daemonVersion, setDaemonVersion] = useState("—");
@@ -118,8 +120,8 @@ export default function App() {
           <Logo />
           <span>Werd</span>
         </div>
-        <nav aria-label="Navigazione principale">
-          {NAV.map(({ id, label, icon: Icon }) => (
+        <nav aria-label={t.nav.label}>
+          {NAV.map(({ id, icon: Icon }) => (
             <button
               type="button"
               key={id}
@@ -128,7 +130,7 @@ export default function App() {
               onClick={() => setPage(id)}
             >
               <Icon size={17} strokeWidth={1.75} />
-              <span>{label}</span>
+              <span>{t.nav[id]}</span>
               {id === "sites" && projects.length > 0 && <span className="nav-count">{projects.length}</span>}
             </button>
           ))}
@@ -137,16 +139,16 @@ export default function App() {
           <span className={`status status-${offline ? "fail" : "ok"}`}>
             <i aria-hidden />
           </span>
-          {offline ? "Gestore non raggiungibile" : `v${__APP_VERSION__}`}
+          {offline ? t.shell.daemonOffline : `v${__APP_VERSION__}`}
         </div>
       </aside>
 
       <main className="main">
         {offline && (
           <div className="banner banner-error" role="alert">
-            <span>Impossibile contattare il gestore Werd: {offline}</span>
+            <span>{t.shell.daemonOfflineBanner(offline)}</span>
             <button type="button" className="button button-small" onClick={() => void refresh()}>
-              Riprova
+              {t.common.retry}
             </button>
           </div>
         )}
@@ -173,10 +175,7 @@ export default function App() {
             onResetPorts={(project) =>
               void run(project.id, async () => {
                 await resetPorts(project.id);
-                setToast({
-                  tone: "info",
-                  text: "Le porte verranno riassegnate al prossimo avvio. Ricorda di aggiornare il .env.",
-                });
+                setToast({ tone: "info", text: t.shell.portsReset });
               })
             }
             onShowLogs={(project) => {
@@ -217,7 +216,7 @@ export default function App() {
       {toast && (
         <div className={`toast toast-${toast.tone}`} role={toast.tone === "error" ? "alert" : "status"}>
           <span>{toast.text}</span>
-          <button type="button" className="icon-button" aria-label="Chiudi" onClick={() => setToast(null)}>
+          <button type="button" className="icon-button" aria-label={t.common.close} onClick={() => setToast(null)}>
             <X size={14} />
           </button>
         </div>

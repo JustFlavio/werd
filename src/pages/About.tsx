@@ -1,25 +1,25 @@
 import { REPOSITORY_URL } from "../api";
+import { useT } from "../i18n";
 import { Logo } from "../Logo";
 import { PageHeader, Section } from "../ui";
 
 export function About({ daemonVersion, onOpenUrl }: { daemonVersion: string; onOpenUrl: (url: string) => void }) {
+  const t = useT();
   return (
     <>
-      <PageHeader title="Informazioni" />
+      <PageHeader title={t.about.title} />
       <div className="page-body">
         <div className="about">
           <Logo size={56} />
           <div>
             <h2>Werd</h2>
-            <p className="muted">Ambienti Laravel locali, senza Docker né WSL.</p>
-            <p className="mono muted">
-              Versione {__APP_VERSION__} · gestore {daemonVersion}
-            </p>
+            <p className="muted">{t.about.tagline}</p>
+            <p className="mono muted">{t.about.versions(__APP_VERSION__, daemonVersion)}</p>
           </div>
         </div>
         <Section
-          title="Open source"
-          description="Werd è software libero rilasciato con licenza MIT. Segnalazioni e contributi sono benvenuti."
+          title={t.about.openSource}
+          description={t.about.openSourceHint}
           action={
             <button type="button" className="button" onClick={() => onOpenUrl(REPOSITORY_URL)}>
               GitHub

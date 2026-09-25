@@ -1,7 +1,8 @@
 import { ExternalLink, FolderPlus, Play, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { type Project, projectEnv } from "../api";
-import { PORT_LABELS, SERVICES, serviceUrl } from "../services";
+import { useT } from "../i18n";
+import { describePorts, SERVICES, serviceUrl } from "../services";
 import { CopyButton, EmptyState, Modal, PageHeader, Section, StatusDot } from "../ui";
 
 export function Sites({
@@ -27,27 +28,22 @@ export function Sites({
   onResetPorts: (project: Project) => void;
   onShowLogs: (project: Project) => void;
 }) {
+  const t = useT();
   const [adding, setAdding] = useState(false);
   const selected = projects.find((project) => project.id === selectedId) ?? null;
+  const addButton = (
+    <button type="button" className="button button-primary" onClick={() => setAdding(true)}>
+      <FolderPlus size={15} /> {t.sites.add}
+    </button>
+  );
 
   return (
     <>
-      <PageHeader title="Siti">
-        {projects.length > 0 && (
-          <button type="button" className="button button-primary" onClick={() => setAdding(true)}>
-            <FolderPlus size={15} /> Aggiungi sito
-          </button>
-        )}
-      </PageHeader>
+      <PageHeader title={t.sites.title}>{projects.length > 0 && addButton}</PageHeader>
 
       {projects.length === 0 ? (
-        <EmptyState
-          title="Nessun sito"
-          description="Collega la cartella di un progetto Laravel per servirlo in HTTPS con i suoi servizi."
-        >
-          <button type="button" className="button button-primary" onClick={() => setAdding(true)}>
-            <FolderPlus size={15} /> Aggiungi sito
-          </button>
+        <EmptyState title={t.sites.emptyTitle} description={t.sites.emptyDescription}>
+          {addButton}
         </EmptyState>
       ) : (
         <div className="split">
@@ -82,7 +78,7 @@ export function Sites({
                 onShowLogs={onShowLogs}
               />
             ) : (
-              <p className="muted split-placeholder">Seleziona un sito per vederne i dettagli.</p>
+              <p className="muted split-placeholder">{t.sites.selectHint}</p>
             )}
           </div>
         </div>
@@ -118,6 +114,7 @@ function SiteDetail({
   onResetPorts: (project: Project) => void;
   onShowLogs: (project: Project) => void;
 }) {
+  const t = useT();
   const [env, setEnv] = useState("");
   const running = project.status === "running";
 
@@ -141,7 +138,7 @@ function SiteDetail({
         <div className="button-row">
           {running && (
             <button type="button" className="button" onClick={() => onOpenSite(project)}>
-              <ExternalLink size={14} /> Apri
+              <ExternalLink size={14} /> {t.common.open}
             </button>
           )}
           <button
@@ -152,11 +149,11 @@ function SiteDetail({
           >
             {running ? (
               <>
-                <Square size={13} /> Ferma
+                <Square size={13} /> {t.sites.stop}
               </>
             ) : (
               <>
-                <Play size={13} /> {busy ? "Avvio…" : "Avvia"}
+                <Play size={13} /> {busy ? t.sites.starting : t.sites.start}
               </>
             )}
           </button>
@@ -165,50 +162,42 @@ function SiteDetail({
 
       {project.error && <div className="callout callout-error">{project.error}</div>}
 
-      <Section title="Generale">
+      <Section title={t.sites.general}>
         <dl className="fields">
-          <dt>Percorso</dt>
+          <dt>{t.sites.path}</dt>
           <dd className="mono">{project.path}</dd>
-          <dt>URL</dt>
-          <dd className="mono">{project.url ?? <span className="muted">Disponibile dopo l’avvio</span>}</dd>
+          <dt>{t.sites.url}</dt>
+          <dd className="mono">{project.url ?? <span className="muted">{t.sites.urlPending}</span>}</dd>
           <dt>PHP</dt>
           <dd>{project.php}</dd>
         </dl>
       </Section>
 
-      <Section title="Servizi" description="Ogni sito ha istanze, porte e dati propri.">
+      <Section title={t.sites.services} description={t.sites.servicesHint}>
         {project.services.length === 0 ? (
-          <p className="muted">
-            Nessun servizio configurato in <code>werd.yml</code>.
-          </p>
+          <p className="muted">{t.sites.noServices(<code key="file">werd.yml</code>)}</p>
         ) : (
           <table className="table">
             <thead>
               <tr>
-                <th>Servizio</th>
-                <th>Versione</th>
-                <th>Porte</th>
+                <th>{t.sites.service}</th>
+                <th>{t.sites.version}</th>
+                <th>{t.sites.ports}</th>
                 <th />
               </tr>
             </thead>
             <tbody>
               {project.services.map((service) => {
-                const meta = SERVICES[service];
                 const url = serviceUrl(project, service);
                 return (
                   <tr key={service}>
-                    <td>{meta.label}</td>
-                    <td className="muted">{meta.version}</td>
-                    <td className="mono muted">
-                      {meta.ports
-                        .map((key) => (project.ports?.[key] ? `${PORT_LABELS[key]} ${project.ports[key]}` : null))
-                        .filter(Boolean)
-                        .join(" · ") || "—"}
-                    </td>
+                    <td>{SERVICES[service].label}</td>
+                    <td className="muted">{SERVICES[service].version}</td>
+                    <td className="mono muted">{describePorts(project, service, t.ports)}</td>
                     <td className="cell-action">
                       {url && (
                         <button type="button" className="button button-small" onClick={() => onOpenUrl(url)}>
-                          Apri
+                          {t.common.open}
                         </button>
                       )}
                     </td>
@@ -220,27 +209,23 @@ function SiteDetail({
         )}
       </Section>
 
-      <Section
-        title="Variabili .env"
-        description="Copia questi valori nel .env del progetto. Werd non modifica i tuoi file."
-        action={env && <CopyButton text={env} />}
-      >
-        {env ? <pre className="code">{env}</pre> : <p className="muted">Le porte vengono assegnate al primo avvio.</p>}
+      <Section title={t.sites.envTitle} description={t.sites.envHint} action={env && <CopyButton text={env} />}>
+        {env ? <pre className="code">{env}</pre> : <p className="muted">{t.sites.envPending}</p>}
       </Section>
 
-      <Section title="Manutenzione">
+      <Section title={t.sites.maintenance}>
         <div className="button-row">
           <button type="button" className="button" onClick={() => onShowLogs(project)}>
-            Vedi log
+            {t.sites.viewLogs}
           </button>
           <button
             type="button"
             className="button"
             disabled={running || busy}
-            title={running ? "Ferma prima il sito" : undefined}
+            title={running ? t.sites.stopFirst : undefined}
             onClick={() => onResetPorts(project)}
           >
-            Riassegna porte
+            {t.sites.resetPorts}
           </button>
         </div>
       </Section>
@@ -257,38 +242,36 @@ function AddSiteModal({
   onClose: () => void;
   onSubmit: (path: string) => void;
 }) {
+  const t = useT();
   const [path, setPath] = useState("");
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => input.current?.focus(), []);
 
   return (
-    <Modal title="Aggiungi sito" onClose={onClose}>
+    <Modal title={t.sites.add} onClose={onClose}>
       <form
         onSubmit={(event) => {
           event.preventDefault();
           onSubmit(path.trim());
         }}
       >
-        <p className="muted">
-          Indica la cartella di un progetto Laravel. Werd leggerà <code>werd.yml</code> o ne creerà uno con i valori
-          predefiniti.
-        </p>
+        <p className="muted">{t.sites.addDialogHint(<code key="file">werd.yml</code>)}</p>
         <label className="field">
-          <span>Cartella del progetto</span>
+          <span>{t.sites.folder}</span>
           <input
             ref={input}
             className="input mono"
             value={path}
             onChange={(event) => setPath(event.target.value)}
-            placeholder="C:\Users\nome\Developer\progetto"
+            placeholder={t.sites.folderPlaceholder}
           />
         </label>
         <div className="modal-actions">
           <button type="button" className="button" onClick={onClose}>
-            Annulla
+            {t.common.cancel}
           </button>
           <button type="submit" className="button button-primary" disabled={busy || !path.trim()}>
-            {busy ? "Collegamento…" : "Aggiungi"}
+            {busy ? t.sites.linking : t.sites.addConfirm}
           </button>
         </div>
       </form>

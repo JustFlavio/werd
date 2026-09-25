@@ -1,6 +1,7 @@
 import { Check, Copy, X } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import type { ProjectStatus } from "./api";
+import { useT } from "./i18n";
 
 export function PageHeader({ title, children }: { title: ReactNode; children?: ReactNode }) {
   return (
@@ -36,14 +37,8 @@ export function Section({
   );
 }
 
-const STATUS_LABELS: Record<ProjectStatus, string> = {
-  running: "Attivo",
-  starting: "Avvio…",
-  stopped: "Fermo",
-  error: "Errore",
-};
-
 export function StatusDot({ status, label }: { status: ProjectStatus | "ok" | "fail"; label?: boolean }) {
+  const t = useT();
   const tone =
     status === "running" || status === "ok"
       ? "ok"
@@ -55,7 +50,7 @@ export function StatusDot({ status, label }: { status: ProjectStatus | "ok" | "f
   return (
     <span className={`status status-${tone}`}>
       <i aria-hidden />
-      {label && status in STATUS_LABELS && STATUS_LABELS[status as ProjectStatus]}
+      {label && status !== "ok" && status !== "fail" && t.status[status]}
     </span>
   );
 }
@@ -78,7 +73,8 @@ export function EmptyState({
   );
 }
 
-export function CopyButton({ text, label = "Copia" }: { text: string; label?: string }) {
+export function CopyButton({ text }: { text: string }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -92,12 +88,13 @@ export function CopyButton({ text, label = "Copia" }: { text: string; label?: st
       }}
     >
       {copied ? <Check size={14} /> : <Copy size={14} />}
-      {copied ? "Copiato" : label}
+      {copied ? t.common.copied : t.common.copy}
     </button>
   );
 }
 
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  const t = useT();
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
@@ -118,7 +115,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
       <div className="modal" role="dialog" aria-modal aria-label={title}>
         <div className="modal-head">
           <h2>{title}</h2>
-          <button type="button" className="icon-button" aria-label="Chiudi" onClick={onClose}>
+          <button type="button" className="icon-button" aria-label={t.common.close} onClick={onClose}>
             <X size={16} />
           </button>
         </div>

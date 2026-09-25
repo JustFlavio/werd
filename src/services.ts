@@ -18,16 +18,14 @@ export const SERVICES: Record<ServiceName, ServiceMeta> = {
 
 export const SERVICE_NAMES = Object.keys(SERVICES) as ServiceName[];
 
-export const PORT_LABELS: Record<string, string> = {
-  site: "HTTPS",
-  fastcgi: "FastCGI",
-  postgres: "PostgreSQL",
-  redis: "Redis",
-  mailpit_smtp: "SMTP",
-  mailpit_ui: "Inbox web",
-  rustfs_api: "API S3",
-  rustfs_console: "Console",
-};
+/** "SMTP 52015 · Web inbox 52016", or "—" before ports are assigned. */
+export function describePorts(project: Project, service: ServiceName, labels: Record<string, string>): string {
+  const described = SERVICES[service].ports.flatMap((key) => {
+    const port = project.ports?.[key];
+    return port ? [`${labels[key] ?? key} ${port}`] : [];
+  });
+  return described.join(" · ") || "—";
+}
 
 export const LOG_SOURCES = ["werd", "php", "caddy", "postgres", "redis", "mailpit", "rustfs"] as const;
 

@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import type { RuntimeInfo } from "../api";
+import { useT } from "../i18n";
 import { PageHeader, Section } from "../ui";
 
 const LABELS: Record<string, string> = {
@@ -21,14 +22,15 @@ function RuntimeTable({
   busy: string | null;
   onInstall: (id: string) => void;
 }) {
+  const t = useT();
   return (
     <table className="table">
       <thead>
         <tr>
-          <th>Nome</th>
-          <th>Versione</th>
-          <th>Note</th>
-          <th className="cell-action">Installato</th>
+          <th>{t.php.name}</th>
+          <th>{t.php.version}</th>
+          <th>{t.php.notes}</th>
+          <th className="cell-action">{t.php.installed}</th>
         </tr>
       </thead>
       <tbody>
@@ -39,7 +41,7 @@ function RuntimeTable({
             <td className="muted">{runtime.note}</td>
             <td className="cell-action">
               {runtime.installed ? (
-                <Check size={16} className="ok-icon" aria-label="Installato" />
+                <Check size={16} className="ok-icon" aria-label={t.php.installed} />
               ) : (
                 <button
                   type="button"
@@ -47,7 +49,7 @@ function RuntimeTable({
                   disabled={busy !== null}
                   onClick={() => onInstall(runtime.id)}
                 >
-                  {busy === runtime.id ? "Download…" : "Installa"}
+                  {busy === runtime.id ? t.php.downloading : t.php.install}
                 </button>
               )}
             </td>
@@ -67,31 +69,26 @@ export function Php({
   busy: string | null;
   onInstall: (id: string) => void;
 }) {
+  const t = useT();
   const php = runtimes.filter((runtime) => runtime.id === "php");
   const others = runtimes.filter((runtime) => runtime.id !== "php");
 
   return (
     <>
-      <PageHeader title="PHP e runtime" />
+      <PageHeader title={t.php.title} />
       <div className="page-body">
-        <Section
-          title="Versioni PHP"
-          description="Build NTS ufficiali, scaricate solo quando servono e verificate con checksum."
-        >
+        <Section title={t.php.versions} description={t.php.versionsHint}>
           {php.length ? (
             <RuntimeTable runtimes={php} busy={busy} onInstall={onInstall} />
           ) : (
-            <p className="muted">Catalogo non disponibile.</p>
+            <p className="muted">{t.php.unavailable}</p>
           )}
         </Section>
-        <Section
-          title="Server e servizi"
-          description="Binari usati dai siti. Ogni sito avvia istanze proprie a partire da questi."
-        >
+        <Section title={t.php.servers} description={t.php.serversHint}>
           {others.length ? (
             <RuntimeTable runtimes={others} busy={busy} onInstall={onInstall} />
           ) : (
-            <p className="muted">Catalogo non disponibile.</p>
+            <p className="muted">{t.php.unavailable}</p>
           )}
         </Section>
       </div>

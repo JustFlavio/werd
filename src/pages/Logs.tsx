@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { type Project, projectLogs } from "../api";
+import { useT } from "../i18n";
 import { LOG_SOURCES } from "../services";
 import { EmptyState, PageHeader } from "../ui";
 
@@ -12,6 +13,7 @@ export function Logs({
   projectId: string | null;
   onProjectChange: (id: string) => void;
 }) {
+  const t = useT();
   const [source, setSource] = useState<string>("werd");
   const [lines, setLines] = useState<string[]>([]);
   const viewer = useRef<HTMLPreElement>(null);
@@ -45,19 +47,19 @@ export function Logs({
   if (!current)
     return (
       <>
-        <PageHeader title="Log" />
-        <EmptyState title="Nessun log" description="I log compaiono qui dopo aver aggiunto e avviato un sito." />
+        <PageHeader title={t.logs.title} />
+        <EmptyState title={t.logs.emptyTitle} description={t.logs.emptyDescription} />
       </>
     );
 
   return (
     <>
-      <PageHeader title="Log">
+      <PageHeader title={t.logs.title}>
         <select
           className="select"
           value={current.id}
           onChange={(event) => onProjectChange(event.target.value)}
-          aria-label="Sito"
+          aria-label={t.logs.site}
         >
           {projects.map((project) => (
             <option key={project.id} value={project.id}>
@@ -69,7 +71,7 @@ export function Logs({
           className="select"
           value={source}
           onChange={(event) => setSource(event.target.value)}
-          aria-label="Sorgente"
+          aria-label={t.logs.source}
         >
           {LOG_SOURCES.map((name) => (
             <option key={name} value={name}>
@@ -79,7 +81,7 @@ export function Logs({
         </select>
       </PageHeader>
       <pre ref={viewer} className="log-viewer">
-        {lines.length ? lines.join("\n") : <span className="muted">Nessuna riga in {source}.log</span>}
+        {lines.length ? lines.join("\n") : <span className="muted">{t.logs.noLines(source)}</span>}
       </pre>
     </>
   );

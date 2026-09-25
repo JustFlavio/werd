@@ -1,5 +1,6 @@
 import { RefreshCw } from "lucide-react";
 import type { DoctorResult } from "../api";
+import { LOCALES, type Locale, useI18n } from "../i18n";
 import { PageHeader, Section, StatusDot } from "../ui";
 
 export function General({
@@ -13,46 +14,65 @@ export function General({
   onRecheck: () => void;
   onTrustCa: () => void;
 }) {
+  const { t, locale, setLocale } = useI18n();
+  const reachable = daemonVersion !== "—";
+
   return (
     <>
-      <PageHeader title="Generale" />
+      <PageHeader title={t.general.title} />
       <div className="page-body">
         <Section
-          title="Certificato HTTPS"
-          description="Werd firma i certificati dei siti con una CA locale. Rendila attendibile per il tuo utente per aprire i siti senza avvisi del browser."
+          title={t.general.language}
+          description={t.general.languageHint}
           action={
-            <button type="button" className="button" onClick={onTrustCa}>
-              Rendi attendibile
-            </button>
+            <select
+              className="select"
+              value={locale}
+              aria-label={t.general.language}
+              onChange={(event) => setLocale(event.target.value as Locale)}
+            >
+              {Object.entries(LOCALES).map(([code, name]) => (
+                <option key={code} value={code}>
+                  {name}
+                </option>
+              ))}
+            </select>
           }
         />
 
         <Section
-          title="Gestore locale"
-          description="Il gestore tiene attivi i siti anche quando chiudi questa finestra. GUI e CLI (werd) parlano con lo stesso processo."
-        >
+          title={t.general.certificate}
+          description={t.general.certificateHint}
+          action={
+            <button type="button" className="button" onClick={onTrustCa}>
+              {t.general.trust}
+            </button>
+          }
+        />
+
+        <Section title={t.general.daemon} description={t.general.daemonHint}>
           <dl className="fields">
-            <dt>Stato</dt>
+            <dt>{t.general.state}</dt>
             <dd>
-              <StatusDot status={daemonVersion === "—" ? "fail" : "ok"} />{" "}
-              {daemonVersion === "—" ? "Non raggiungibile" : "In esecuzione"}
+              <StatusDot status={reachable ? "ok" : "fail"} />
+              {reachable ? t.general.running : t.general.unreachable}
             </dd>
-            <dt>Versione</dt>
+            <dt>{t.general.version}</dt>
             <dd className="mono">{daemonVersion}</dd>
           </dl>
         </Section>
 
         <Section
-          title="Diagnostica"
-          description="Controlli sull’ambiente: porte, runtime installati e prerequisiti."
+          title={t.general.diagnostics}
+          description={t.general.diagnosticsHint}
           action={
             <button type="button" className="button" onClick={onRecheck}>
-              <RefreshCw size={14} /> Ricontrolla
+              <RefreshCw size={14} /> {t.general.recheck}
             </button>
           }
         >
           {checks.length === 0 ? (
-            <p className="muted">Nessun controllo disponibile.</p>
+            <p className="muted">{t.general.noChecks}</p>
           ) : (
             <ul className="checks">
               {checks.map((check) => (
