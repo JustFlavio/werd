@@ -17,5 +17,8 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+clap_complete = "4"
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 werd-core = { path = "../werd-core" }
