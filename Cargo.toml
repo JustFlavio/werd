@@ -1,0 +1,3 @@
+[workspace]
+members = ["crates/werd-core", "crates/werd-cli", "src-tauri"]
+resolver = "2"
