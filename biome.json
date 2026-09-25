@@ -12,7 +12,8 @@
       "!!**/coverage",
       "!!src-tauri/gen",
       "!!src-tauri/capabilities",
-      "!!package-lock.json"
+      "!!package-lock.json",
+      "!!catalog/catalog.json"
     ]
   },
   "formatter": {
