@@ -9,9 +9,22 @@ All notable changes to Werd are documented here. The format follows
 ### Features
 - **desktop:** Add open_url command for local service UIs
 - **ui:** Redesign interface with sidebar layout and Werd identity
+- **cli:** Rewrite the CLI with clap
+- **i18n:** Add typed translation dictionaries with English and Italian
+- **ui:** Translate the interface and add a language setting
 
 ### Bug fixes
 - **ui:** Resolve accessibility and hook dependency lint findings
+- **runtimes:** Correct PostgreSQL 18.6 archive checksum
+
+### Refactoring
+- **core:** Split the daemon into focused modules
+- **desktop:** Delegate open_url to the core allow-list
+
+### Documentation
+- Add contributing guide, code of conduct and security policy
+- Generate changelog from conventional commits with git-cliff
+- Translate README and design docs to English
 
 ### Tests
 - **ui:** Add vitest setup with first component and helper tests
@@ -23,6 +36,7 @@ All notable changes to Werd are documented here. The format follows
 - **deps:** Audit licenses and advisories with cargo-deny
 - Add script to bump the version in every manifest
 - Add metrics script for coverage, sizes and daemon footprint
+- Add workflow for lint, tests, audit and metrics on three platforms
 
 ## [0.1.1] - 2026-09-25
 
