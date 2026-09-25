@@ -1,0 +1,47 @@
+Add-Type -AssemblyName System.Drawing
+$iconRoot = Join-Path $PSScriptRoot '..\src-tauri\icons'
+New-Item -ItemType Directory -Force -Path $iconRoot | Out-Null
+$bitmap = [System.Drawing.Bitmap]::new(64, 64)
+$graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+$graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+$graphics.Clear([System.Drawing.Color]::Transparent)
+$background = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(159, 131, 249))
+$shape = [System.Drawing.Drawing2D.GraphicsPath]::new()
+$shape.AddArc(2, 2, 18, 18, 180, 90)
+$shape.AddArc(44, 2, 18, 18, 270, 90)
+$shape.AddArc(44, 44, 18, 18, 0, 90)
+$shape.AddArc(2, 44, 18, 18, 90, 90)
+$shape.CloseFigure()
+$graphics.FillPath($background, $shape)
+$font = [System.Drawing.Font]::new('Segoe UI', 33, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+$ink = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(20, 18, 31))
+$format = [System.Drawing.StringFormat]::new()
+$format.Alignment = [System.Drawing.StringAlignment]::Center
+$format.LineAlignment = [System.Drawing.StringAlignment]::Center
+$graphics.DrawString('W', $font, $ink, [System.Drawing.RectangleF]::new(0, -1, 64, 64), $format)
+$pngPath = Join-Path $iconRoot 'icon.png'
+$bitmap.Save($pngPath, [System.Drawing.Imaging.ImageFormat]::Png)
+$pngBytes = [System.IO.File]::ReadAllBytes($pngPath)
+$icoPath = Join-Path $iconRoot 'icon.ico'
+$file = [System.IO.File]::Create($icoPath)
+$writer = [System.IO.BinaryWriter]::new($file)
+$writer.Write([uint16]0)
+$writer.Write([uint16]1)
+$writer.Write([uint16]1)
+$writer.Write([byte]64)
+$writer.Write([byte]64)
+$writer.Write([byte]0)
+$writer.Write([byte]0)
+$writer.Write([uint16]1)
+$writer.Write([uint16]32)
+$writer.Write([uint32]$pngBytes.Length)
+$writer.Write([uint32]22)
+$writer.Write($pngBytes)
+$writer.Dispose()
+$format.Dispose()
+$ink.Dispose()
+$font.Dispose()
+$shape.Dispose()
+$background.Dispose()
+$graphics.Dispose()
+$bitmap.Dispose()
