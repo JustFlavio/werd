@@ -10,3 +10,5 @@ src-tauri/target/
 .werd-test/
 src-tauri/binaries/
 .werd-startup-check/
+.idea/
+.claude/
