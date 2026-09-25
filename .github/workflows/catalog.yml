@@ -1,0 +1,39 @@
+name: Runtime catalog
+
+# Weekly refresh of catalog/catalog.json from official sources (PHP, Node,
+# PostgreSQL, Redis, …). Opens a pull request only when something changed.
+# Linux only and cached hashes: an unchanged week costs about one minute.
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Regenerate catalog
+        run: node scripts/catalog/generate.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Summarize changes
+        run: git diff --stat -- catalog/ >> "$GITHUB_STEP_SUMMARY"
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          branch: bot/runtime-catalog
+          commit-message: "build(runtimes): update runtime catalog"
+          title: "build(runtimes): update runtime catalog"
+          body: |
+            Automated refresh of `catalog/catalog.json` from official sources.
+            New downloads were hashed with SHA-256 by the workflow; upstream hashes are used when published.
+          add-paths: catalog/catalog.json
+          delete-branch: true
