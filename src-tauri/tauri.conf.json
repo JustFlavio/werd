@@ -10,8 +10,17 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [{ "title": "Werd", "width": 1240, "height": 800, "minWidth": 780, "minHeight": 580, "backgroundColor": "#17181b" }],
-    "security": { "csp": { "default-src": "'self'", "connect-src": "ipc: http://ipc.localhost", "img-src": "'self' data:", "style-src": "'self' 'unsafe-inline'" } }
+    "windows": [
+      { "title": "Werd", "width": 1240, "height": 800, "minWidth": 780, "minHeight": 580, "backgroundColor": "#17181b" }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'self'",
+        "connect-src": "ipc: http://ipc.localhost",
+        "img-src": "'self' data:",
+        "style-src": "'self' 'unsafe-inline'"
+      }
+    }
   },
   "bundle": { "active": true }
 }
