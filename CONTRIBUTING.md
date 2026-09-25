@@ -43,7 +43,9 @@ cargo install cargo-deny cargo-llvm-cov git-cliff
 | Dependency audit | `cargo deny check` |
 | Metrics report | `npm run metrics -- --coverage` (after `npm run build` and `cargo build --release`) |
 
-The pre-commit hook runs Biome, `tsc` and `rustfmt` on staged files. CI runs everything on Windows, macOS and Linux.
+The pre-commit hook runs Biome, `tsc` and `rustfmt` on staged files.
+
+To save CI minutes, pull requests are checked on Linux only and pushes to `main` on Linux and Windows. macOS and the metrics report run when the CI workflow is started by hand (**Actions → CI → Run workflow**). Do that before a release.
 
 ## Commits
 

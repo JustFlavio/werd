@@ -1,9 +1,16 @@
 name: CI
 
+# Minutes are billed per OS on private repos (Linux x1, Windows x2, macOS x10),
+# so the platform matrix grows with the importance of the event:
+#   pull requests    -> Linux only
+#   pushes to main   -> Linux + Windows
+#   manual dispatch  -> Linux + Windows + macOS, plus the metrics report
 on:
   push:
     branches: [main]
+    paths-ignore: ["**.md", "docs/**", "LICENSE", ".github/ISSUE_TEMPLATE/**"]
   pull_request:
+    paths-ignore: ["**.md", "docs/**", "LICENSE", ".github/ISSUE_TEMPLATE/**"]
   workflow_dispatch:
 
 concurrency:
@@ -18,6 +25,7 @@ jobs:
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -34,6 +42,7 @@ jobs:
     name: Conventional commits
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
         with:
@@ -48,10 +57,11 @@ jobs:
   rust:
     name: Rust (${{ matrix.os }})
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' || github.event_name == 'push' && '["ubuntu-latest","windows-latest"]' || '["ubuntu-latest","windows-latest","macos-latest"]') }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
       - name: Install Linux system dependencies
@@ -63,6 +73,9 @@ jobs:
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
+        with:
+          # Only main writes the cache; PRs reuse it without adding their own copies.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -79,22 +92,20 @@ jobs:
   deny:
     name: Dependency audit
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
       - uses: EmbarkStudios/cargo-deny-action@v2
 
   metrics:
-    name: Metrics (${{ matrix.os }})
+    name: Metrics
+    if: github.event_name == 'workflow_dispatch'
     needs: [frontend, rust]
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
       - name: Install Linux system dependencies
-        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf
@@ -115,5 +126,5 @@ jobs:
       - run: node scripts/metrics.mjs --coverage
       - uses: actions/upload-artifact@v4
         with:
-          name: metrics-${{ matrix.os }}
+          name: metrics
           path: metrics/
