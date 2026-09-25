@@ -73,45 +73,11 @@ fn open_site(id: String) -> Result<String, String> {
     serde_json::from_value(call("open", json!({ "id": id }))?).map_err(|error| error.to_string())
 }
 
-const REPOSITORY_URL: &str = "https://github.com/JustFlavio/werd";
-
 /// Opens local service UIs (Mailpit, RustFS console) and the project repository.
-/// Any other URL is rejected so the webview cannot launch arbitrary programs.
+/// The core rejects any other URL, so the webview cannot launch arbitrary programs.
 #[tauri::command]
 fn open_url(url: String) -> Result<(), String> {
-    let local = ["http://127.0.0.1:", "http://localhost:", "https://localhost:"]
-        .iter()
-        .any(|prefix| {
-            url.strip_prefix(prefix).is_some_and(|rest| {
-                rest.split('/')
-                    .next()
-                    .is_some_and(|port| port.parse::<u16>().is_ok())
-            })
-        });
-    if !local && url != REPOSITORY_URL {
-        return Err("URL non consentito".into());
-    }
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        std::process::Command::new("rundll32.exe")
-            .arg("url.dll,FileProtocolHandler")
-            .arg(&url)
-            .creation_flags(0x0800_0000)
-            .spawn()
-            .map_err(|error| error.to_string())?;
-    }
-    #[cfg(target_os = "macos")]
-    std::process::Command::new("open")
-        .arg(&url)
-        .spawn()
-        .map_err(|error| error.to_string())?;
-    #[cfg(target_os = "linux")]
-    std::process::Command::new("xdg-open")
-        .arg(&url)
-        .spawn()
-        .map_err(|error| error.to_string())?;
-    Ok(())
+    werd_core::platform::open_url(&url).map_err(|error| error.to_string())
 }
 
 fn main() {
@@ -132,5 +98,5 @@ fn main() {
             trust_ca
         ])
         .run(tauri::generate_context!())
-        .expect("Impossibile avviare Werd");
+        .expect("Cannot start Werd");
 }
