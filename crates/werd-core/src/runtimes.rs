@@ -37,67 +37,112 @@ const WINDOWS_PACKAGES: &[Package] = &[
 ];
 
 fn catalog() -> Result<&'static [Package]> {
-    if cfg!(all(target_os = "windows", target_arch = "x86_64")) { Ok(WINDOWS_PACKAGES) }
-    else { bail!("Il catalogo dei runtime per questa piattaforma non è ancora disponibile") }
+    if cfg!(all(target_os = "windows", target_arch = "x86_64")) {
+        Ok(WINDOWS_PACKAGES)
+    } else {
+        bail!("Il catalogo dei runtime per questa piattaforma non è ancora disponibile")
+    }
 }
 
 pub fn list(root: &Path) -> Vec<RuntimeInfo> {
-    WINDOWS_PACKAGES.iter().map(|package| RuntimeInfo {
-        id: package.id,
-        version: package.version,
-        installed: if package.id == "pgvector" { vector_installed(root) }
-            else { root.join("runtimes").join(package.destination).join(package.marker).is_file() },
-        note: package.note,
-    }).collect()
+    WINDOWS_PACKAGES
+        .iter()
+        .map(|package| RuntimeInfo {
+            id: package.id,
+            version: package.version,
+            installed: if package.id == "pgvector" {
+                vector_installed(root)
+            } else {
+                root.join("runtimes")
+                    .join(package.destination)
+                    .join(package.marker)
+                    .is_file()
+            },
+            note: package.note,
+        })
+        .collect()
 }
 
 pub fn install(root: &Path, id: &str) -> Result<RuntimeInfo> {
-    let package = catalog()?.iter().find(|package| package.id == id).context("Runtime sconosciuto")?;
+    let package = catalog()?
+        .iter()
+        .find(|package| package.id == id)
+        .context("Runtime sconosciuto")?;
     let runtime_root = root.join("runtimes");
     let destination = runtime_root.join(package.destination);
     if id == "pgvector" && vector_installed(root) {
-        return Ok(RuntimeInfo { id: package.id, version: package.version, installed: true, note: package.note });
+        return Ok(RuntimeInfo {
+            id: package.id,
+            version: package.version,
+            installed: true,
+            note: package.note,
+        });
     }
     if id == "pgvector" && !runtime_root.join("postgres/18/bin/postgres.exe").is_file() {
         bail!("Installa PostgreSQL 18 prima di pgvector");
     }
     if id != "pgvector" && destination.join(package.marker).is_file() {
-        return Ok(RuntimeInfo { id: package.id, version: package.version, installed: true, note: package.note });
+        return Ok(RuntimeInfo {
+            id: package.id,
+            version: package.version,
+            installed: true,
+            note: package.note,
+        });
     }
     if !destination.join(package.marker).is_file() {
-    let downloads = root.join("downloads");
-    fs::create_dir_all(&downloads)?;
-    let archive_path = downloads.join(format!("{}-{}.zip", package.id, package.version));
-    if !archive_path.is_file() || !verify_sha256(&archive_path, package.sha256)? {
-        let temporary = downloads.join(format!("{}-{}.part", package.id, package.version));
-        let client = reqwest::blocking::Client::builder().timeout(Duration::from_secs(600)).build()?;
-        let response = client.get(package.url).send()?.error_for_status()?;
-        if response.content_length().is_some_and(|length| length > 3 * 1024 * 1024 * 1024) {
-            bail!("Archivio {} troppo grande", package.id);
+        let downloads = root.join("downloads");
+        fs::create_dir_all(&downloads)?;
+        let archive_path = downloads.join(format!("{}-{}.zip", package.id, package.version));
+        if !archive_path.is_file() || !verify_sha256(&archive_path, package.sha256)? {
+            let temporary = downloads.join(format!("{}-{}.part", package.id, package.version));
+            let client = reqwest::blocking::Client::builder()
+                .timeout(Duration::from_secs(600))
+                .build()?;
+            let response = client.get(package.url).send()?.error_for_status()?;
+            if response
+                .content_length()
+                .is_some_and(|length| length > 3 * 1024 * 1024 * 1024)
+            {
+                bail!("Archivio {} troppo grande", package.id);
+            }
+            let mut file = File::create(&temporary)?;
+            let downloaded = std::io::copy(&mut response.take(3 * 1024 * 1024 * 1024 + 1), &mut file)?;
+            if downloaded > 3 * 1024 * 1024 * 1024 {
+                bail!("Archivio {} troppo grande", package.id);
+            }
+            file.sync_all()?;
+            if !verify_sha256(&temporary, package.sha256)? {
+                let _ = fs::remove_file(&temporary);
+                bail!("Checksum non valido per {}: download rifiutato", package.id);
+            }
+            if archive_path.exists() {
+                fs::remove_file(&archive_path)?;
+            }
+            fs::rename(temporary, &archive_path)?;
         }
-        let mut file = File::create(&temporary)?;
-        let downloaded = std::io::copy(&mut response.take(3 * 1024 * 1024 * 1024 + 1), &mut file)?;
-        if downloaded > 3 * 1024 * 1024 * 1024 { bail!("Archivio {} troppo grande", package.id); }
-        file.sync_all()?;
-        if !verify_sha256(&temporary, package.sha256)? {
-            let _ = fs::remove_file(&temporary);
-            bail!("Checksum non valido per {}: download rifiutato", package.id);
+        let staging = runtime_root.join(format!(".{}-{}-extract", package.id, package.version));
+        if staging.exists() {
+            fs::remove_dir_all(&staging)?;
         }
-        if archive_path.exists() { fs::remove_file(&archive_path)?; }
-        fs::rename(temporary, &archive_path)?;
-    }
-    let staging = runtime_root.join(format!(".{}-{}-extract", package.id, package.version));
-    if staging.exists() { fs::remove_dir_all(&staging)?; }
-    fs::create_dir_all(&staging)?;
-    let result = extract(&archive_path, &staging, package.strip)
-        .and_then(|_| {
-            if staging.join(package.marker).is_file() { Ok(()) }
-            else { bail!("Archivio {} incompleto: {} assente", package.id, package.marker) }
+        fs::create_dir_all(&staging)?;
+        let result = extract(&archive_path, &staging, package.strip).and_then(|_| {
+            if staging.join(package.marker).is_file() {
+                Ok(())
+            } else {
+                bail!("Archivio {} incompleto: {} assente", package.id, package.marker)
+            }
         });
-    if let Err(error) = result { let _ = fs::remove_dir_all(&staging); return Err(error); }
-    if let Some(parent) = destination.parent() { fs::create_dir_all(parent)?; }
-    if destination.exists() { fs::remove_dir_all(&destination)?; }
-    fs::rename(&staging, &destination)?;
+        if let Err(error) = result {
+            let _ = fs::remove_dir_all(&staging);
+            return Err(error);
+        }
+        if let Some(parent) = destination.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        if destination.exists() {
+            fs::remove_dir_all(&destination)?;
+        }
+        fs::rename(&staging, &destination)?;
     }
     if id == "pgvector" {
         build_pgvector(&destination, &runtime_root.join("postgres/18"))?;
@@ -105,7 +150,12 @@ pub fn install(root: &Path, id: &str) -> Result<RuntimeInfo> {
     if id == "php" {
         fs::write(destination.join("php.ini"), "[PHP]\nextension_dir=ext\nextension=curl\nextension=fileinfo\nextension=intl\nextension=mbstring\nextension=openssl\nextension=pdo_pgsql\nextension=pgsql\nextension=pdo_sqlite\nextension=sqlite3\nextension=zip\nextension=sodium\ndate.timezone=UTC\n")?;
     }
-    Ok(RuntimeInfo { id: package.id, version: package.version, installed: true, note: package.note })
+    Ok(RuntimeInfo {
+        id: package.id,
+        version: package.version,
+        installed: true,
+        note: package.note,
+    })
 }
 
 fn vector_installed(root: &Path) -> bool {
@@ -115,21 +165,41 @@ fn vector_installed(root: &Path) -> bool {
 
 fn build_pgvector(source: &Path, postgres: &Path) -> Result<()> {
     let vswhere = Path::new(r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe");
-    if !vswhere.is_file() { bail!("Visual Studio 2022 Build Tools con MSVC richiesti per compilare pgvector"); }
-    let output = super::hidden_command(vswhere).args(["-latest", "-products", "*", "-property", "installationPath"]).output()?;
-    if !output.status.success() { bail!("Visual Studio Build Tools non trovati"); }
+    if !vswhere.is_file() {
+        bail!("Visual Studio 2022 Build Tools con MSVC richiesti per compilare pgvector");
+    }
+    let output = super::hidden_command(vswhere)
+        .args(["-latest", "-products", "*", "-property", "installationPath"])
+        .output()?;
+    if !output.status.success() {
+        bail!("Visual Studio Build Tools non trovati");
+    }
     let location = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if location.is_empty() { bail!("Visual Studio Build Tools non trovati"); }
+    if location.is_empty() {
+        bail!("Visual Studio Build Tools non trovati");
+    }
     let devcmd = Path::new(&location).join("Common7/Tools/VsDevCmd.bat");
-    if !devcmd.is_file() { bail!("VsDevCmd.bat non trovato"); }
+    if !devcmd.is_file() {
+        bail!("VsDevCmd.bat non trovato");
+    }
     let script = source.join("werd-build.cmd");
     fs::write(&script, format!("@echo off\r\ncall \"{}\" -arch=x64\r\nif errorlevel 1 exit /b 1\r\nnmake /F Makefile.win\r\nif errorlevel 1 exit /b 1\r\nnmake /F Makefile.win install\r\n", devcmd.display()))?;
-    let output = super::hidden_command("cmd.exe").arg("/c").arg(&script).current_dir(source)
-        .env("PGROOT", postgres).output().context("Compilazione pgvector non avviata")?;
+    let output = super::hidden_command("cmd.exe")
+        .arg("/c")
+        .arg(&script)
+        .current_dir(source)
+        .env("PGROOT", postgres)
+        .output()
+        .context("Compilazione pgvector non avviata")?;
     if !output.status.success() {
-        bail!("Compilazione pgvector fallita: {}", String::from_utf8_lossy(&output.stderr));
+        bail!(
+            "Compilazione pgvector fallita: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
-    if !postgres.join("lib/vector.dll").is_file() || !postgres.join("share/extension/vector.control").is_file() {
+    if !postgres.join("lib/vector.dll").is_file()
+        || !postgres.join("share/extension/vector.control").is_file()
+    {
         bail!("Build pgvector incompleta: vector.dll o vector.control mancanti");
     }
     Ok(())
@@ -141,7 +211,9 @@ fn verify_sha256(path: &Path, expected: &str) -> Result<bool> {
     let mut buffer = [0u8; 64 * 1024];
     loop {
         let count = reader.read(&mut buffer)?;
-        if count == 0 { break; }
+        if count == 0 {
+            break;
+        }
         hash.update(&buffer[..count]);
     }
     Ok(format!("{:x}", hash.finalize()) == expected)
@@ -152,15 +224,28 @@ fn extract(path: &Path, destination: &Path, strip: &str) -> Result<()> {
     let mut expanded: u64 = 0;
     for index in 0..archive.len() {
         let mut entry = archive.by_index(index)?;
-        let Some(enclosed) = entry.enclosed_name() else { bail!("Percorso ZIP non sicuro") };
+        let Some(enclosed) = entry.enclosed_name() else {
+            bail!("Percorso ZIP non sicuro")
+        };
         let name = enclosed.to_string_lossy().replace('\\', "/");
-        let Some(relative) = name.strip_prefix(strip) else { continue };
-        if relative.is_empty() { continue; }
+        let Some(relative) = name.strip_prefix(strip) else {
+            continue;
+        };
+        if relative.is_empty() {
+            continue;
+        }
         expanded = expanded.saturating_add(entry.size());
-        if expanded > 3 * 1024 * 1024 * 1024 { bail!("Archivio ZIP troppo grande"); }
+        if expanded > 3 * 1024 * 1024 * 1024 {
+            bail!("Archivio ZIP troppo grande");
+        }
         let output = destination.join(relative);
-        if entry.is_dir() { fs::create_dir_all(&output)?; continue; }
-        if let Some(parent) = output.parent() { fs::create_dir_all(parent)?; }
+        if entry.is_dir() {
+            fs::create_dir_all(&output)?;
+            continue;
+        }
+        if let Some(parent) = output.parent() {
+            fs::create_dir_all(parent)?;
+        }
         let mut file = File::create(output)?;
         std::io::copy(&mut entry, &mut file)?;
         file.flush()?;
