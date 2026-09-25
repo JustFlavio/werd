@@ -1,34 +1,50 @@
-# App desktop e architettura iniziale
+# Desktop app and architecture
 
-## Scelta dello stack
+## Stack
 
-La scelta iniziale è **Tauri 2** per la shell desktop, con frontend TypeScript e backend Rust. Tauri usa la WebView del sistema operativo: WebView2 su Windows e WebKit su macOS. Electron resta un'alternativa se il prototipo rivela problemi concreti di compatibilità o di esperienza. La scelta evita di distribuire una copia di Chromium dentro l'app, ma non elimina il costo dei servizi avviati dall'utente.
+The desktop shell is **Tauri 2** with a TypeScript/React frontend and a Rust backend. Tauri uses the system WebView: WebView2 on Windows, WebKit on macOS and WebKitGTK on Linux. This avoids shipping a copy of Chromium. It does not remove the cost of the services the user starts. Electron remains an alternative if the prototype shows concrete compatibility or experience problems.
 
-Il gestore dei servizi deve vivere in un processo separato dalla finestra: chiudere la dashboard non deve spegnere accidentalmente database o worker. GUI e CLI comunicano con lo stesso gestore tramite un'API locale. Il gestore possiede lo stato dei progetti, controlla i processi, raccoglie log ed esegue verifiche di salute. Le operazioni privilegiate, come installare una CA locale, sono isolate e richieste solo quando servono.
+The service manager (`werd-daemon`) lives in a process separate from the window, so closing the dashboard never stops databases or workers by accident. The GUI and the CLI talk to the same daemon through a local API: loopback TCP with a per-session token stored in the user's data directory. The daemon owns the project state, supervises processes, collects logs and runs health checks. Privileged operations, such as trusting a local CA or editing the hosts file, are isolated and only requested when needed.
 
-## Schermate obbligatorie
+## Code layout
 
-| Schermata | Azioni principali |
+| Crate / folder | Content |
 | --- | --- |
-| Dashboard | Vedere progetti attivi, servizi condivisi, porte occupate e problemi da risolvere; avviare o fermare un progetto. |
-| Progetti | Aggiungere una cartella, rilevare Laravel, scegliere PHP e dominio, aprire sito e terminale. |
-| Dettaglio progetto | Scegliere dipendenze, avviare o fermare worker/scheduler/Reverb, leggere `.env` suggerito e stato dei servizi. |
-| Servizi | Installare versioni, configurare e controllare PostgreSQL/pgvector, MySQL/MariaDB, Redis, Mailpit, RustFS e gli altri servizi supportati. |
-| Database e storage | Creare database, utenti e bucket; eseguire backup e ripristino. |
-| Diagnostica | Leggere log, mail e dump; vedere errori, porte, processi e azioni di riparazione. |
-| Impostazioni | Gestire PHP, Node, certificati, percorsi, avvio automatico e aggiornamenti. |
+| `crates/werd-core` | `model` (shared types), `manifest` (`werd.yml`), `state`, `projects` (lifecycle), `services/*` (one module per service behind a `Service` trait), `proxy` (PHP FastCGI + Caddy), `runtimes` (download catalog), `platform` (OS integration), `rpc` and `daemon`. |
+| `crates/werd-cli` | The `werd` command, built with clap. |
+| `src-tauri` | Tauri commands that forward to the daemon. |
+| `src` | UI pages, shared components and i18n dictionaries. |
 
-La GUI deve mostrare sempre lo stato reale del gestore, non solo l'ultimo comando inviato. Errori e operazioni lunghe devono avere progresso e una via di recupero visibile.
+## Required screens
 
-## Primo rilascio utilizzabile
+| Screen | Main actions |
+| --- | --- |
+| Dashboard | See active projects, shared services, busy ports and problems to fix; start or stop a project. |
+| Sites | Add a folder, detect Laravel, choose PHP and domain, open the site and a terminal. |
+| Site details | Choose dependencies, start or stop worker/scheduler/Reverb, read the suggested `.env` and service status. |
+| Services | Install versions, configure and control PostgreSQL/pgvector, MySQL/MariaDB, Redis, Mailpit, RustFS and the other supported services. |
+| Databases and storage | Create databases, users and buckets; back up and restore. |
+| Diagnostics | Read logs, mail and dumps; see errors, ports, processes and repair actions. |
+| Settings | Manage PHP, Node, certificates, paths, launch at login, updates and language. |
 
-Il flusso minimo completo comprende onboarding, aggiunta di un progetto Laravel, selezione PHP, dominio HTTPS, avvio e arresto del progetto, PostgreSQL con pgvector, Redis, Mailpit e RustFS, stato e log. Tutto è azionabile dall'app desktop. La CLI viene sviluppata contro la stessa API, senza logica separata.
+The GUI must always show the daemon's real state, not only the last command sent. Errors and long operations need progress and a visible way to recover.
 
-## Verifiche prima di confermare lo stack
+## First usable release
 
-- Avvio e consumo di risorse della GUI a riposo su Windows e macOS.
-- Gestione di finestre, tray, notifiche e aggiornamenti su entrambe le piattaforme.
-- Esecuzione sicura e supervisione dei processi anche a finestra chiusa.
-- Distribuzione, firma e aggiornamento degli installer.
+The minimal complete flow covers:
+- onboarding;
+- adding a Laravel project and choosing its PHP version;
+- an HTTPS domain, and starting and stopping the project;
+- PostgreSQL with pgvector, Redis, Mailpit and RustFS;
+- status and logs.
 
-Riferimenti: [Tauri](https://tauri.app/start/), [prerequisiti Tauri](https://tauri.app/start/prerequisites/), [Electron](https://www.electronjs.org/docs/latest).
+Everything is available from the desktop app. The CLI is built against the same API, with no separate logic.
+
+## Checks before confirming the stack
+
+- Startup time and idle resource usage of the GUI on every platform. The daemon baseline is tracked by `npm run metrics`.
+- Windows, tray, notifications and updates on every platform.
+- Safe execution and supervision of processes while the window is closed.
+- Distribution, signing and updating of the installers.
+
+References: [Tauri](https://tauri.app/start/), [Tauri prerequisites](https://tauri.app/start/prerequisites/), [Electron](https://www.electronjs.org/docs/latest).

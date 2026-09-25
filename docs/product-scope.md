@@ -1,51 +1,51 @@
-# Perimetro del prodotto
+# Product scope
 
-## Riferimento funzionale
+## Functional reference
 
-Il traguardo è coprire le funzioni pubblicamente documentate di Laravel Herd per Windows e macOS, comprese quelle Pro, attraverso un'implementazione indipendente. Le funzioni e la loro priorità verranno verificate con casi d'uso reali, non solo con una somiglianza visiva.
+The goal is to cover every publicly documented feature of Laravel Herd for Windows and macOS, Pro features included, with an independent implementation. Werd also targets Linux. Features and their priority are validated with real use cases, not by visual similarity alone.
 
-| Area | Comportamento richiesto |
+| Area | Required behavior |
 | --- | --- |
-| Siti | Collegare un progetto o parcheggiare una directory; rilevare la document root Laravel; assegnare un dominio `.test`; aprire il sito nel browser. |
-| Web e TLS | Servire più siti contemporaneamente, instradare ogni sito al PHP scelto e installare certificati locali attendibili. |
-| PHP | Installare e aggiornare più versioni; selezionare una versione per sito e per CLI; gestire le estensioni necessarie. |
-| Strumenti | Rendere disponibili Composer, Laravel installer e versioni selezionabili di Node.js. |
-| Servizi | Installare, configurare, avviare, fermare e aggiornare PostgreSQL, MySQL/MariaDB, Redis, Mailpit, storage S3 locale, Typesense, Meilisearch e Reverb. |
-| Database | Creare database e utenti, conservare i dati, effettuare backup e ripristino; supportare PostgreSQL con pgvector come caso esplicito. |
-| Mail | Catturare la posta in uscita e mostrarla per progetto. |
-| Diagnostica | Visualizzare log PHP e Laravel, intercettare `dump()`/`dd()`, gestire Xdebug e mostrare lo stato dei processi. |
-| Progetti | Salvare una configurazione versionabile per progetto; avviare e fermare solo le dipendenze richieste; gestire collisioni di porte e risorse condivise. |
-| Interfacce | Offrire un'app desktop completa con dashboard, dettagli progetto, catalogo servizi, posta, log e impostazioni. La CLI espone le stesse operazioni per automazione. |
+| Sites | Link a project or park a folder; detect the Laravel document root; assign a `.test` domain; open the site in the browser. |
+| Web and TLS | Serve many sites at once, route each site to its PHP version, install locally trusted certificates. |
+| PHP | Install and update several versions; choose a version per site and for the CLI; manage the needed extensions. |
+| Tools | Provide Composer, the Laravel installer and selectable Node.js versions. |
+| Services | Install, configure, start, stop and update PostgreSQL, MySQL/MariaDB, Redis, Mailpit, local S3 storage, Typesense, Meilisearch and Reverb. |
+| Databases | Create databases and users, keep data, back up and restore; support PostgreSQL with pgvector explicitly. |
+| Mail | Capture outgoing mail and show it per project. |
+| Diagnostics | Show PHP and Laravel logs, capture `dump()`/`dd()`, manage Xdebug and show process status. |
+| Projects | Store a versionable per-project configuration; start and stop only the dependencies it needs; handle port collisions and shared resources. |
+| Interfaces | A complete desktop app with dashboard, project details, service catalog, mail, logs and settings. The CLI exposes the same operations for automation. |
 
-L'integrazione con servizi esterni, come Forge o strumenti di condivisione pubblica, richiede una valutazione separata delle API disponibili. Non deve impedire la parità delle funzioni locali.
+Integrations with external services, such as Forge or public sharing tools, need a separate review of the available APIs. They must not block parity on local features.
 
-## Primo caso d'uso completo
+## First complete use case
 
-Un progetto Laravel su Windows e uno su macOS dichiarano PHP, PostgreSQL con pgvector, Redis, Mailpit e RustFS. L'utente può svolgere l'intero flusso dalla GUI:
+A Laravel project on Windows and one on macOS declare PHP, PostgreSQL with pgvector, Redis, Mailpit and RustFS. The user can do the whole flow from the GUI:
 
-1. Collegare il repository senza modificare a mano la configurazione di sistema.
-2. Avviare il sito e i servizi richiesti con una sola azione.
-3. Accedere al sito tramite HTTPS locale.
-4. Vedere stato, log, posta e connessioni dalla GUI o dalla CLI.
-5. Fermare il progetto senza fermare servizi ancora usati da altri progetti.
-6. Riprendere il lavoro senza perdere database o oggetti salvati.
+1. Link the repository without editing system configuration by hand.
+2. Start the site and its services with one action.
+3. Reach the site over local HTTPS.
+4. See status, logs, mail and connection details from the GUI or the CLI.
+5. Stop the project without stopping services other projects still use.
+6. Resume work without losing databases or stored objects.
 
-Le stesse operazioni essenziali sono disponibili nella CLI. Il primo rilascio utilizzabile include entrambe le interfacce.
+The same essential operations are available in the CLI. The first usable release includes both interfaces.
 
-Questo caso d'uso è una prima tappa, non il limite del prodotto: la parità con le altre funzioni elencate resta l'obiettivo.
+This use case is a first milestone, not the limit of the product: parity with the features listed above remains the goal.
 
-## Decisioni tecniche da validare con un prototipo
+## Technical decisions to validate with prototypes
 
-- Distribuzione di PHP e delle sue estensioni su entrambe le piattaforme.
-- Gestione di DNS, porte privilegiate e certificati locali senza interventi ripetuti dell'amministratore.
-- Abbinamento affidabile fra versioni di PostgreSQL e pgvector su Windows e macOS.
-- Formato della configurazione di progetto e compatibilità fra versioni.
-- Strategia di aggiornamento e migrazione dei dati dei servizi.
-- Eventuale motore per container opzionale e suo costo in memoria quando è acceso.
+- Distribution of PHP and its extensions on every platform.
+- DNS, privileged ports and local certificates without repeated administrator prompts.
+- A reliable match between PostgreSQL and pgvector versions on Windows, macOS and Linux.
+- Format and compatibility rules of the project configuration.
+- Update strategy and data migration for services.
+- An optional container engine, and its memory cost while running.
 
-## Fonti consultate
+## Sources
 
-- [Laravel Herd per Windows](https://herd.laravel.com/windows)
-- [Laravel Herd per macOS](https://herd.laravel.com/)
+- [Laravel Herd for Windows](https://herd.laravel.com/windows)
+- [Laravel Herd for macOS](https://herd.laravel.com/)
 - [pgvector](https://github.com/pgvector/pgvector)
 - [RustFS](https://docs.rustfs.com/en/installation)
