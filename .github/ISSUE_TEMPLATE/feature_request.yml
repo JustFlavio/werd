@@ -1,0 +1,22 @@
+name: Feature request
+description: Suggest something Werd should do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: How you would like it to work. Mention if another tool (Herd, Lerd, Yerd, Valet…) already does it.
+  - type: dropdown
+    id: platforms
+    attributes:
+      label: Platforms
+      multiple: true
+      options: [Windows, macOS, Linux]
