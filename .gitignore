@@ -12,3 +12,5 @@ src-tauri/binaries/
 .werd-startup-check/
 .idea/
 .claude/
+coverage/
+metrics/
