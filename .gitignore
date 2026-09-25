@@ -1,0 +1,12 @@
+node_modules/
+dist/
+target/
+.vite/
+*.log
+.DS_Store
+src-tauri/gen/
+src-tauri/target/
+.cache/
+.werd-test/
+src-tauri/binaries/
+.werd-startup-check/
