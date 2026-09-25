@@ -11,7 +11,14 @@
   },
   "app": {
     "windows": [
-      { "title": "Werd", "width": 1240, "height": 800, "minWidth": 780, "minHeight": 580, "backgroundColor": "#17181b" }
+      {
+        "title": "Werd",
+        "width": 1240,
+        "height": 800,
+        "minWidth": 780,
+        "minHeight": 580,
+        "backgroundColor": "#17181b"
+      }
     ],
     "security": {
       "csp": {
@@ -22,5 +29,7 @@
       }
     }
   },
-  "bundle": { "active": true }
+  "bundle": {
+    "active": true
+  }
 }
