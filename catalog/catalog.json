@@ -1,0 +1,507 @@
+{
+  "schema": 1,
+  "generated": "2026-09-25T23:54:42.336Z",
+  "products": {
+    "cacert": {
+      "kind": "tool",
+      "label": "CA certificates",
+      "lines": {
+        "mozilla": {
+          "builds": {
+            "any": {
+              "format": "phar",
+              "marker": "cacert.pem",
+              "sha256": "a41b5d356aea97a529fe27e0f7316d2f9d946d75927476cf9cf1b90637d00505",
+              "url": "https://curl.se/ca/cacert.pem"
+            }
+          },
+          "latest": "2026.09.25"
+        }
+      }
+    },
+    "caddy": {
+      "kind": "tool",
+      "label": "Caddy",
+      "lines": {
+        "2": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "caddy.exe",
+              "sha256": "1708333f79e274c7697285afe6d592ab39314e0b131e9ec6bea08ad27df62ebf",
+              "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.4/caddy_2.11.4_windows_amd64.zip"
+            }
+          },
+          "latest": "2.11.4"
+        }
+      }
+    },
+    "composer": {
+      "kind": "tool",
+      "label": "Composer",
+      "lines": {
+        "2": {
+          "builds": {
+            "any": {
+              "format": "phar",
+              "marker": "composer.phar",
+              "sha256": "7a2d379d5b8ffdaa028580ef26494c36d2feef4b178d3dd1473a4dbc5e17c8d6",
+              "url": "https://getcomposer.org/download/2.10.3/composer.phar"
+            }
+          },
+          "latest": "2.10.3"
+        }
+      }
+    },
+    "mailpit": {
+      "categories": [
+        "mail"
+      ],
+      "default_port": 1025,
+      "kind": "service",
+      "label": "Mailpit",
+      "lines": {
+        "1": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "mailpit.exe",
+              "sha256": "42c20e5c3254125ea7489847811f10d70e39de573fe41d03a61412c87913e995",
+              "url": "https://github.com/axllent/mailpit/releases/download/v1.31.2/mailpit-windows-amd64.zip"
+            }
+          },
+          "latest": "1.31.2"
+        }
+      }
+    },
+    "node": {
+      "kind": "runtime",
+      "label": "Node.js",
+      "lines": {
+        "16": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "node.exe",
+              "sha256": "f8bb35f6c08dc7bf14ac753509c06ed1a7ebf5b390cd3fbdc8f8c1aedd020ec3",
+              "url": "https://nodejs.org/dist/v16.20.2/node-v16.20.2-win-x64.zip"
+            }
+          },
+          "latest": "16.20.2",
+          "lts": true
+        },
+        "17": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "node.exe",
+              "sha256": "cd00754f7e976f767d5ee3eb459103cdf91152d8e8024228fd790b94ddaac278",
+              "url": "https://nodejs.org/dist/v17.9.1/node-v17.9.1-win-x64.zip"
+            }
+          },
+          "latest": "17.9.1",
+          "lts": false
+        },
+        "18": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "node.exe",
+              "sha256": "1a1e40260a6facba83636e4cd0ba01eb5bd1386896824b36645afba44857384a",
+              "url": "https://nodejs.org/dist/v18.20.8/node-v18.20.8-win-x64.zip"
+            }
+          },
+          "latest": "18.20.8",
+          "lts": true
+        },
+        "19": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "node.exe",
+              "sha256": "589f7880af8de21ee371de8c06a85b5e996d049bf499fbac1245fb10b441e504",
+              "url": "https://nodejs.org/dist/v19.9.0/node-v19.9.0-win-x64.zip"
+            }
+          },
+          "latest": "19.9.0",
+          "lts": false
+        },
+        "20": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "node.exe",
+              "sha256": "dc3700fdd57a63eedb8fd7e3c7baaa32e6a740a1b904167ff4204bc68ed8bf77",
+              "url": "https://nodejs.org/dist/v20.20.2/node-v20.20.2-win-x64.zip"
+            }
+          },
+          "latest": "20.20.2",
+          "lts": true
+        },
+        "21": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "node.exe",
+              "sha256": "d2314f496782b53ad2fe5fa82fca6ff7f39f07fe59dd007116404ad92179c78e",
+              "url": "https://nodejs.org/dist/v21.7.3/node-v21.7.3-win-x64.zip"
+            }
+          },
+          "latest": "21.7.3",
+          "lts": false
+        },
+        "22": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "node.exe",
+              "sha256": "2b0ff57b049cda1bbcea2240eec20467018713c1efe1f7360c2681859b90ed71",
+              "url": "https://nodejs.org/dist/v22.23.3/node-v22.23.3-win-x64.zip"
+            }
+          },
+          "latest": "22.23.3",
+          "lts": true
+        },
+        "23": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "node.exe",
+              "sha256": "d22640060e1911efaede4ecc5820f94b613bc196868289cd34f56d46e4709b71",
+              "url": "https://nodejs.org/dist/v23.11.1/node-v23.11.1-win-x64.zip"
+            }
+          },
+          "latest": "23.11.1",
+          "lts": false
+        },
+        "24": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "node.exe",
+              "sha256": "158f7685b44de51f6c0df1d153526cbcd3e1bc739a8dfc607721cef75de9e541",
+              "url": "https://nodejs.org/dist/v24.21.0/node-v24.21.0-win-x64.zip"
+            }
+          },
+          "latest": "24.21.0",
+          "lts": true
+        },
+        "25": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "node.exe",
+              "sha256": "929552b8305effac843ba7b4270c437aefb702fc3fbd73fcd1bffd35d4ac284e",
+              "url": "https://nodejs.org/dist/v25.9.0/node-v25.9.0-win-x64.zip"
+            }
+          },
+          "latest": "25.9.0",
+          "lts": false
+        },
+        "26": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "node.exe",
+              "sha256": "9fef7eca6743a6b910989cd8e78712376b394fcb9b6e1e9c44a0799a287f90c5",
+              "url": "https://nodejs.org/dist/v26.10.0/node-v26.10.0-win-x64.zip"
+            }
+          },
+          "latest": "26.10.0",
+          "lts": false
+        }
+      }
+    },
+    "pgvector": {
+      "extends": "postgresql",
+      "kind": "extension",
+      "label": "pgvector",
+      "lines": {
+        "0.8": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "Makefile.win",
+              "sha256": "e93a1567219c9ce523ca16473f6c41cc80e01345b2d91ccdee40b473b7c5dd0a",
+              "url": "https://codeload.github.com/pgvector/pgvector/zip/refs/tags/v0.8.6"
+            }
+          },
+          "latest": "0.8.6"
+        }
+      }
+    },
+    "php": {
+      "kind": "runtime",
+      "label": "PHP",
+      "lines": {
+        "7.4": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "php-cgi.exe",
+              "sha256": "14ae3250d4447c8ccfc4c45a70d90adfbcd61e728d85f0be56a7ddf8f9c8aace",
+              "url": "https://downloads.php.net/~windows/releases/php-7.4.33-nts-Win32-vc15-x64.zip"
+            }
+          },
+          "latest": "7.4.33"
+        },
+        "8.0": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "php-cgi.exe",
+              "sha256": "dfb70498ffa2c617f2f655a155564697e3c9cca41709938fd1a5997d1d5b0785",
+              "url": "https://downloads.php.net/~windows/releases/php-8.0.30-nts-Win32-vs16-x64.zip"
+            }
+          },
+          "latest": "8.0.30"
+        },
+        "8.1": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "php-cgi.exe",
+              "sha256": "9cfe246cb144076c16f5913a3ef88a474c3dd7e60f0f0c8bb95faf68674016cc",
+              "url": "https://downloads.php.net/~windows/releases/php-8.1.34-nts-Win32-vs16-x64.zip"
+            }
+          },
+          "latest": "8.1.34"
+        },
+        "8.2": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "php-cgi.exe",
+              "sha256": "03249b5c9414c6dbe30276f4a7598bd9d2a7417ee81f709b06b99e9c4a2aff4f",
+              "url": "https://downloads.php.net/~windows/releases/php-8.2.34-nts-Win32-vs16-x64.zip"
+            }
+          },
+          "latest": "8.2.34"
+        },
+        "8.3": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "php-cgi.exe",
+              "sha256": "25a8e2ac9ff30f1d768d1447c09a600617fa6e6082729f6e95f008b59c91fe45",
+              "url": "https://downloads.php.net/~windows/releases/php-8.3.35-nts-Win32-vs16-x64.zip"
+            }
+          },
+          "latest": "8.3.35"
+        },
+        "8.4": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "php-cgi.exe",
+              "sha256": "da68394f9193b7f6b89d0c76861a4034ae10efee7fd55a7255d8118c2acf70d7",
+              "url": "https://downloads.php.net/~windows/releases/php-8.4.26-nts-Win32-vs17-x64.zip"
+            }
+          },
+          "latest": "8.4.26"
+        },
+        "8.5": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "php-cgi.exe",
+              "sha256": "0ea96e0d2b9b737a6036f05cf4e95c49313faa6d0f27bd97edb2742503f0c043",
+              "url": "https://downloads.php.net/~windows/releases/php-8.5.11-nts-Win32-vs17-x64.zip"
+            }
+          },
+          "latest": "8.5.11"
+        }
+      }
+    },
+    "postgresql": {
+      "categories": [
+        "database"
+      ],
+      "default_port": 5432,
+      "kind": "service",
+      "label": "PostgreSQL",
+      "lines": {
+        "14": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "bin/postgres.exe",
+              "sha256": "7d49a448d8bda9bb56febd44f57b9cebfe8e9728428334bd25475cbc860ed969",
+              "url": "https://get.enterprisedb.com/postgresql/postgresql-14.24-1-windows-x64-binaries.zip"
+            }
+          },
+          "eol": "2026-11-12",
+          "latest": "14.24"
+        },
+        "15": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "bin/postgres.exe",
+              "sha256": "cc54e2d349f48c7743ad0c509b755ea565ff04bb5c5e71745d114074cab0c453",
+              "url": "https://get.enterprisedb.com/postgresql/postgresql-15.19-1-windows-x64-binaries.zip"
+            }
+          },
+          "eol": "2027-11-11",
+          "latest": "15.19"
+        },
+        "16": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "bin/postgres.exe",
+              "sha256": "25e6fcdfb8caec38691bf461125e7564508760666f7b8e5dc6a5f0818f58f81e",
+              "url": "https://get.enterprisedb.com/postgresql/postgresql-16.15-1-windows-x64-binaries.zip"
+            }
+          },
+          "eol": "2028-11-09",
+          "latest": "16.15"
+        },
+        "17": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "bin/postgres.exe",
+              "sha256": "6eabdf00d2893713b75db4336a23c3fdf505f056e217ec6e2e95d901750cfea3",
+              "url": "https://get.enterprisedb.com/postgresql/postgresql-17.11-1-windows-x64-binaries.zip"
+            }
+          },
+          "eol": "2029-11-08",
+          "latest": "17.11"
+        },
+        "18": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "bin/postgres.exe",
+              "sha256": "fbe23da234ee31547bf8a36d29dfd81e82b849df2d2b78d2eecb43d360252f8c",
+              "url": "https://get.enterprisedb.com/postgresql/postgresql-18.6-1-windows-x64-binaries.zip"
+            }
+          },
+          "eol": "2030-11-14",
+          "latest": "18.6"
+        }
+      }
+    },
+    "redis": {
+      "categories": [
+        "cache",
+        "queue"
+      ],
+      "default_port": 6379,
+      "kind": "service",
+      "label": "Redis",
+      "lines": {
+        "7.2": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "redis-server.exe",
+              "sha256": "bcbfda1dda027beaea4d616f8992f9b6353613c1b1f4d0e4a6776940bb036347",
+              "url": "https://github.com/redis-windows/redis-windows/releases/download/7.2.16/Redis-7.2.16-Windows-x64-msys2.zip"
+            }
+          },
+          "latest": "7.2.16"
+        },
+        "7.4": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "redis-server.exe",
+              "sha256": "ec629971d76756dd040204297f1a92f43848e7a5f4862d39426beeafcca2a2a9",
+              "url": "https://github.com/redis-windows/redis-windows/releases/download/7.4.11/Redis-7.4.11-Windows-x64-msys2.zip"
+            }
+          },
+          "latest": "7.4.11"
+        },
+        "8.0": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "redis-server.exe",
+              "sha256": "031801d2b2019cf1fd80d4130598483e89bc1476db6c4c13e731b815e9a21191",
+              "url": "https://github.com/redis-windows/redis-windows/releases/download/8.0.6/Redis-8.0.6-Windows-x64-msys2.zip"
+            }
+          },
+          "latest": "8.0.6"
+        },
+        "8.2": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "redis-server.exe",
+              "sha256": "281f180eaba420f43eb18d655197d55bf804eb692bc55209264bfb284da3850f",
+              "url": "https://github.com/redis-windows/redis-windows/releases/download/8.2.10/Redis-8.2.10-Windows-x64-msys2.zip"
+            }
+          },
+          "latest": "8.2.10"
+        },
+        "8.4": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "redis-server.exe",
+              "sha256": "3a42871a878976ea372db25f8f04190e82403854255a44aa39c349dceec6aea3",
+              "url": "https://github.com/redis-windows/redis-windows/releases/download/8.4.7/Redis-8.4.7-Windows-x64-msys2.zip"
+            }
+          },
+          "latest": "8.4.7"
+        },
+        "8.6": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "redis-server.exe",
+              "sha256": "08286eb017217fb18af0e70454099133ae24e3a90d9d837f67d93286f7f441d0",
+              "url": "https://github.com/redis-windows/redis-windows/releases/download/8.6.7/Redis-8.6.7-Windows-x64-msys2.zip"
+            }
+          },
+          "latest": "8.6.7"
+        },
+        "8.8": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "redis-server.exe",
+              "sha256": "c2ebc76c007a12c96d7dd64e252a194d9e6a06fe801dfb834ca071314fd662e7",
+              "url": "https://github.com/redis-windows/redis-windows/releases/download/8.8.3/Redis-8.8.3-Windows-x64-msys2.zip"
+            }
+          },
+          "latest": "8.8.3"
+        },
+        "8.10": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "redis-server.exe",
+              "sha256": "7c8cebd50347eaa1d9e784da842ed47a4f33394637835531d6614777b950ee85",
+              "url": "https://github.com/redis-windows/redis-windows/releases/download/8.10.2/Redis-8.10.2-Windows-x64-msys2.zip"
+            }
+          },
+          "latest": "8.10.2"
+        }
+      }
+    },
+    "rustfs": {
+      "categories": [
+        "storage"
+      ],
+      "default_port": 9000,
+      "kind": "service",
+      "label": "RustFS",
+      "lines": {
+        "1": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "rustfs.exe",
+              "sha256": "4ccf5858ce8e6f70f01af2394c8cc0e0878ee77faa6c20d3179153476554b7d8",
+              "url": "https://github.com/rustfs/rustfs/releases/download/1.0.0/rustfs-windows-x86_64-v1.0.0.zip"
+            }
+          },
+          "latest": "1.0.0"
+        }
+      }
+    }
+  }
+}
