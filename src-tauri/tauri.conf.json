@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Werd",
+  "version": "0.1.1",
+  "identifier": "dev.werd.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [{ "title": "Werd", "width": 1240, "height": 800, "minWidth": 780, "minHeight": 580, "backgroundColor": "#0c1019" }],
+    "security": { "csp": { "default-src": "'self'", "connect-src": "ipc: http://ipc.localhost", "img-src": "'self' data:", "style-src": "'self' 'unsafe-inline'" } }
+  },
+  "bundle": { "active": true }
+}
