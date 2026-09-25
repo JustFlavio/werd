@@ -113,7 +113,7 @@ jobs:
       - run: npm run build
       - run: cargo build --release --locked -p werd-core -p werd-cli -p werd-desktop
       - run: node scripts/metrics.mjs --coverage
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: metrics-${{ matrix.os }}
           path: metrics/
