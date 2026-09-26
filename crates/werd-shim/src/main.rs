@@ -221,11 +221,9 @@ mod tests {
 
     #[test]
     fn tools_come_from_the_program_name() {
-        assert_eq!(
-            Tool::from_program(Path::new(r"C:\x\bin\php.exe")),
-            Some(Tool::Php)
-        );
-        assert_eq!(Tool::from_program(Path::new("/home/x/bin/npx")), Some(Tool::Npx));
+        let bin = Path::new("home").join("bin");
+        assert_eq!(Tool::from_program(&bin.join("php.exe")), Some(Tool::Php));
+        assert_eq!(Tool::from_program(&bin.join("npx")), Some(Tool::Npx));
         assert_eq!(Tool::from_program(Path::new("werd-shim")), None);
     }
 
