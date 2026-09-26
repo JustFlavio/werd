@@ -32,6 +32,10 @@ All notable changes to Werd are documented here. The format follows
 - **ui:** Show and edit .test domains and keep the hosts file up to date
 - **desktop:** Add a tray icon, launch at login and a single instance
 - **ui:** Add the launch at login setting and translate the tray menu
+- **core:** Add parked folders
+- **cli:** Add werd park, unpark and parked
+- **desktop:** Add a native folder picker
+- **ui:** Pick folders with the system dialog and manage parked folders
 
 ### Bug fixes
 - **ui:** Resolve accessibility and hook dependency lint findings
@@ -39,6 +43,7 @@ All notable changes to Werd are documented here. The format follows
 - **core:** Keep the daemon from holding the CLI's pipes on Windows
 - **core:** Allow the Windows-only PATH helpers on other platforms
 - **core:** Stop child processes when the daemon exits abnormally
+- **release:** Stop the daemon and clean up when Werd is updated or uninstalled
 
 ### Refactoring
 - **core:** Split the daemon into focused modules
@@ -76,6 +81,7 @@ All notable changes to Werd are documented here. The format follows
 - **runtimes:** Add MySQL, MariaDB, MongoDB and Meilisearch to the catalog
 - Bump version to 0.2.0
 - **release:** Ship werd-helper with the Windows installer
+- Bump version to 0.3.0
 
 ## [0.1.1] - 2026-09-25
 
