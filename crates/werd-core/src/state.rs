@@ -1,5 +1,6 @@
 //! In-memory daemon state and its persistence in `state.json`.
 
+use crate::instances::Instances;
 use crate::model::{Project, ProjectStatus};
 use crate::paths::state_file;
 use crate::process::ManagedChild;
@@ -13,6 +14,8 @@ pub(crate) struct State {
     pub projects: Vec<Project>,
     /// Running processes per project id.
     pub processes: HashMap<String, Vec<ManagedChild>>,
+    /// Shared service instances (PostgreSQL, Redis, …).
+    pub instances: Instances,
 }
 
 impl State {
@@ -34,6 +37,7 @@ impl State {
         Ok(Self {
             projects,
             processes: HashMap::new(),
+            instances: Instances::load(root)?,
         })
     }
 

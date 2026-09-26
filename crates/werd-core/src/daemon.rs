@@ -1,6 +1,7 @@
 //! The `werd-daemon` process: owns the state, supervises children, serves RPC.
 
 use crate::catalog::Catalog;
+use crate::instances::{self, CreateRequest};
 use crate::jobs::Jobs;
 use crate::model::{ProjectStatus, Snapshot};
 use crate::paths::home;
@@ -27,6 +28,8 @@ pub(crate) struct Daemon {
     pub fetcher: Arc<dyn Fetcher>,
     /// Fixed catalog for tests; the embedded or cached catalog otherwise.
     pub catalog: Option<Arc<Catalog>>,
+    /// Shared state, for background jobs that must act once a download ends.
+    pub state: Arc<Mutex<State>>,
 }
 
 impl Daemon {
@@ -57,7 +60,7 @@ fn start_install(daemon: &Daemon, state: &State, params: &Value, update: bool) -
         bail!("{product} {line} is not installed");
     }
     if installed {
-        let users = projects::using_runtime(state, &product, &line);
+        let users = runtime_users(state, &product, &line);
         if !users.is_empty() {
             bail!("Stop {} before updating {product} {line}", users.join(", "));
         }
@@ -81,6 +84,74 @@ fn start_install(daemon: &Daemon, state: &State, params: &Value, update: bool) -
         },
     )?;
     Ok(json!(job))
+}
+
+/// Running sites and service instances that use a runtime line.
+fn runtime_users(state: &State, product: &str, line: &str) -> Vec<String> {
+    let mut users = projects::using_runtime(state, product, line);
+    users.extend(instances::using_runtime(&state.instances, product, line));
+    users
+}
+
+/// Creates a service instance. When its runtime (or pgvector) is missing, a
+/// background job installs it first; the instance then starts if requested.
+fn create_service(daemon: &Daemon, state: &mut State, params: &Value) -> Result<Value> {
+    let root = daemon.root.clone();
+    let start_after = params["start"].as_bool().unwrap_or(true);
+    let request: CreateRequest = serde_json::from_value(params.clone()).context("Invalid service request")?;
+    let catalog = daemon.catalog();
+    let instance = instances::create(&root, &mut state.instances, &catalog, request)?;
+
+    let installed = Installed::load(&root)?;
+    let needs_runtime = installed.version(&instance.product, &instance.line).is_none();
+    let wants_vector = instance.extensions.iter().any(|name| name == "pgvector");
+    let needs_vector = wants_vector
+        && !runtimes::has_pgvector(&runtimes::line_dir(&root, &instance.product, &instance.line))
+        && installed.lines("pgvector").is_empty();
+    if !needs_runtime && !needs_vector {
+        let instance = if start_after {
+            instances::start(&root, &mut state.instances, &instance.id)?
+        } else {
+            instance
+        };
+        return Ok(json!({ "instance": instance, "job": null }));
+    }
+
+    let vector_line = catalog
+        .product("pgvector")
+        .ok()
+        .and_then(|product| product.available_lines().first().map(|(line, _)| (*line).clone()));
+    let (fetcher, shared, id) = (
+        Arc::clone(&daemon.fetcher),
+        Arc::clone(&daemon.state),
+        instance.id.clone(),
+    );
+    let (product, line) = (instance.product.clone(), instance.line.clone());
+    let job = daemon
+        .jobs
+        .start(&instance.product, &instance.line, "install", move |progress| {
+            if needs_runtime {
+                runtimes::install(&root, &catalog, fetcher.as_ref(), &product, &line, progress)?;
+            }
+            if needs_vector {
+                let vector_line = vector_line.context("pgvector is not available for this platform")?;
+                runtimes::install(
+                    &root,
+                    &catalog,
+                    fetcher.as_ref(),
+                    "pgvector",
+                    &vector_line,
+                    progress,
+                )?;
+            }
+            if start_after {
+                progress.step("Starting");
+                let mut state = shared.lock().map_err(|_| anyhow!("Daemon state unavailable"))?;
+                instances::start(&root, &mut state.instances, &id)?;
+            }
+            Ok(())
+        })?;
+    Ok(json!({ "instance": instance, "job": job }))
 }
 
 fn set_default(root: &Path, params: &Value) -> Result<Value> {
@@ -193,7 +264,7 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
         "runtimes.update" => start_install(daemon, state, params, true)?,
         "runtimes.uninstall" => {
             let (product, line) = (text(params, "product")?, text(params, "line")?);
-            let users = projects::using_runtime(state, product, line);
+            let users = runtime_users(state, product, line);
             if !users.is_empty() {
                 bail!("Stop {} before removing {product} {line}", users.join(", "));
             }
@@ -201,6 +272,36 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
             json!(null)
         }
         "runtimes.default" => set_default(root, params)?,
+
+        "services.catalog" => json!(instances::offerings(root, &daemon.catalog())?),
+        "services.list" => json!(instances::summaries(root, &state.instances)),
+        "services.create" => create_service(daemon, state, params)?,
+        "services.start" => json!(instances::start(root, &mut state.instances, id(params)?)?),
+        "services.stop" => json!(instances::stop(root, &mut state.instances, id(params)?)?),
+        "services.delete" => {
+            let keep_data = params["keep_data"].as_bool().unwrap_or(false);
+            instances::delete(root, &mut state.instances, id(params)?, keep_data)?;
+            json!(null)
+        }
+        "services.autostart" => {
+            let enabled = params["autostart"].as_bool().context("Missing autostart")?;
+            json!(instances::set_autostart(
+                root,
+                &mut state.instances,
+                id(params)?,
+                enabled
+            )?)
+        }
+        "services.details" => instances::details(root, &state.instances, id(params)?)?,
+        "services.logs" => json!(instances::logs(root, &state.instances, id(params)?)?),
+        "services.database" => {
+            json!(instances::create_database(
+                root,
+                &state.instances,
+                id(params)?,
+                text(params, "name")?
+            )?)
+        }
         "jobs.list" => json!(daemon.jobs.list()),
         "settings.get" => json!(Settings::load(root)?),
         "settings.set" => update_settings(root, params)?,
@@ -219,6 +320,7 @@ fn reap_exited(root: &Path, state: &mut State) {
             failed.push((id.clone(), name, exit));
         }
     }
+    instances::reap_exited(root, &mut state.instances);
     for (id, name, exit) in failed {
         projects::stop_processes(root, state, &id);
         if let Ok(index) = state.index(&id) {
@@ -245,8 +347,32 @@ pub fn run_daemon() -> Result<()> {
         jobs: Jobs::default(),
         fetcher: Arc::new(HttpFetcher),
         catalog: None,
+        state: Arc::clone(&state),
     };
     let (listener, endpoint) = rpc::listen(&root)?;
+
+    // Start autostart services after the API is up, so clients never wait for them.
+    let autostart = Arc::clone(&state);
+    let autostart_root = root.clone();
+    thread::spawn(move || {
+        let ids: Vec<String> = autostart
+            .lock()
+            .map(|state| {
+                state
+                    .instances
+                    .list
+                    .iter()
+                    .filter(|i| i.autostart)
+                    .map(|i| i.id.clone())
+                    .collect()
+            })
+            .unwrap_or_default();
+        for id in ids {
+            if let Ok(mut state) = autostart.lock() {
+                let _ = instances::start(&autostart_root, &mut state.instances, &id);
+            }
+        }
+    });
 
     let monitor = Arc::clone(&state);
     thread::spawn(move || loop {
@@ -286,6 +412,7 @@ mod tests {
             jobs: Jobs::default(),
             fetcher,
             catalog,
+            state: Arc::new(Mutex::new(State::default())),
         }
     }
 

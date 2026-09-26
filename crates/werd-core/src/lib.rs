@@ -10,7 +10,8 @@
 //! - `shims`: php/composer/node/npm/npx launchers and PATH integration
 //! - `manifest`: `werd.yml`
 //! - `state`, `projects`: linked projects and their lifecycle
-//! - `services`: PostgreSQL, Redis, Mailpit, RustFS
+//! - `instances`: shared service instances (PostgreSQL, MySQL, Redis, …)
+//! - `services`: per-site services from 0.1 (replaced by instances)
 //! - `proxy`: PHP FastCGI + Caddy per site
 //! - [`platform`]: OS integration (browser, certificates)
 //! - `rpc`, `daemon`: local API and the daemon process
@@ -18,6 +19,7 @@
 pub mod catalog;
 mod daemon;
 mod doctor;
+mod instances;
 pub mod jobs;
 pub mod manifest;
 mod migrations;
