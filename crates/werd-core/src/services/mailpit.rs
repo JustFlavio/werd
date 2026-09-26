@@ -26,8 +26,7 @@ impl Service for Mailpit {
             .arg(context.data_dir().join("mailpit.db"))
             .arg("--disable-version-check");
         children.push(spawn_ready(
-            context.root,
-            context.project_id,
+            &context.data_dir(),
             "mailpit",
             command,
             smtp,

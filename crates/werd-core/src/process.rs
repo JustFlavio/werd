@@ -80,11 +80,10 @@ impl ManagedChild {
     }
 }
 
-/// Starts `command` with stderr going to `projects/<id>/<name>.log`.
-pub(crate) fn spawn_logged(root: &Path, id: &str, name: &str, mut command: Command) -> Result<ManagedChild> {
-    let directory = project_dir(root, id);
-    fs::create_dir_all(&directory)?;
-    let log = File::create(directory.join(format!("{name}.log")))?;
+/// Starts `command` with stderr going to `<log_dir>/<name>.log`.
+pub(crate) fn spawn_logged(log_dir: &Path, name: &str, mut command: Command) -> Result<ManagedChild> {
+    fs::create_dir_all(log_dir)?;
+    let log = File::create(log_dir.join(format!("{name}.log")))?;
     let child = command
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -99,14 +98,13 @@ pub(crate) fn spawn_logged(root: &Path, id: &str, name: &str, mut command: Comma
 
 /// Like [`spawn_logged`], then waits for `port` to accept connections.
 pub(crate) fn spawn_ready(
-    root: &Path,
-    id: &str,
+    log_dir: &Path,
     name: &str,
     command: Command,
     port: u16,
     label: &str,
 ) -> Result<ManagedChild> {
-    let mut process = spawn_logged(root, id, name, command)?;
+    let mut process = spawn_logged(log_dir, name, command)?;
     if let Err(error) = wait_until_listening(port, &mut process.child, label) {
         process.kill();
         return Err(error);
@@ -132,7 +130,11 @@ pub fn read_log(root: &Path, id: &str, source: &str) -> Result<Vec<String>> {
     if !LOG_SOURCES.contains(&source) {
         bail!("Unknown log: {source}");
     }
-    let path = project_dir(root, id).join(format!("{source}.log"));
+    tail_file(&project_dir(root, id).join(format!("{source}.log")))
+}
+
+/// The last lines of a log file; empty when it does not exist yet.
+pub(crate) fn tail_file(path: &Path) -> Result<Vec<String>> {
     if !path.exists() {
         return Ok(Vec::new());
     }

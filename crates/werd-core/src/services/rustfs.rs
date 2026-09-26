@@ -56,8 +56,7 @@ impl Service for Rustfs {
             .env("RUSTFS_ACCESS_KEY", credentials.access_key)
             .env("RUSTFS_SECRET_KEY", credentials.secret_key);
         children.push(spawn_ready(
-            context.root,
-            context.project_id,
+            &context.data_dir(),
             "rustfs",
             command,
             api,

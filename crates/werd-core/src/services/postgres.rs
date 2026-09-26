@@ -108,8 +108,7 @@ impl Service for Postgres {
             .arg(&cluster)
             .args(["-h", "127.0.0.1", "-p", &port.to_string()]);
         children.push(spawn_ready(
-            context.root,
-            context.project_id,
+            &context.data_dir(),
             "postgres",
             command,
             port,

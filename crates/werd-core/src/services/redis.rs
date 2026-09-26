@@ -23,14 +23,7 @@ impl Service for Redis {
             .args(["--bind", "127.0.0.1", "--port", &port.to_string(), "--dir"])
             .arg(&data)
             .args(["--appendonly", "yes"]);
-        children.push(spawn_ready(
-            context.root,
-            context.project_id,
-            "redis",
-            command,
-            port,
-            "Redis",
-        )?);
+        children.push(spawn_ready(&context.data_dir(), "redis", command, port, "Redis")?);
         Ok(())
     }
 

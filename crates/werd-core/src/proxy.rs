@@ -58,7 +58,7 @@ pub(crate) fn start_site(
         .arg("-b")
         .arg(format!("127.0.0.1:{fastcgi_port}"))
         .current_dir(project_path);
-    let mut php_process = spawn_logged(context.root, context.project_id, "php", php_command)?;
+    let mut php_process = spawn_logged(&directory, "php", php_command)?;
     let ready = ports::wait_until_listening(fastcgi_port, &mut php_process.child, "PHP FastCGI");
     children.push(php_process);
     ready?;
@@ -72,8 +72,7 @@ pub(crate) fn start_site(
         .current_dir(&directory)
         .env("XDG_DATA_HOME", caddy_data(context.root));
     children.push(spawn_ready(
-        context.root,
-        context.project_id,
+        &directory,
         "caddy",
         caddy_command,
         site_port,
