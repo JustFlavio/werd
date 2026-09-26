@@ -200,6 +200,44 @@ fn create_instance(
     Ok(json!({ "instance": instance, "job": job }))
 }
 
+/// Starts a site when Caddy, the web server every site shares, is not installed
+/// yet: a background job downloads it and then starts the site. The site is
+/// reported as starting meanwhile, and as failed if either step fails.
+fn start_after_caddy(daemon: &Daemon, state: &mut State, id: &str) -> Result<Value> {
+    let catalog = daemon.catalog();
+    let line = catalog
+        .product("caddy")?
+        .available_lines()
+        .first()
+        .map(|(line, _)| (*line).clone())
+        .context("Caddy is not available for this platform")?;
+    let index = state.index(id)?;
+    let (root, fetcher, shared, site) = (
+        daemon.root.clone(),
+        Arc::clone(&daemon.fetcher),
+        Arc::clone(&daemon.state),
+        id.to_string(),
+    );
+    daemon
+        .jobs
+        .start("caddy", &line.clone(), "install", move |progress| {
+            let installed = runtimes::install(&root, &catalog, fetcher.as_ref(), "caddy", &line, progress);
+            progress.step("Starting the site");
+            let mut state = shared.lock().map_err(|_| anyhow!("Daemon state unavailable"))?;
+            match installed.and_then(|_| projects::start(&root, &mut state, &site)) {
+                Ok(_) => Ok(()),
+                Err(error) => {
+                    projects::mark_failed(&root, &mut state, &site, &error);
+                    Err(error)
+                }
+            }
+        })?;
+    let project = &mut state.projects[index];
+    project.status = ProjectStatus::Starting;
+    project.error = None;
+    Ok(json!(project.clone()))
+}
+
 /// PHP lines available on this platform, newest first.
 fn php_lines(catalog: &Catalog) -> Vec<String> {
     catalog
@@ -362,6 +400,9 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
         "create" => create_project(daemon, params)?,
         "start" => {
             let id = id(params)?;
+            if runtimes::resolve_line(root, "caddy", None, "Caddy").is_err() {
+                return start_after_caddy(daemon, state, id);
+            }
             match projects::start(root, state, id) {
                 Ok(project) => json!(project),
                 Err(error) => {
