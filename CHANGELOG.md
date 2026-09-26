@@ -50,6 +50,7 @@ All notable changes to Werd are documented here. The format follows
 - **ui:** Style select menus to match Werd
 - **core:** Set up Caddy, PHP and Composer on the first start
 - **ui:** Show the first-run setup on the Dashboard
+- **ui:** Show the progress of each service created for a site
 
 ### Bug fixes
 - **ui:** Resolve accessibility and hook dependency lint findings
@@ -67,6 +68,7 @@ All notable changes to Werd are documented here. The format follows
 - **cli:** Wait for a site that starts after downloading Caddy
 - **ui:** Wait for the site to start before opening it
 - **core:** Download Caddy only for a site that can start
+- **core:** Clear a failed start when a site's services are linked
 
 ### Refactoring
 - **core:** Split the daemon into focused modules
@@ -111,6 +113,7 @@ All notable changes to Werd are documented here. The format follows
 - Format the JSON files the version script rewrites
 - Bump version to 0.3.0-beta.2
 - Bump version to 0.3.0-beta.3
+- Bump version to 0.3.0-beta.4
 
 ## [0.1.1] - 2026-09-25
 
