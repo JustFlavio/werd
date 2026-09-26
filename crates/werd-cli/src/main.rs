@@ -3,6 +3,8 @@
 // Printing to stdout is this binary's job.
 #![allow(clippy::print_stdout)]
 
+mod runtimes;
+
 use anyhow::{bail, Context, Result};
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
@@ -55,12 +57,31 @@ enum Command {
     },
     /// Pick new ports for a stopped project on its next start.
     ResetPorts { project: String },
-    /// List available runtimes.
+    /// Manage PHP versions (list, install, update, use, limits).
+    Php {
+        #[command(subcommand)]
+        action: Option<runtimes::LineAction>,
+    },
+    /// Manage Node.js versions (list, install, update, use).
+    Node {
+        #[command(subcommand)]
+        action: Option<runtimes::LineAction>,
+    },
+    /// List everything Werd can install on this platform.
     Runtimes,
-    /// Download and install a runtime.
+    /// Install a version line, e.g. `werd install postgresql@17`.
     Install {
-        /// Runtime id, as shown by `werd runtimes`.
-        runtime: String,
+        /// <product>@<line>, as shown by `werd runtimes`.
+        target: String,
+    },
+    /// Update one line (`php@8.4`), or everything that has an update.
+    Update { target: Option<String> },
+    /// Remove an installed line, e.g. `werd uninstall node@18`.
+    Uninstall { target: String },
+    /// Show the runtime catalog, or refresh it with `werd catalog refresh`.
+    Catalog {
+        #[command(subcommand)]
+        action: Option<CatalogAction>,
     },
     /// Trust Werd's local HTTPS certificate authority.
     TrustCa,
@@ -70,7 +91,13 @@ enum Command {
     Completions { shell: Shell },
 }
 
-fn call(method: &str, params: Value) -> Result<Value> {
+#[derive(Subcommand)]
+enum CatalogAction {
+    /// Download the latest catalog.
+    Refresh,
+}
+
+pub(crate) fn call(method: &str, params: Value) -> Result<Value> {
     ensure_daemon(&daemon_executable()?)?;
     rpc(method, params)
 }
@@ -140,6 +167,41 @@ fn run(cli: Cli) -> Result<()> {
             clap_complete::generate(*shell, &mut Cli::command(), "werd", &mut std::io::stdout());
             return Ok(());
         }
+        Command::Php { .. } | Command::Node { .. } => {
+            let (product, action) = match cli.command {
+                Command::Php { action } => ("php", action),
+                Command::Node { action } => ("node", action),
+                _ => unreachable!(),
+            };
+            return runtimes::run_line_action(product, action, cli.json);
+        }
+        Command::Runtimes => return runtimes::list_all(cli.json),
+        Command::Install { target } => {
+            let (product, line) = runtimes::parse_target(target)?;
+            runtimes::install(product, line, false)?;
+            println!("Installed {product} {line}");
+            return Ok(());
+        }
+        Command::Update { target } => {
+            return match target.as_deref().map(runtimes::parse_target).transpose()? {
+                Some((product, line)) => {
+                    runtimes::install(product, line, true)?;
+                    println!("Updated {product} {line}");
+                    Ok(())
+                }
+                None => runtimes::update_all(None),
+            };
+        }
+        Command::Uninstall { target } => {
+            let (product, line) = runtimes::parse_target(target)?;
+            call("runtimes.uninstall", json!({ "product": product, "line": line }))?;
+            println!("Removed {product} {line}");
+            return Ok(());
+        }
+        Command::Catalog {
+            action: Some(CatalogAction::Refresh),
+        } => ("catalog.refresh", json!({})),
+        Command::Catalog { action: None } => ("catalog.get", json!({})),
         Command::List => ("list", json!({})),
         Command::Add { path } => {
             let absolute =
@@ -152,8 +214,7 @@ fn run(cli: Cli) -> Result<()> {
         Command::Env { project } => ("env", json!({ "id": resolve(project)? })),
         Command::Logs { project, source } => ("logs", json!({ "id": resolve(project)?, "service": source })),
         Command::ResetPorts { project } => ("reset-ports", json!({ "id": resolve(project)? })),
-        Command::Runtimes => ("runtimes", json!({})),
-        Command::Install { runtime } => ("install", json!({ "id": runtime })),
+
         Command::TrustCa => ("trust-ca", json!({})),
         Command::Doctor => ("doctor", json!({})),
     };
@@ -185,20 +246,13 @@ fn run(cli: Cli) -> Result<()> {
                 println!("{line}");
             }
         }
-        Command::Runtimes | Command::Install { .. } => {
-            let runtimes: Vec<RuntimeInfoView> = match result {
-                Value::Array(_) => serde_json::from_value(result)?,
-                single => vec![serde_json::from_value(single)?],
-            };
-            if runtimes.is_empty() {
-                println!("No runtimes are available for this platform yet.");
-            }
-            for runtime in runtimes {
-                let state = if runtime.installed { "installed" } else { "-" };
-                println!(
-                    "{:10} {:10} {:10} {}",
-                    runtime.id, runtime.version, state, runtime.note
-                );
+        Command::Catalog { .. } => {
+            println!(
+                "Catalog generated {}",
+                result["generated"].as_str().unwrap_or("?")
+            );
+            if let Some(platform) = result["platform"].as_str() {
+                println!("Platform {platform}");
             }
         }
         Command::Doctor => {
@@ -211,18 +265,15 @@ fn run(cli: Cli) -> Result<()> {
                 );
             }
         }
-        Command::Completions { .. } => {}
+        Command::Completions { .. }
+        | Command::Php { .. }
+        | Command::Node { .. }
+        | Command::Runtimes
+        | Command::Install { .. }
+        | Command::Update { .. }
+        | Command::Uninstall { .. } => {}
     }
     Ok(())
-}
-
-/// Owned mirror of `werd_core::runtimes::RuntimeInfo`, which borrows static strings on the daemon side.
-#[derive(serde::Deserialize)]
-struct RuntimeInfoView {
-    id: String,
-    version: String,
-    installed: bool,
-    note: String,
 }
 
 fn main() {
@@ -249,5 +300,31 @@ mod tests {
         assert!(cli.json);
         assert!(matches!(cli.command, Command::Logs { source, .. } if source == "werd"));
         assert!(Cli::try_parse_from(["werd", "logs", "shop", "nginx"]).is_err());
+    }
+
+    #[test]
+    fn parses_runtime_commands() {
+        let cli = Cli::try_parse_from(["werd", "php", "install", "8.4"]).unwrap();
+        assert!(
+            matches!(cli.command, Command::Php { action: Some(runtimes::LineAction::Install { line }) } if line == "8.4")
+        );
+        let cli = Cli::try_parse_from(["werd", "php", "limits", "--memory-limit-mb", "-1"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Command::Php {
+                action: Some(runtimes::LineAction::Limits {
+                    memory_limit_mb: Some(-1),
+                    ..
+                })
+            }
+        ));
+        assert!(matches!(
+            Cli::try_parse_from(["werd", "node"]).unwrap().command,
+            Command::Node { action: None }
+        ));
+        assert!(matches!(
+            Cli::try_parse_from(["werd", "update"]).unwrap().command,
+            Command::Update { target: None }
+        ));
     }
 }
