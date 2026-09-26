@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, WindowEvent};
-use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
+use tauri_plugin_autostart::ManagerExt;
 use werd_core::{daemon_executable, ensure_daemon, rpc as daemon_rpc};
 
 /// Passed by the login item so Werd starts in the tray without a window.
@@ -124,10 +124,13 @@ fn main() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             show_window(app)
         }))
-        .plugin(tauri_plugin_autostart::init(
-            MacosLauncher::LaunchAgent,
-            Some(vec![HIDDEN_ARG]),
-        ))
+        // The name is fixed because the Windows uninstaller removes this login item by name.
+        .plugin(
+            tauri_plugin_autostart::Builder::new()
+                .app_name("Werd")
+                .args([HIDDEN_ARG])
+                .build(),
+        )
         .invoke_handler(tauri::generate_handler![
             rpc,
             open_url,

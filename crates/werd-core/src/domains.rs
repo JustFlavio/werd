@@ -92,6 +92,11 @@ pub fn managed(contents: &str) -> Vec<String> {
     domains
 }
 
+/// Whether `contents` has a Werd block, even an empty one.
+pub fn has_block(contents: &str) -> bool {
+    contents.lines().any(|line| line.trim() == BEGIN)
+}
+
 /// `contents` with the Werd block replaced by `domains` (removed when empty).
 /// Everything outside the block is kept byte for byte, including line endings.
 pub fn render(contents: &str, domains: &[String]) -> Result<String> {
@@ -199,6 +204,7 @@ mod tests {
         assert_eq!(managed(&two), ["blog.test", "shop.test"]);
         assert!(two.starts_with(original));
 
+        assert!(has_block(&two) && !has_block(original));
         assert_eq!(render(&two, &[]).unwrap(), original);
         assert!(render(original, &["bank.com".into()]).is_err());
     }

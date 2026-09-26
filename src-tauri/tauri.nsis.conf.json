@@ -1,6 +1,11 @@
 {
   "bundle": {
     "targets": ["nsis"],
-    "externalBin": ["binaries/werd-daemon", "binaries/werd", "binaries/werd-shim", "binaries/werd-helper"]
+    "externalBin": ["binaries/werd-daemon", "binaries/werd", "binaries/werd-shim", "binaries/werd-helper"],
+    "windows": {
+      "nsis": {
+        "installerHooks": "windows/hooks.nsh"
+      }
+    }
   }
 }
