@@ -1,17 +1,21 @@
 import {
+  Check,
   Code2,
   ExternalLink,
   FlaskConical,
   FolderOpen,
   Play,
   Plus,
+  RefreshCw,
   Search,
   Square,
   SquareTerminal,
   Trash2,
+  X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  type AboutReport,
   type Category,
   type Editor,
   type Job,
@@ -26,6 +30,7 @@ import {
   setProjectDomain,
   setProjectNode,
   setProjectPhp,
+  siteAbout,
   siteAction,
   siteInfo,
   unlinkProject,
@@ -521,48 +526,81 @@ function ServicesTab({
   );
 }
 
+/** Sections of `artisan about` shown first, in Herd's order; package sections follow. */
+const ABOUT_ORDER = ["environment", "cache", "drivers", "storage"];
+
+const humanize = (key: string) => {
+  const text = key.replace(/[_-]+/g, " ").trim();
+  return text.charAt(0).toUpperCase() + text.slice(1);
+};
+
+function AboutValue({ value }: { value: unknown }) {
+  const t = useT();
+  if (value === true) return <Check size={15} className="about-yes" aria-label={t.sites.yes} />;
+  if (value === false) return <X size={15} className="about-no" aria-label={t.sites.no} />;
+  if (Array.isArray(value)) return <span className="mono">{value.join(", ")}</span>;
+  if (value === null || value === undefined || value === "") return <span className="muted">—</span>;
+  return <span className="mono">{typeof value === "object" ? JSON.stringify(value) : String(value)}</span>;
+}
+
 function InformationTab({ project }: { project: Project }) {
   const t = useT();
+  const labels = t.sites.about as Record<string, string>;
+  const [about, setAbout] = useState<AboutReport | null>(null);
+  const [aboutError, setAboutError] = useState<string | null>(null);
   const [info, setInfo] = useState<ProjectInfo | null>(null);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    void siteInfo(project.id)
-      .then(setInfo)
-      .catch(() => setFailed(true));
-  }, [project.id]);
+  const [loading, setLoading] = useState(true);
 
-  if (failed) return <p className="muted">{t.sites.infoUnavailable}</p>;
-  if (!info) return <p className="muted">{t.common.loading}</p>;
-  const laravel = info.php_packages.find((item) => item.name === "laravel/framework");
-  const others = info.php_packages.filter((item) => item.name !== "laravel/framework");
-  const yes = (value: boolean) => (value ? t.sites.yes : t.sites.no);
+  const load = useCallback(() => {
+    setLoading(true);
+    setAboutError(null);
+    void Promise.allSettled([siteAbout(project.id), siteInfo(project.id)]).then(([report, detected]) => {
+      if (report.status === "fulfilled") setAbout(report.value);
+      else setAboutError(report.reason instanceof Error ? report.reason.message : String(report.reason));
+      if (detected.status === "fulfilled") setInfo(detected.value);
+      setLoading(false);
+    });
+  }, [project.id]);
+  useEffect(load, [load]);
+
+  const sections = about
+    ? [...ABOUT_ORDER.filter((key) => about[key]), ...Object.keys(about).filter((key) => !ABOUT_ORDER.includes(key))]
+    : [];
+  const packages = [...(info?.php_packages ?? []), ...(info?.js_packages ?? [])];
 
   return (
     <>
-      <Section title={t.sites.stack}>
-        <dl className="fields">
-          <dt>Laravel</dt>
-          <dd>{laravel?.version ?? "—"}</dd>
-          <dt>{t.sites.phpRequired}</dt>
-          <dd className="mono">{info.php_constraint ?? "—"}</dd>
-          <dt>Node.js</dt>
-          <dd className="mono">{info.node ?? "—"}</dd>
-          <dt>werd.yml</dt>
-          <dd>{yes(info.werd_yml)}</dd>
-          <dt>.env</dt>
-          <dd>{yes(info.env_file)}</dd>
-        </dl>
-      </Section>
-      <Section title={t.sites.phpPackages}>
-        {others.length ? <PackageList packages={others} /> : <p className="muted">{t.sites.noPackages}</p>}
-      </Section>
-      <Section title={t.sites.frontend}>
-        {info.js_packages.length ? (
-          <PackageList packages={info.js_packages} />
-        ) : (
-          <p className="muted">{t.sites.noPackages}</p>
-        )}
-      </Section>
+      <div className="about-toolbar">
+        <span className="muted">{loading ? t.sites.aboutLoading : t.sites.aboutSource}</span>
+        <button type="button" className="button button-small" disabled={loading} onClick={load}>
+          <RefreshCw size={13} /> {t.sites.refresh}
+        </button>
+      </div>
+      {aboutError && <div className="callout callout-warn">{t.sites.aboutFailed(aboutError)}</div>}
+      {sections.map((section) => (
+        <div key={section} className="about-section">
+          <h3>{labels[section] ?? humanize(section)}</h3>
+          <dl>
+            {Object.entries(about?.[section] ?? {}).map(([key, value]) => (
+              <div key={key} className="about-row">
+                <dt className={section === "storage" ? "mono" : undefined}>
+                  {section === "storage" ? key : (labels[key] ?? humanize(key))}
+                </dt>
+                <dd>
+                  <AboutValue value={value} />
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      ))}
+      {packages.length > 0 && (
+        <div className="about-section">
+          <h3>{t.sites.detectedPackages}</h3>
+          <PackageList packages={packages} />
+        </div>
+      )}
+      {!loading && !about && !packages.length && !aboutError && <p className="muted">{t.sites.infoUnavailable}</p>}
     </>
   );
 }

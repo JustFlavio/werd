@@ -1,7 +1,17 @@
-import { Check, FileCode2, FolderOpen, Loader2, Puzzle, Sparkles, TriangleAlert } from "lucide-react";
+import {
+  CircleCheck,
+  ExternalLink,
+  FileCode2,
+  FolderOpen,
+  Loader2,
+  Puzzle,
+  Sparkles,
+  TriangleAlert,
+} from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   addProject,
+  boostUpdate,
   createProject,
   domainsStatus,
   getSettings,
@@ -10,9 +20,11 @@ import {
   type Job,
   listJobs,
   type NewProject,
+  openSite,
   type ProjectInfo,
   pickFolder,
   type StarterKit,
+  startProject,
   syncHosts,
 } from "../api";
 import { useT } from "../i18n";
@@ -85,6 +97,9 @@ export function AddSiteWizard({
   const [info, setInfo] = useState<ProjectInfo | null>(null);
   const [name, setName] = useState("");
   const [php, setPhp] = useState("");
+  const [updateEnv, setUpdateEnv] = useState(true);
+  const [updateBoost, setUpdateBoost] = useState(false);
+  const usesBoost = info?.php_packages.some((item) => item.name === "laravel/boost") ?? false;
 
   // New project.
   const [kit, setKit] = useState<StarterKit | null>(null);
@@ -102,6 +117,8 @@ export function AddSiteWizard({
   const [lines, setLines] = useState<string[]>([]);
   const [outcome, setOutcome] = useState<Outcome>("running");
   const [created, setCreated] = useState<string | null>(null);
+  const [showOutput, setShowOutput] = useState(false);
+  const [opening, setOpening] = useState(false);
   const logBox = useRef<HTMLDivElement>(null);
 
   const phpRows = runtimes.rows.filter((row) => row.product === "php");
@@ -181,9 +198,25 @@ export function AddSiteWizard({
     }
   }
 
+  /** Starts the new site if needed, then opens it in the browser. */
+  async function openInBrowser() {
+    if (!created) return;
+    setOpening(true);
+    try {
+      await startProject(created);
+      await openSite(created);
+    } catch (cause) {
+      log(cause instanceof Error ? cause.message : String(cause));
+      setShowOutput(true);
+    } finally {
+      setOpening(false);
+    }
+  }
+
   async function run(work: () => Promise<string>) {
     go("progress");
     setLines([]);
+    setShowOutput(false);
     setOutcome("running");
     try {
       const id = await work();
@@ -201,7 +234,16 @@ export function AddSiteWizard({
     run(async () => {
       await ensurePhp(php);
       log(w.linking(path));
-      const project = await addProject(path, name.trim(), php);
+      const project = await addProject(path, name.trim(), php, updateEnv);
+      if (updateEnv) log(w.envUpdated(project.domain ?? ""));
+      if (updateBoost && usesBoost) {
+        log("==> php artisan boost:update");
+        try {
+          for (const line of (await boostUpdate(project.id)).split(/\r?\n/)) log(line);
+        } catch (cause) {
+          log(cause instanceof Error ? cause.message : String(cause));
+        }
+      }
       log(w.linked(project.name, project.domain ?? ""));
       return project.id;
     });
@@ -306,6 +348,25 @@ export function AddSiteWizard({
                 onChange={(event) => setName(event.target.value)}
               />
               {name.trim() && <p className="field-hint">{w.domainPreview(name)}</p>}
+            </div>
+
+            <span>{w.extras}</span>
+            <div className="checkbox-stack">
+              <label className="checkbox">
+                <input type="checkbox" checked={updateEnv} onChange={(event) => setUpdateEnv(event.target.checked)} />
+                {w.updateEnv}
+              </label>
+              {usesBoost && (
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={updateBoost}
+                    onChange={(event) => setUpdateBoost(event.target.checked)}
+                  />
+                  {w.updateBoost}
+                </label>
+              )}
+              {usesBoost && <p className="field-hint">{w.updateBoostHint}</p>}
             </div>
 
             <label htmlFor="wizard-php">PHP</label>
@@ -460,11 +521,21 @@ export function AddSiteWizard({
           </div>
         )}
 
-        {step === "progress" && (
+        {step === "progress" && outcome === "done" && !showOutput && (
+          <div className="wizard-success">
+            <CircleCheck size={40} strokeWidth={1.4} />
+            <p>{history.includes("kit") ? w.createdMessage : w.linkedMessage}</p>
+            <button type="button" className="link-button" onClick={() => setShowOutput(true)}>
+              {w.showOutput}
+            </button>
+          </div>
+        )}
+
+        {step === "progress" && (outcome !== "done" || showOutput) && (
           <div className="wizard-progress">
             <p className={`wizard-status wizard-status-${outcome}`}>
               {outcome === "running" && <Loader2 size={16} className="spin" />}
-              {outcome === "done" && <Check size={16} />}
+              {outcome === "done" && <CircleCheck size={16} />}
               {outcome === "failed" && <TriangleAlert size={16} />}
               {outcome === "running" ? w.working : outcome === "done" ? w.done : w.failed}
             </p>
@@ -517,6 +588,11 @@ export function AddSiteWizard({
             {w.previous}
           </button>
         )}
+        {step === "progress" && outcome === "done" && (
+          <button type="button" className="button" disabled={opening} onClick={() => void openInBrowser()}>
+            <ExternalLink size={14} /> {opening ? t.sites.starting : w.openInBrowser}
+          </button>
+        )}
         {step === "progress" && (
           <button
             type="button"
@@ -524,7 +600,7 @@ export function AddSiteWizard({
             disabled={outcome === "running"}
             onClick={onClose}
           >
-            {created ? w.close : t.common.close}
+            {t.common.close}
           </button>
         )}
       </div>

@@ -135,7 +135,14 @@ export async function rpc<T>(method: string, params: Record<string, unknown> = {
 // ---- Sites -------------------------------------------------------------------
 
 export const listProjects = () => rpc<Snapshot>("sites.list");
-export const addProject = (path: string, name?: string, php?: string) => rpc<Project>("sites.add", { path, name, php });
+export const addProject = (path: string, name?: string, php?: string, updateEnv = false) =>
+  rpc<Project>("sites.add", { path, name, php, update_env: updateEnv });
+
+/** `php artisan about --json`: sections of key/value pairs, in Laravel's order. */
+export type AboutReport = Record<string, Record<string, unknown>>;
+export const siteAbout = (id: string) => rpc<AboutReport>("sites.about", { id });
+/** Runs `php artisan boost:update` in the site; returns its output. */
+export const boostUpdate = (id: string) => rpc<string>("sites.boost", { id });
 
 export interface Package {
   name: string;

@@ -451,6 +451,36 @@ export async function demoRpc(method: string, params: Record<string, unknown>): 
       return addDemoProject(String(params.path), params.name as string | undefined, params.php as string | undefined);
     case "sites.inspect":
       return describe(String(params.path));
+    case "sites.about":
+      findProject(params.id);
+      return {
+        environment: {
+          application_name: "Fleet Desk",
+          laravel_version: "12.30.1",
+          php_version: "8.4.26",
+          composer_version: "2.10.3",
+          environment: "local",
+          debug_mode: true,
+          url: "shop.test",
+          maintenance_mode: false,
+          timezone: "Europe/Rome",
+          locale: "it",
+        },
+        cache: { config: false, events: false, routes: false, views: true },
+        drivers: {
+          broadcasting: "log",
+          cache: "redis",
+          database: "pgsql",
+          logs: ["single"],
+          mail: "smtp",
+          queue: "redis",
+          session: "database",
+        },
+        storage: { "c:\\users\\dev\\developer\\shop\\public\\storage": true },
+        filament: { packages: "filament, forms, tables", version: "v4.1.0", views: "NOT CACHED" },
+      };
+    case "sites.boost":
+      return "Boost guidelines and skills updated successfully.";
     case "sites.info":
       return describe(findProject(params.id).path);
     case "sites.create":

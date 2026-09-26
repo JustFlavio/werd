@@ -156,7 +156,9 @@ describe("Sites", () => {
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Add site" }));
     await waitFor(() => expect(onAdded).toHaveBeenCalledWith("fleet"));
-    expect(api.addProject).toHaveBeenCalledWith("/work/fleet-desk", "fleet-desk", "8.4");
+    expect(api.addProject).toHaveBeenCalledWith("/work/fleet-desk", "fleet-desk", "8.4", true);
+    expect(await within(dialog).findByText("Your site is linked and ready to start.")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: /Open in browser/ })).toBeInTheDocument();
   });
 
   it("offers the starter kits for a new project", () => {

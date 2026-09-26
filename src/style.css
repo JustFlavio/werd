@@ -1196,3 +1196,81 @@ h2 {
     padding-top: 0;
   }
 }
+
+.wizard-success {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+  color: var(--ok);
+}
+.wizard-success p {
+  max-width: 420px;
+  color: var(--text-strong);
+  font-size: 15px;
+}
+.link-button {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.link-button:hover {
+  color: var(--text-strong);
+}
+.about-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+}
+.about-section {
+  margin-top: 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.about-section h3 {
+  margin: 0;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text-strong);
+  background: var(--surface);
+}
+.about-section dl {
+  margin: 0;
+}
+.about-section > .chips {
+  margin: 0;
+  padding: 12px 14px;
+}
+.about-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+}
+.about-row:nth-child(even) {
+  background: #ffffff05;
+}
+.about-row dt {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.about-row dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.about-yes {
+  color: var(--ok);
+}
+.about-no {
+  color: var(--fail);
+}
