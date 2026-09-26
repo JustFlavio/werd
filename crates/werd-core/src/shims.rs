@@ -52,23 +52,25 @@ pub fn ensure_installed(root: &Path) -> Result<()> {
     install(root, &shim_source()?)
 }
 
-/// Adds `entry` to a `;`-separated PATH value unless it is already there.
+/// Puts `entry` first in a `;`-separated PATH value, so Werd's `php` and
+/// `composer` win over other tools (Herd, Composer-Setup). Returns `None` when
+/// it already comes first.
 // Used by the Windows PATH integration; tested on every platform.
 #[cfg_attr(not(windows), allow(dead_code))]
 pub fn with_entry(path: &str, entry: &str) -> Option<String> {
     let normalize = |value: &str| value.trim().trim_end_matches(['\\', '/']).to_ascii_lowercase();
-    if path
-        .split(';')
-        .any(|existing| normalize(existing) == normalize(entry))
+    let mut parts = path.split(';').filter(|part| !part.trim().is_empty());
+    if parts
+        .next()
+        .is_some_and(|first| normalize(first) == normalize(entry))
     {
         return None;
     }
-    let trimmed = path.trim_end_matches(';');
-    Some(if trimmed.is_empty() {
-        entry.to_string()
-    } else {
-        format!("{trimmed};{entry}")
-    })
+    let others: Vec<&str> = path
+        .split(';')
+        .filter(|part| !part.trim().is_empty() && normalize(part) != normalize(entry))
+        .collect();
+    Some(std::iter::once(entry).chain(others).collect::<Vec<_>>().join(";"))
 }
 
 /// Removes `entry` from a `;`-separated PATH value, if present.
@@ -166,11 +168,18 @@ pub fn disable(root: &Path) -> Result<()> {
     settings.save(root)
 }
 
-/// Refreshes the shim copies after a Werd update, when PATH integration is on.
+/// Refreshes the shim copies after a Werd update, when PATH integration is on,
+/// and moves Werd back to the front of PATH if another installer pushed it down.
 pub fn refresh(root: &Path) {
     if Settings::load(root).is_ok_and(|settings| settings.path_enabled) {
         if let Ok(source) = shim_source() {
             let _ = install(root, &source);
+        }
+        #[cfg(windows)]
+        if let Ok(current) = user_path::read() {
+            if let Some(updated) = with_entry(&current, &bin_dir(root).to_string_lossy()) {
+                let _ = user_path::write(&updated);
+            }
         }
     }
 }
@@ -186,7 +195,13 @@ mod tests {
         let added = with_entry(original, bin).unwrap();
         assert_eq!(
             added,
-            format!(r"%USERPROFILE%\AppData\Local\Microsoft\WindowsApps;C:\tools;{bin}")
+            format!(r"{bin};%USERPROFILE%\AppData\Local\Microsoft\WindowsApps;C:\tools")
+        );
+        let herd_first = format!(r"C:\Users\me\.config\herd\bin;{bin};C:\tools");
+        assert_eq!(
+            with_entry(&herd_first, bin).unwrap(),
+            format!(r"{bin};C:\Users\me\.config\herd\bin;C:\tools"),
+            "moved ahead of Herd, not duplicated"
         );
         assert_eq!(
             with_entry(&added, &format!("{bin}\\").to_uppercase()),
