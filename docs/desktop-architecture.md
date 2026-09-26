@@ -6,13 +6,17 @@ The desktop shell is **Tauri 2** with a TypeScript/React frontend and a Rust bac
 
 The service manager (`werd-daemon`) lives in a process separate from the window, so closing the dashboard never stops databases or workers by accident. The GUI and the CLI talk to the same daemon through a local API: loopback TCP with a per-session token stored in the user's data directory. The daemon owns the project state, supervises processes, collects logs and runs health checks. Privileged operations, such as trusting a local CA or editing the hosts file, are isolated and only requested when needed.
 
+On Windows the daemon joins a job object that kills its children when it exits, so a crash never leaves PHP, Caddy or a database holding its port. One Caddy serves every running site: each site keeps a stable `https://localhost:<port>` address and, when `.test` domains are on, also answers on `https://<name>.test`. Caddy runs with `--watch`, so starting or stopping a site rewrites its configuration without interrupting the others. The hosts file is updated by the clients, not the daemon, so the UAC prompt belongs to the window or terminal the user is looking at.
+
 ## Code layout
 
 | Crate / folder | Content |
 | --- | --- |
-| `crates/werd-core` | `model` (shared types), `manifest` (`werd.yml`), `state`, `projects` (lifecycle), `services/*` (one module per service behind a `Service` trait), `proxy` (PHP FastCGI + Caddy), `runtimes` (download catalog), `platform` (OS integration), `rpc` and `daemon`. |
+| `crates/werd-core` | `model` (shared types), `catalog` and `runtimes` (installable versions), `manifest` (`werd.yml`), `state`, `projects` (site lifecycle), `instances/*` (one driver per service product), `proxy` (PHP FastCGI per site), `router` (the shared Caddy), `domains` (`.test` names and the hosts block), `platform` (OS integration), `rpc` and `daemon`. |
 | `crates/werd-cli` | The `werd` command, built with clap. |
-| `src-tauri` | Tauri commands that forward to the daemon. |
+| `crates/werd-shim` | Launchers for `php`, `composer`, `node`, `npm` and `npx`. |
+| `crates/werd-helper` | Started elevated (UAC) to rewrite Werd's block of the hosts file; accepts only `.test` names mapped to 127.0.0.1. |
+| `src-tauri` | Tauri commands that forward to the daemon, the tray, launch at login and the hosts update. |
 | `src` | UI pages, shared components and i18n dictionaries. |
 
 ## Required screens
