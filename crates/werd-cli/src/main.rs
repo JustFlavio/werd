@@ -5,6 +5,7 @@
 
 mod runtimes;
 mod services;
+mod sites;
 
 use anyhow::{bail, Context, Result};
 use clap::{CommandFactory, Parser, Subcommand};
@@ -58,6 +59,33 @@ enum Command {
     },
     /// Pick new ports for a stopped project on its next start.
     ResetPorts { project: String },
+    /// Show a site: PHP and Node versions, linked services and what is still missing.
+    Info { project: String },
+    /// Choose the PHP or Node.js version of a site.
+    Set {
+        project: String,
+        #[arg(long)]
+        php: Option<String>,
+        #[arg(long)]
+        node: Option<String>,
+    },
+    /// Link a site category (database, cache, queue, mail, storage, search) to a service.
+    Link {
+        project: String,
+        category: String,
+        /// Service name or id, as shown by `werd service`.
+        service: String,
+        /// Database or bucket name (defaults to the site name).
+        #[arg(long)]
+        database: Option<String>,
+    },
+    /// Remove the service linked to a site category.
+    Unlink { project: String, category: String },
+    /// Create and link the services a site asks for in werd.yml.
+    Resolve { project: String },
+    /// Forget a site. Its folder and services are left untouched.
+    #[command(visible_alias = "rm")]
+    Remove { project: String },
     /// Manage PHP versions (list, install, update, use, limits).
     Php {
         #[command(subcommand)]
@@ -252,6 +280,32 @@ fn run(cli: Cli) -> Result<()> {
         Command::Env { project } => ("env", json!({ "id": resolve(project)? })),
         Command::Logs { project, source } => ("logs", json!({ "id": resolve(project)?, "service": source })),
         Command::ResetPorts { project } => ("reset-ports", json!({ "id": resolve(project)? })),
+        Command::Info { project } => return sites::info(&resolve(project)?, cli.json),
+        Command::Set { project, php, node } => {
+            return sites::set(&resolve(project)?, php.as_deref(), node.as_deref())
+        }
+        Command::Link {
+            project,
+            category,
+            service,
+            database,
+        } => {
+            return sites::link(&resolve(project)?, category, service, database.as_deref());
+        }
+        Command::Unlink { project, category } => {
+            call(
+                "sites.unlink",
+                json!({ "id": resolve(project)?, "category": category }),
+            )?;
+            println!("Unlinked {category}");
+            return Ok(());
+        }
+        Command::Resolve { project } => return sites::resolve_services(&resolve(project)?),
+        Command::Remove { project } => {
+            call("sites.remove", json!({ "id": resolve(project)? }))?;
+            println!("Removed {project} from Werd; its folder and services are untouched.");
+            return Ok(());
+        }
 
         Command::TrustCa => ("trust-ca", json!({})),
         Command::Doctor => ("doctor", json!({})),
@@ -311,6 +365,12 @@ fn run(cli: Cli) -> Result<()> {
         | Command::Update { .. }
         | Command::Uninstall { .. }
         | Command::Service { .. }
+        | Command::Info { .. }
+        | Command::Set { .. }
+        | Command::Link { .. }
+        | Command::Unlink { .. }
+        | Command::Resolve { .. }
+        | Command::Remove { .. }
         | Command::Path { .. } => {}
     }
     Ok(())
