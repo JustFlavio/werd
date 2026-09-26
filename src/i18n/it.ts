@@ -76,6 +76,11 @@ export const it: Messages = {
     url: "URL",
     urlPending: "Disponibile dopo l’avvio",
     domain: "Dominio",
+    parkedIn: "Cartella parcheggiata",
+    removeParked:
+      "Questo sito viene da una cartella parcheggiata. Togli il parcheggio in Generale, o sposta il progetto fuori dalla cartella.",
+    browse: "Sfoglia…",
+    folderPick: "Scegli la cartella di un progetto Laravel",
     services: "Servizi",
     servicesHint: "Servizi condivisi usati da questo sito. Dove serve, ogni categoria ha il suo database o bucket.",
     envTitle: "Variabili .env",
@@ -238,6 +243,12 @@ export const it: Messages = {
       "Gli aggiornamenti online arriveranno con la release pubblica; ogni nuova versione di Werd include un catalogo aggiornato.",
     dataFolder: "Cartella dati",
     dataFolderHint: "Qui stanno runtime, dati dei siti e log.",
+    parked: "Cartelle parcheggiate",
+    parkedHint:
+      "Ogni progetto Laravel dentro una cartella parcheggiata diventa un sito. I nuovi progetti compaiono da soli; quelli cancellati spariscono.",
+    park: "Parcheggia cartella",
+    parkPick: "Scegli una cartella che contiene i tuoi progetti",
+    unpark: (folder: string) => `Togli il parcheggio di ${folder}`,
     startup: "Avvio",
     startupHint:
       "Avvia Werd nella tray quando accedi a Windows, così i servizi ad avvio automatico sono pronti. Chiudendo la finestra Werd resta nella tray.",

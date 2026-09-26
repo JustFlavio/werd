@@ -24,6 +24,8 @@ export interface Project {
   path: string;
   /** `.test` domain, e.g. `shop.test`. */
   domain?: string | null;
+  /** Parked folder the site comes from; such sites follow their folder. */
+  parked?: string | null;
   php: string;
   node?: string | null;
   links?: Partial<Record<Category, Link>>;
@@ -86,6 +88,7 @@ export interface Settings {
   path_enabled: boolean;
   domains: boolean;
   https_port: number;
+  parked: string[];
 }
 
 export interface DomainsStatus {
@@ -140,6 +143,9 @@ export const linkProject = (id: string, category: Category, instance: string) =>
   rpc<Project>("sites.link", { id, category, instance });
 export const unlinkProject = (id: string, category: Category) => rpc<Project>("sites.unlink", { id, category });
 export const setProjectDomain = (id: string, domain: string) => rpc<Project>("sites.domain", { id, domain });
+export const listParks = () => rpc<string[]>("parks.list");
+export const parkFolder = (path: string) => rpc<string[]>("parks.add", { path });
+export const unparkFolder = (path: string) => rpc<string[]>("parks.remove", { path });
 export const resolveProject = (id: string) => rpc<{ project: Project; jobs: Job[] }>("sites.resolve", { id });
 
 // ---- Runtimes, jobs, settings ------------------------------------------------
@@ -232,6 +238,12 @@ export async function syncHosts(): Promise<void> {
 // ---- Desktop shell ----------------------------------------------------------
 
 let demoLaunchAtLogin = false;
+
+/** Opens the system folder picker; null when cancelled. */
+export async function pickFolder(title: string): Promise<string | null> {
+  if (!desktop) return demo ? "C:\\Users\\dev\\Developer\\new-app" : null;
+  return invoke<string | null>("pick_folder", { title });
+}
 
 /** Whether Werd starts (in the tray) when the user signs in. */
 export async function launchAtLogin(): Promise<boolean> {

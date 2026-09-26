@@ -23,6 +23,7 @@ import {
   openSite,
   openUrl,
   type Project,
+  parkFolder,
   refreshCatalog,
   resetPorts,
   type ServiceInstance,
@@ -36,6 +37,7 @@ import {
   syncHosts,
   systemInfo,
   trustCa,
+  unparkFolder,
   updateSettings,
 } from "./api";
 import { useT } from "./i18n";
@@ -132,6 +134,16 @@ export default function App() {
   const toggle = (project: Project) =>
     void run(project.id, () => (project.status === "running" ? stopProject(project.id) : startProject(project.id)));
 
+  /** Asks for the hosts update when new sites brought domains the file lacks. */
+  async function syncNewDomains() {
+    const hosts = await domainsStatus();
+    if (hosts.missing.length === 0) return;
+    await syncHosts()
+      .then(() => setToast({ tone: "info", text: t.shell.hostsUpdated }))
+      .catch(fail);
+    await refresh();
+  }
+
   /** Adds missing site domains to the hosts file; Windows shows a UAC prompt. */
   const updateHosts = () =>
     run("hosts", async () => {
@@ -151,13 +163,7 @@ export default function App() {
       const project = await addProject(path);
       setSelectedId(project.id);
       await refresh();
-      const hosts = await domainsStatus();
-      if (hosts.missing.length > 0) {
-        await syncHosts()
-          .then(() => setToast({ tone: "info", text: t.shell.hostsUpdated }))
-          .catch(fail);
-        await refresh();
-      }
+      await syncNewDomains();
       return true;
     } catch (cause) {
       fail(cause);
@@ -296,6 +302,20 @@ export default function App() {
               })
             }
             onUpdateHosts={() => void updateHosts()}
+            onPark={(path) =>
+              void run("parks", async () => {
+                const parked = await parkFolder(path);
+                setSettings((current) => (current ? { ...current, parked } : current));
+                await refresh();
+                await syncNewDomains();
+              })
+            }
+            onUnpark={(path) =>
+              void run("parks", async () => {
+                const parked = await unparkFolder(path);
+                setSettings((current) => (current ? { ...current, parked } : current));
+              })
+            }
             launchAtLogin={atLogin}
             onToggleLaunchAtLogin={(enabled) =>
               void run("login", async () => setAtLogin(await setLaunchAtLogin(enabled)))

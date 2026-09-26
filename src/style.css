@@ -899,6 +899,20 @@ h2 {
 
 /* ---------- Site links ---------- */
 
+.path-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.path-list .path-row {
+  margin-top: 0;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+}
+
 .inline-form {
   display: flex;
   align-items: center;
@@ -906,6 +920,10 @@ h2 {
 }
 .inline-form .input {
   max-width: 280px;
+}
+.field .inline-form .input {
+  flex: 1;
+  max-width: none;
 }
 .inline-form .input-narrow {
   width: 90px;

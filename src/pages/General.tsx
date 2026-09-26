@@ -1,5 +1,6 @@
+import { FolderPlus, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { DomainsStatus, Settings, SystemInfo } from "../api";
+import { type DomainsStatus, pickFolder, type Settings, type SystemInfo } from "../api";
 import { LOCALES, type Locale, useI18n } from "../i18n";
 import { CopyButton, PageHeader, Section } from "../ui";
 
@@ -10,6 +11,8 @@ export function General({
   busy,
   onSaveDomains,
   onUpdateHosts,
+  onPark,
+  onUnpark,
   launchAtLogin,
   onToggleLaunchAtLogin,
   onTogglePath,
@@ -22,6 +25,8 @@ export function General({
   busy: string | null;
   onSaveDomains: (changes: Partial<Pick<Settings, "domains" | "https_port">>) => void;
   onUpdateHosts: () => void;
+  onPark: (path: string) => void;
+  onUnpark: (path: string) => void;
   launchAtLogin: boolean | null;
   onToggleLaunchAtLogin: (enabled: boolean) => void;
   onTogglePath: (enable: boolean) => void;
@@ -149,6 +154,45 @@ export function General({
                 )}
               </div>
             </>
+          )}
+        </Section>
+
+        <Section
+          title={t.general.parked}
+          description={t.general.parkedHint}
+          action={
+            <button
+              type="button"
+              className="button"
+              disabled={!settings || busy === "parks"}
+              onClick={() =>
+                void pickFolder(t.general.parkPick).then((path) => {
+                  if (path) onPark(path);
+                })
+              }
+            >
+              <FolderPlus size={14} /> {t.general.park}
+            </button>
+          }
+        >
+          {settings && settings.parked.length > 0 && (
+            <ul className="path-list">
+              {settings.parked.map((folder) => (
+                <li key={folder} className="path-row">
+                  <code className="mono">{folder}</code>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label={t.general.unpark(folder)}
+                    title={t.general.unpark(folder)}
+                    disabled={busy === "parks"}
+                    onClick={() => onUnpark(folder)}
+                  >
+                    <X size={14} />
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
         </Section>
 

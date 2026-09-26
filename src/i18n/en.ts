@@ -80,6 +80,10 @@ export const en = {
     url: "URL",
     urlPending: "Available once started",
     domain: "Domain",
+    parkedIn: "Parked folder",
+    removeParked: "This site comes from a parked folder. Unpark the folder in General, or move the project out of it.",
+    browse: "Browse…",
+    folderPick: "Choose a Laravel project folder",
     services: "Services",
     servicesHint: "Shared services this site uses. Each category gets its own database or bucket where it applies.",
     envTitle: ".env values",
@@ -240,6 +244,12 @@ export const en = {
     catalogUnavailable: "Online updates arrive with the public release; new Werd versions ship an updated catalog.",
     dataFolder: "Data folder",
     dataFolderHint: "Runtimes, site data and logs live here.",
+    parked: "Parked folders",
+    parkedHint:
+      "Every Laravel project inside a parked folder becomes a site. New projects appear on their own; deleted ones disappear.",
+    park: "Park folder",
+    parkPick: "Choose a folder that contains your projects",
+    unpark: (folder: string) => `Unpark ${folder}`,
     startup: "Startup",
     startupHint:
       "Start Werd in the tray when you sign in to Windows, so services marked to start automatically are ready. Closing the window keeps Werd in the tray.",

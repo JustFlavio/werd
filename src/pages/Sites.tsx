@@ -5,6 +5,7 @@ import {
   type Job,
   linkProject,
   type Project,
+  pickFolder,
   projectEnv,
   removeProject,
   resolveProject,
@@ -200,6 +201,12 @@ function SiteDetail({
         <dl className="fields">
           <dt>{t.sites.path}</dt>
           <dd className="mono">{project.path}</dd>
+          {project.parked && (
+            <>
+              <dt>{t.sites.parkedIn}</dt>
+              <dd className="mono">{project.parked}</dd>
+            </>
+          )}
           <dt>{t.sites.domain}</dt>
           <dd>
             <form
@@ -331,7 +338,13 @@ function SiteDetail({
           >
             {t.sites.resetPorts}
           </button>
-          <button type="button" className="button" onClick={() => setRemoving(true)}>
+          <button
+            type="button"
+            className="button"
+            disabled={Boolean(project.parked)}
+            title={project.parked ? t.sites.removeParked : undefined}
+            onClick={() => setRemoving(true)}
+          >
             <Trash2 size={14} /> {t.sites.remove}
           </button>
         </div>
@@ -387,13 +400,26 @@ function AddSiteModal({
         <p className="muted">{t.sites.addDialogHint(<code key="file">werd.yml</code>)}</p>
         <label className="field">
           <span>{t.sites.folder}</span>
-          <input
-            ref={input}
-            className="input mono"
-            value={path}
-            onChange={(event) => setPath(event.target.value)}
-            placeholder={t.sites.folderPlaceholder}
-          />
+          <span className="inline-form">
+            <input
+              ref={input}
+              className="input mono"
+              value={path}
+              onChange={(event) => setPath(event.target.value)}
+              placeholder={t.sites.folderPlaceholder}
+            />
+            <button
+              type="button"
+              className="button"
+              onClick={() =>
+                void pickFolder(t.sites.folderPick).then((picked) => {
+                  if (picked) setPath(picked);
+                })
+              }
+            >
+              {t.sites.browse}
+            </button>
+          </span>
         </label>
         <div className="modal-actions">
           <button type="button" className="button" onClick={onClose}>

@@ -123,6 +123,7 @@ const settings: Settings = {
   path_enabled: false,
   domains: true,
   https_port: 443,
+  parked: [],
 };
 
 /** Domains the demo hosts file maps; billing-api is missing so the banner shows. */
@@ -319,6 +320,31 @@ export async function demoRpc(method: string, params: Record<string, unknown>): 
         domains,
         missing: settings.domains ? domains.filter((domain) => !hosts.has(domain)) : [],
       };
+    }
+    case "parks.list":
+      return [...settings.parked];
+    case "parks.add": {
+      const folder = String(params.path);
+      if (!settings.parked.includes(folder)) settings.parked.push(folder);
+      if (!projects.some((project) => project.parked === folder)) {
+        projects.push({
+          id: crypto.randomUUID(),
+          name: "portfolio",
+          domain: "portfolio.test",
+          parked: folder,
+          path: `${folder}\\portfolio`,
+          php: "8.5",
+          status: "stopped",
+        });
+      }
+      return [...settings.parked];
+    }
+    case "parks.remove": {
+      const folder = String(params.path);
+      settings.parked = settings.parked.filter((parked) => parked !== folder);
+      for (const project of projects.filter((candidate) => candidate.parked === folder))
+        projects.splice(projects.indexOf(project), 1);
+      return [...settings.parked];
     }
     case "hosts.sync":
       for (const project of projects) if (project.domain) hosts.add(project.domain);
