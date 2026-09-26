@@ -1,10 +1,11 @@
-import { ExternalLink, Info, Play, Plus, Square, Trash2 } from "lucide-react";
+import { ExternalLink, Info, Pencil, Play, Plus, Square, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
   createService,
   deleteService,
   type Job,
   type NewService,
+  renameService,
   type ServiceDetails,
   type ServiceInstance,
   type ServiceOffering,
@@ -38,6 +39,7 @@ export function Services({
   const [adding, setAdding] = useState(false);
   const [details, setDetails] = useState<ServiceDetails | null>(null);
   const [removing, setRemoving] = useState<ServiceInstance | null>(null);
+  const [renaming, setRenaming] = useState<ServiceInstance | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   const act = (id: string, action: () => Promise<unknown>) => {
@@ -136,6 +138,15 @@ export function Services({
                           <button
                             type="button"
                             className="icon-button"
+                            title={t.services.rename}
+                            aria-label={`${t.services.rename} ${instance.name}`}
+                            onClick={() => setRenaming(instance)}
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            className="icon-button"
                             title={t.services.details}
                             aria-label={`${t.services.details} ${instance.name}`}
                             onClick={() => void serviceDetails(instance.id).then(setDetails).catch(onError)}
@@ -187,6 +198,17 @@ export function Services({
         />
       )}
       {details && <DetailsModal details={details} onClose={() => setDetails(null)} />}
+      {renaming && (
+        <RenameModal
+          instance={renaming}
+          onClose={() => setRenaming(null)}
+          onConfirm={(name) => {
+            const id = renaming.id;
+            setRenaming(null);
+            act(id, () => renameService(id, name));
+          }}
+        />
+      )}
       {removing && (
         <RemoveModal
           instance={removing}
@@ -419,6 +441,43 @@ function RemoveModal({
           {t.services.remove}
         </button>
       </div>
+    </Modal>
+  );
+}
+
+function RenameModal({
+  instance,
+  onClose,
+  onConfirm,
+}: {
+  instance: ServiceInstance;
+  onClose: () => void;
+  onConfirm: (name: string) => void;
+}) {
+  const t = useT();
+  const [name, setName] = useState(instance.name);
+  const valid = name.trim().length > 0 && name.trim().length <= 80;
+  return (
+    <Modal title={t.services.renameTitle(instance.name)} onClose={onClose}>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (valid) onConfirm(name.trim());
+        }}
+      >
+        <label className="field">
+          <span>{t.services.name}</span>
+          <input className="input" value={name} onChange={(event) => setName(event.target.value)} />
+        </label>
+        <div className="modal-actions">
+          <button type="button" className="button" onClick={onClose}>
+            {t.common.cancel}
+          </button>
+          <button type="submit" className="button button-primary" disabled={!valid || name.trim() === instance.name}>
+            {t.services.rename}
+          </button>
+        </div>
+      </form>
     </Modal>
   );
 }

@@ -514,6 +514,12 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
                 enabled
             )?)
         }
+        "services.rename" => json!(instances::rename(
+            root,
+            &mut state.instances,
+            id(params)?,
+            text(params, "name")?
+        )?),
         "services.details" => instances::details(root, &state.instances, id(params)?)?,
         "services.logs" => json!(instances::logs(root, &state.instances, id(params)?)?),
         "services.database" => {

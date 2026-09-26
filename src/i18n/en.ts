@@ -272,6 +272,8 @@ export const en = {
     start: "Start",
     stop: "Stop",
     details: "Details",
+    rename: "Rename",
+    renameTitle: (name: string) => `Rename ${name}`,
     remove: "Remove",
     removeTitle: (name: string) => `Remove ${name}?`,
     removeHint: "The service stops and disappears from Werd. Sites linked to it will need another service.",

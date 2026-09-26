@@ -597,6 +597,13 @@ export async function demoRpc(method: string, params: Record<string, unknown>): 
           : `REDIS_HOST=127.0.0.1\nREDIS_PORT=${instance.port}`,
       };
     }
+    case "services.rename": {
+      const instance = findInstance(params.id);
+      const name = String(params.name).trim();
+      if (!name) throw new Error("A service name needs 1 to 80 characters");
+      instance.name = name;
+      return instance;
+    }
     case "services.logs":
       return [`[12:00:01] ${findInstance(params.id).name} ready to accept connections`];
     case "doctor":

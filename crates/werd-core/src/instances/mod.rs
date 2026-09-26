@@ -455,6 +455,30 @@ pub(crate) fn set_autostart(
     Ok(instances.list[index].clone())
 }
 
+/// Renames an instance. Names stay unique so the CLI can find services by name.
+pub(crate) fn rename(
+    root: &Path,
+    instances: &mut Instances,
+    id: &str,
+    name: &str,
+) -> Result<ServiceInstance> {
+    let index = instances.index(id)?;
+    let name = name.trim();
+    if name.is_empty() || name.chars().count() > 80 {
+        bail!("A service name needs 1 to 80 characters");
+    }
+    if instances
+        .list
+        .iter()
+        .any(|other| other.id != id && other.name.eq_ignore_ascii_case(name))
+    {
+        bail!("Another service is already called {name}");
+    }
+    instances.list[index].name = name.to_string();
+    instances.save(root)?;
+    Ok(instances.list[index].clone())
+}
+
 /// Details for the app: credentials, web UI and `.env` lines.
 pub(crate) fn details(root: &Path, instances: &Instances, id: &str) -> Result<serde_json::Value> {
     let instance = instances.get(id)?;
@@ -640,6 +664,28 @@ mod tests {
         let loaded = Instances::load(root.path()).unwrap();
         assert_eq!(loaded.list.len(), 3);
         assert!(root.path().join("services").join(&first.id).is_dir());
+    }
+
+    #[test]
+    fn instances_can_be_renamed_to_unique_names() {
+        let root = tempfile::tempdir().unwrap();
+        let mut instances = Instances::default();
+        let postgres = create(
+            root.path(),
+            &mut instances,
+            &catalog(),
+            request("postgresql", "17"),
+        )
+        .unwrap();
+        let mailpit = create(root.path(), &mut instances, &catalog(), request("mailpit", "1")).unwrap();
+        let renamed = rename(root.path(), &mut instances, &postgres.id, "  Main database ").unwrap();
+        assert_eq!(renamed.name, "Main database");
+        assert!(rename(root.path(), &mut instances, &mailpit.id, "main DATABASE").is_err());
+        assert!(rename(root.path(), &mut instances, &mailpit.id, "   ").is_err());
+        assert_eq!(
+            Instances::load(root.path()).unwrap().list[0].name,
+            "Main database"
+        );
     }
 
     #[test]

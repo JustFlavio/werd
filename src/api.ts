@@ -268,6 +268,7 @@ export const deleteService = (id: string, keepData: boolean) =>
 export const setServiceAutostart = (id: string, autostart: boolean) =>
   rpc<ServiceInstance>("services.autostart", { id, autostart });
 export const serviceDetails = (id: string) => rpc<ServiceDetails>("services.details", { id });
+export const renameService = (id: string, name: string) => rpc<ServiceInstance>("services.rename", { id, name });
 export const serviceLogs = (id: string) => rpc<string[]>("services.logs", { id });
 
 // ---- System ------------------------------------------------------------------

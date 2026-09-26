@@ -37,6 +37,11 @@ pub enum ServiceAction {
     Stop {
         service: String,
     },
+    /// Rename an instance, e.g. `werd service rename "cloudino-ai PostgreSQL" "PostgreSQL 18"`.
+    Rename {
+        service: String,
+        name: String,
+    },
     /// Show credentials, .env values and the web UI address.
     Info {
         service: String,
@@ -197,6 +202,13 @@ pub fn run(action: Option<ServiceAction>, json_output: bool) -> Result<()> {
         ServiceAction::Stop { service } => {
             let instance = call("services.stop", json!({ "id": resolve(&service)? }))?;
             println!("Stopped {}", instance["name"].as_str().unwrap_or_default());
+        }
+        ServiceAction::Rename { service, name } => {
+            let instance = call(
+                "services.rename",
+                json!({ "id": resolve(&service)?, "name": name }),
+            )?;
+            println!("Renamed to {}", instance["name"].as_str().unwrap_or_default());
         }
         ServiceAction::Info { service } => {
             let details = call("services.details", json!({ "id": resolve(&service)? }))?;

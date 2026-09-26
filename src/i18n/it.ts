@@ -271,6 +271,8 @@ export const it: Messages = {
     start: "Avvia",
     stop: "Ferma",
     details: "Dettagli",
+    rename: "Rinomina",
+    renameTitle: (name: string) => `Rinomina ${name}`,
     remove: "Rimuovi",
     removeTitle: (name: string) => `Rimuovere ${name}?`,
     removeHint: "Il servizio si ferma e sparisce da Werd. I siti collegati dovranno usarne un altro.",
