@@ -10,7 +10,8 @@ repository = "https://github.com/JustFlavio/werd"
 authors = ["Werd contributors"]
 
 [workspace.lints.rust]
-unsafe_code = "forbid"
+# Denied everywhere; the only exception is a documented Win32 call in werd-core/src/process.rs.
+unsafe_code = "deny"
 
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }

@@ -92,6 +92,7 @@ pub fn ensure_daemon(executable: &Path) -> Result<()> {
         return Ok(());
     }
     let startup_log = home()?.join("daemon-startup.log");
+    crate::process::stop_inheriting_std_handles();
     let mut child = crate::process::hidden_command(executable)
         .stdin(Stdio::null())
         .stdout(Stdio::null())

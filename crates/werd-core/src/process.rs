@@ -28,6 +28,35 @@ pub(crate) fn hidden_command(program: impl AsRef<OsStr>) -> Command {
     command
 }
 
+/// Stops this process's standard handles from leaking into children that outlive it.
+///
+/// Windows children inherit every inheritable handle of the parent. When the CLI
+/// starts the daemon while its output is piped (`werd list | findstr x`), the daemon
+/// would keep the pipe open and the shell would wait for the daemon to exit.
+/// Rust duplicates handles it passes explicitly, so `Stdio::inherit` keeps working.
+#[cfg(windows)]
+#[allow(unsafe_code)]
+pub(crate) fn stop_inheriting_std_handles() {
+    use windows_sys::Win32::Foundation::{SetHandleInformation, HANDLE_FLAG_INHERIT, INVALID_HANDLE_VALUE};
+    use windows_sys::Win32::System::Console::{
+        GetStdHandle, STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE,
+    };
+    for id in [STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE] {
+        // SAFETY: GetStdHandle has no preconditions. SetHandleInformation only clears
+        // the inherit flag of a handle owned by this process, and is skipped for
+        // null or invalid handles (no console, redirected to NUL).
+        unsafe {
+            let handle = GetStdHandle(id);
+            if !handle.is_null() && handle != INVALID_HANDLE_VALUE {
+                SetHandleInformation(handle, HANDLE_FLAG_INHERIT, 0);
+            }
+        }
+    }
+}
+
+#[cfg(not(windows))]
+pub(crate) fn stop_inheriting_std_handles() {}
+
 /// A supervised child, named after its log file (`postgres`, `php`, ...).
 pub(crate) struct ManagedChild {
     pub name: String,
