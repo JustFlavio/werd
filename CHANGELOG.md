@@ -26,12 +26,19 @@ All notable changes to Werd are documented here. The format follows
 - **cli:** Let the shims use the versions chosen for a site
 - **cli:** Add site info, set, link, unlink, resolve and remove
 - **ui:** Configure site versions and linked services
+- **core:** Manage .test domains in the hosts file through an elevated helper
+- **proxy:** Serve every site from one shared Caddy with .test domains
+- **cli:** Add werd domains and werd set --domain
+- **ui:** Show and edit .test domains and keep the hosts file up to date
+- **desktop:** Add a tray icon, launch at login and a single instance
+- **ui:** Add the launch at login setting and translate the tray menu
 
 ### Bug fixes
 - **ui:** Resolve accessibility and hook dependency lint findings
 - **runtimes:** Correct PostgreSQL 18.6 archive checksum
 - **core:** Keep the daemon from holding the CLI's pipes on Windows
 - **core:** Allow the Windows-only PATH helpers on other platforms
+- **core:** Stop child processes when the daemon exits abnormally
 
 ### Refactoring
 - **core:** Split the daemon into focused modules
@@ -45,6 +52,8 @@ All notable changes to Werd are documented here. The format follows
 - Update changelog
 - List the deps-dev commit scope
 - Describe version management and the new CLI commands
+- Document werd.yml version 2, services and site commands
+- Document .test domains, the tray and the shared Caddy
 
 ### Tests
 - **ui:** Add vitest setup with first component and helper tests
@@ -65,6 +74,8 @@ All notable changes to Werd are documented here. The format follows
 - Refresh the runtime catalog weekly
 - Ship werd-shim with the installers and track its size
 - **runtimes:** Add MySQL, MariaDB, MongoDB and Meilisearch to the catalog
+- Bump version to 0.2.0
+- **release:** Ship werd-helper with the Windows installer
 
 ## [0.1.1] - 2026-09-25
 
