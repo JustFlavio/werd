@@ -78,6 +78,11 @@ enum Command {
     Update { target: Option<String> },
     /// Remove an installed line, e.g. `werd uninstall node@18`.
     Uninstall { target: String },
+    /// Add or remove the php, composer, node, npm and npx commands from your PATH.
+    Path {
+        #[command(subcommand)]
+        action: PathAction,
+    },
     /// Show the runtime catalog, or refresh it with `werd catalog refresh`.
     Catalog {
         #[command(subcommand)]
@@ -89,6 +94,14 @@ enum Command {
     Doctor,
     /// Print a shell completion script.
     Completions { shell: Shell },
+}
+
+#[derive(Subcommand)]
+enum PathAction {
+    /// Install the shims and add Werd's bin folder to your user PATH.
+    Enable,
+    /// Remove Werd's bin folder from your user PATH and delete the shims.
+    Disable,
 }
 
 #[derive(Subcommand)]
@@ -198,6 +211,18 @@ fn run(cli: Cli) -> Result<()> {
             println!("Removed {product} {line}");
             return Ok(());
         }
+        Command::Path { action } => {
+            let enable = matches!(action, PathAction::Enable);
+            call(if enable { "path.enable" } else { "path.disable" }, json!({}))?;
+            if enable {
+                let info = call("system.info", json!({}))?;
+                let bin = info["bin"].as_str().unwrap_or("the Werd bin folder");
+                println!("Added {bin} to your PATH. Open a new terminal to use php, composer and node.");
+            } else {
+                println!("Removed Werd from your PATH.");
+            }
+            return Ok(());
+        }
         Command::Catalog {
             action: Some(CatalogAction::Refresh),
         } => ("catalog.refresh", json!({})),
@@ -271,7 +296,8 @@ fn run(cli: Cli) -> Result<()> {
         | Command::Runtimes
         | Command::Install { .. }
         | Command::Update { .. }
-        | Command::Uninstall { .. } => {}
+        | Command::Uninstall { .. }
+        | Command::Path { .. } => {}
     }
     Ok(())
 }
