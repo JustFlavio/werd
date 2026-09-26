@@ -1,20 +1,82 @@
-//! Project lifecycle: link, start, stop and inspect.
+//! Site lifecycle: link, configure, start, stop and inspect.
+//!
+//! A site runs its own PHP FastCGI and Caddy. Databases, caches, mail and
+//! storage come from shared service instances the site is linked to.
 
+use crate::instances::{self, database_name};
 use crate::manifest::Manifest;
-use crate::model::{Project, ProjectStatus};
-use crate::paths::caddy_data;
+use crate::model::{Link, Project, ProjectStatus, Requirement, CATEGORIES};
+use crate::paths::{caddy_data, project_dir};
 use crate::platform;
 use crate::ports;
 use crate::process::append_log;
 use crate::proxy;
-use crate::services::{self, ServiceContext};
+use crate::runtimes::Installed;
+use crate::settings::Settings;
 use crate::state::State;
 use anyhow::{bail, Context, Result};
 use std::fs;
 use std::path::Path;
 use uuid::Uuid;
 
-/// Links a Laravel project folder, creating its `werd.yml` if needed.
+/// Database (or bucket) name for a site in categories that have one.
+fn default_database(category: &str, site: &str) -> Option<String> {
+    matches!(category, "database" | "storage")
+        .then(|| database_name(site).ok())
+        .flatten()
+}
+
+/// PHP line for a new site: `werd.yml`, then the default, then the newest installed, then 8.5.
+fn initial_php(root: &Path, requested: Option<String>) -> String {
+    requested
+        .or_else(|| {
+            Settings::load(root)
+                .ok()
+                .and_then(|settings| settings.default_php)
+        })
+        .or_else(|| {
+            Installed::load(root)
+                .ok()
+                .and_then(|installed| installed.lines("php").into_iter().next())
+        })
+        .unwrap_or_else(|| "8.5".into())
+}
+
+/// Links pending requirements to existing instances that satisfy them.
+pub(crate) fn auto_link(state: &mut State, index: usize) {
+    let instances = &state.instances.list;
+    let project = &mut state.projects[index];
+    let mut pending = Vec::new();
+    for requirement in std::mem::take(&mut project.requirements) {
+        let found = instances.iter().find(|instance| {
+            instance.product == requirement.product
+                && requirement
+                    .line
+                    .as_ref()
+                    .is_none_or(|line| *line == instance.line)
+                && requirement
+                    .extensions
+                    .iter()
+                    .all(|extension| instance.extensions.contains(extension))
+        });
+        match found {
+            Some(instance) if !project.links.contains_key(&requirement.category) => {
+                project.links.insert(
+                    requirement.category.clone(),
+                    Link {
+                        instance: instance.id.clone(),
+                        database: default_database(&requirement.category, &project.name),
+                    },
+                );
+            }
+            Some(_) => {}
+            None => pending.push(requirement),
+        }
+    }
+    project.requirements = pending;
+}
+
+/// Links a Laravel project folder. `werd.yml` is read when present, never written.
 pub(crate) fn add(root: &Path, state: &mut State, path: &str) -> Result<Project> {
     let canonical = fs::canonicalize(path).with_context(|| format!("Folder not found: {path}"))?;
     if !canonical.is_dir() {
@@ -30,8 +92,8 @@ pub(crate) fn add(root: &Path, state: &mut State, path: &str) -> Result<Project>
     if state.projects.iter().any(|project| project.path == display_path) {
         bail!("This project is already linked to Werd");
     }
-    let manifest = Manifest::load_or_create(&canonical)?;
-    let project = Project {
+    let manifest = Manifest::load(&canonical)?;
+    state.projects.push(Project {
         id: Uuid::new_v4().to_string(),
         name: canonical
             .file_name()
@@ -39,47 +101,80 @@ pub(crate) fn add(root: &Path, state: &mut State, path: &str) -> Result<Project>
             .to_string_lossy()
             .to_string(),
         path: display_path,
-        php: manifest.php.clone(),
-        services: manifest.services(),
+        php: initial_php(root, manifest.php),
+        node: manifest.node,
+        links: Default::default(),
+        requirements: manifest.requirements,
         status: ProjectStatus::Stopped,
         url: None,
         error: None,
         ports: None,
-        versions: manifest.versions(),
-        extensions: manifest.extensions(),
-    };
-    state.projects.push(project.clone());
+        services: Vec::new(),
+        versions: Default::default(),
+        extensions: Vec::new(),
+    });
+    let index = state.projects.len() - 1;
+    auto_link(state, index);
     state.save(root)?;
-    Ok(project)
+    Ok(state.projects[index].clone())
 }
 
-/// Starts the project's services, then PHP and Caddy. On any failure every
-/// process started so far is stopped again.
+/// Stops a site and forgets it. The project folder and linked services are untouched.
+pub(crate) fn remove(root: &Path, state: &mut State, id: &str) -> Result<()> {
+    let index = state.index(id)?;
+    stop_processes(state, id);
+    state.projects.remove(index);
+    state.save(root)?;
+    let _ = fs::remove_dir_all(project_dir(root, id));
+    Ok(())
+}
+
+/// Starts linked services (and the site database in them), then PHP and Caddy.
 pub(crate) fn start(root: &Path, state: &mut State, id: &str) -> Result<Project> {
     let index = state.index(id)?;
     if state.projects[index].status == ProjectStatus::Running {
         return Ok(state.projects[index].clone());
     }
     let project = state.projects[index].clone();
-    let mut ports = project.ports.clone().unwrap_or_default();
-    ports::ensure_available(&ports)?;
+    if !project.requirements.is_empty() {
+        let missing: Vec<String> = project
+            .requirements
+            .iter()
+            .map(|requirement| format!("{} ({})", requirement.category, requirement.product))
+            .collect();
+        bail!(
+            "{} needs services that are not set up yet: {}",
+            project.name,
+            missing.join(", ")
+        );
+    }
+    for (category, link) in &project.links {
+        if !state.instances.processes.contains_key(&link.instance) {
+            instances::start(root, &mut state.instances, &link.instance)
+                .with_context(|| format!("Starting the {category} service failed"))?;
+        }
+        if let (Some(database), true) = (&link.database, category == "database") {
+            instances::create_database(root, &state.instances, &link.instance, database)?;
+        }
+    }
 
-    let context = ServiceContext::new(root, &project);
+    let mut ports = project.ports.clone().unwrap_or_default();
+    ports.retain(|role, _| role == "site" || role == "fastcgi");
+    ports::ensure_available(&ports)?;
     let mut children = Vec::new();
-    let started =
-        services::start_all(&context, &project.services, &mut ports, &mut children).and_then(|()| {
-            proxy::start_site(
-                &context,
-                Path::new(&project.path),
-                &project.php,
-                &mut ports,
-                &mut children,
-            )
-        });
-    let url = match started {
+    let url = match proxy::start_site(
+        root,
+        id,
+        Path::new(&project.path),
+        &project.php,
+        &mut ports,
+        &mut children,
+    ) {
         Ok(url) => url,
         Err(error) => {
-            services::stop_all(&context, &mut children, &ports);
+            for child in children.iter_mut().rev() {
+                child.kill();
+            }
             return Err(error);
         }
     };
@@ -106,33 +201,33 @@ pub(crate) fn mark_failed(root: &Path, state: &mut State, id: &str, error: &anyh
     let _ = state.save(root);
 }
 
-/// Stops the processes of a project without touching its data.
-pub(crate) fn stop_processes(root: &Path, state: &mut State, id: &str) {
+/// Stops PHP and Caddy of a site. Shared services keep running.
+pub(crate) fn stop_processes(state: &mut State, id: &str) {
     if let Some(mut children) = state.processes.remove(id) {
-        let Ok(project) = state.project(id) else { return };
-        let ports = project.ports.clone().unwrap_or_default();
-        services::stop_all(&ServiceContext::new(root, project), &mut children, &ports);
+        for child in children.iter_mut().rev() {
+            child.kill();
+        }
     }
 }
 
 pub(crate) fn stop(root: &Path, state: &mut State, id: &str) -> Result<Project> {
     let index = state.index(id)?;
-    stop_processes(root, state, id);
+    stop_processes(state, id);
     let project = &mut state.projects[index];
     project.status = ProjectStatus::Stopped;
     project.url = None;
     let updated = project.clone();
-    append_log(root, id, "Project stopped")?;
+    append_log(root, id, "Site stopped")?;
     state.save(root)?;
     Ok(updated)
 }
 
-/// Forgets assigned ports so new ones are picked on the next start.
+/// Forgets the site's ports so new ones are picked on the next start.
 pub(crate) fn reset_ports(root: &Path, state: &mut State, id: &str) -> Result<Project> {
     let index = state.index(id)?;
     let project = &mut state.projects[index];
     if project.status == ProjectStatus::Running {
-        bail!("Stop the project first");
+        bail!("Stop the site first");
     }
     project.ports = None;
     project.error = None;
@@ -147,27 +242,109 @@ pub(crate) fn reset_ports(root: &Path, state: &mut State, id: &str) -> Result<Pr
     Ok(updated)
 }
 
+/// Changes the PHP line (applied on the next start) or the Node major of a site.
+pub(crate) fn set_runtime(
+    root: &Path,
+    state: &mut State,
+    id: &str,
+    product: &str,
+    line: Option<&str>,
+) -> Result<Project> {
+    let index = state.index(id)?;
+    if let Some(line) = line {
+        if Installed::load(root)?.version(product, line).is_none() {
+            bail!("Install {product} {line} first");
+        }
+    }
+    let project = &mut state.projects[index];
+    match product {
+        "php" => project.php = line.context("A site always needs a PHP version")?.into(),
+        "node" => project.node = line.map(str::to_string),
+        other => bail!("Sites cannot choose a {other} version"),
+    }
+    let updated = project.clone();
+    state.save(root)?;
+    Ok(updated)
+}
+
+/// Links (or relinks) a category of a site to a service instance.
+pub(crate) fn link(
+    root: &Path,
+    state: &mut State,
+    id: &str,
+    category: &str,
+    instance: &str,
+    database: Option<&str>,
+) -> Result<Project> {
+    if !CATEGORIES.contains(&category) {
+        bail!("Unknown category {category}");
+    }
+    let service = state.instances.get(instance)?.id.clone();
+    let index = state.index(id)?;
+    let project = &mut state.projects[index];
+    let database = match database {
+        Some(name) => Some(database_name(name)?),
+        None => default_database(category, &project.name),
+    };
+    project.links.insert(
+        category.into(),
+        Link {
+            instance: service,
+            database,
+        },
+    );
+    project
+        .requirements
+        .retain(|requirement| requirement.category != category);
+    let updated = project.clone();
+    state.save(root)?;
+    Ok(updated)
+}
+
+pub(crate) fn unlink(root: &Path, state: &mut State, id: &str, category: &str) -> Result<Project> {
+    let index = state.index(id)?;
+    state.projects[index].links.remove(category);
+    let updated = state.projects[index].clone();
+    state.save(root)?;
+    Ok(updated)
+}
+
 pub(crate) fn open(state: &State, id: &str) -> Result<String> {
-    let url = state
-        .project(id)?
-        .url
-        .clone()
-        .context("Start the project first")?;
+    let url = state.project(id)?.url.clone().context("Start the site first")?;
     platform::open_url(&url)?;
     Ok(url)
 }
 
+/// The `.env` block for a site: its URL plus every linked service.
 pub(crate) fn env(root: &Path, state: &State, id: &str) -> Result<String> {
     let project = state.project(id)?;
-    let ports = project
-        .ports
-        .as_ref()
-        .context("Start the project first to know its ports")?;
-    let lines = services::env_lines(&ServiceContext::new(root, project), &project.services, ports)?;
+    let mut lines: Vec<String> = project.url.iter().map(|url| format!("APP_URL={url}")).collect();
+    for category in CATEGORIES {
+        let Some(link) = project.links.get(category) else {
+            continue;
+        };
+        let Ok(instance) = state.instances.get(&link.instance) else {
+            continue;
+        };
+        for line in instances::env_for(root, instance, link.database.as_deref())? {
+            let key = line.split('=').next().unwrap_or_default();
+            if !lines
+                .iter()
+                .any(|existing| existing.split('=').next() == Some(key))
+            {
+                lines.push(line);
+            }
+        }
+        match (category, instance.product.as_str()) {
+            ("cache", "redis") => lines.push("CACHE_STORE=redis".into()),
+            ("queue", "redis") => lines.push("QUEUE_CONNECTION=redis".into()),
+            _ => {}
+        }
+    }
     Ok(lines.join("\n"))
 }
 
-/// Names of running projects that use `product` at `line`; such lines cannot be updated or removed.
+/// Names of running sites that use a runtime line; such lines cannot be updated or removed.
 pub(crate) fn using_runtime(state: &State, product: &str, line: &str) -> Vec<String> {
     state
         .projects
@@ -175,15 +352,9 @@ pub(crate) fn using_runtime(state: &State, product: &str, line: &str) -> Vec<Str
         .filter(|project| state.processes.contains_key(&project.id))
         .filter(|project| match product {
             "php" => project.php == line,
-            // One Caddy/pgvector serves every running site.
-            "caddy" | "pgvector" | "cacert" => true,
-            _ => {
-                project
-                    .services
-                    .iter()
-                    .any(|service| service.product() == product)
-                    && project.versions.get(product).is_none_or(|wanted| wanted == line)
-            }
+            // One Caddy and one CA bundle serve every running site.
+            "caddy" | "cacert" => true,
+            _ => false,
         })
         .map(|project| project.name.clone())
         .collect()
@@ -197,94 +368,158 @@ pub(crate) fn trust_local_ca(root: &Path) -> Result<String> {
     platform::trust_certificate(&certificate)
 }
 
+/// Services a site asks for that are not linked yet.
+pub(crate) fn pending(state: &State, id: &str) -> Result<Vec<Requirement>> {
+    Ok(state.project(id)?.requirements.clone())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::ServiceName;
+    use crate::instances::ServiceInstance;
+    use crate::model::Ports;
 
-    fn laravel_folder(parent: &Path, name: &str) -> String {
+    fn laravel_folder(parent: &Path, name: &str, manifest: Option<&str>) -> String {
         let folder = parent.join(name);
         fs::create_dir_all(folder.join("public")).unwrap();
         fs::write(folder.join("artisan"), "").unwrap();
         fs::write(folder.join("composer.json"), "{}").unwrap();
+        if let Some(manifest) = manifest {
+            fs::write(folder.join("werd.yml"), manifest).unwrap();
+        }
         folder.to_string_lossy().into_owned()
     }
 
-    #[test]
-    fn add_links_a_laravel_folder_once() {
-        let root = tempfile::tempdir().unwrap();
-        let work = tempfile::tempdir().unwrap();
-        let mut state = State::default();
-        let folder = laravel_folder(work.path(), "shop");
-
-        let project = add(root.path(), &mut state, &folder).unwrap();
-        assert_eq!(project.name, "shop");
-        assert_eq!(project.services, Manifest::default().services());
-        assert!(Path::new(&folder).join("werd.yml").is_file());
-        assert_eq!(State::load(root.path()).unwrap().projects.len(), 1);
-
-        let error = add(root.path(), &mut state, &folder).unwrap_err().to_string();
-        assert!(error.contains("already linked"));
+    fn instance(id: &str, product: &str, line: &str, extensions: &[&str]) -> ServiceInstance {
+        ServiceInstance {
+            id: id.into(),
+            name: format!("{product} {line}"),
+            product: product.into(),
+            line: line.into(),
+            port: 1,
+            extra_ports: Ports::new(),
+            autostart: false,
+            extensions: extensions.iter().map(|name| (*name).to_string()).collect(),
+            status: ProjectStatus::Stopped,
+            error: None,
+        }
     }
 
     #[test]
-    fn add_rejects_non_laravel_folders() {
+    fn add_links_matching_instances_and_keeps_the_rest_pending() {
         let root = tempfile::tempdir().unwrap();
         let work = tempfile::tempdir().unwrap();
         let mut state = State::default();
-        let error = add(root.path(), &mut state, &work.path().to_string_lossy())
+        state
+            .instances
+            .list
+            .push(instance("pg16", "postgresql", "16", &[]));
+        state
+            .instances
+            .list
+            .push(instance("pg18", "postgresql", "18", &["pgvector"]));
+        state.instances.list.push(instance("redis", "redis", "8.2", &[]));
+        let folder = laravel_folder(
+            work.path(),
+            "My Shop",
+            Some("version: 2\nphp: '8.3'\nservices:\n  database: { product: postgresql, version: '18', extensions: [pgvector] }\n  cache: redis\n  mail: true\n"),
+        );
+
+        let project = add(root.path(), &mut state, &folder).unwrap();
+        assert_eq!(project.php, "8.3");
+        assert_eq!(
+            project.links["database"],
+            Link {
+                instance: "pg18".into(),
+                database: Some("my_shop".into())
+            }
+        );
+        assert_eq!(project.links["cache"].instance, "redis");
+        assert_eq!(project.requirements.len(), 1, "no Mailpit instance exists yet");
+        assert_eq!(project.requirements[0].product, "mailpit");
+
+        assert!(add(root.path(), &mut state, &folder)
+            .unwrap_err()
+            .to_string()
+            .contains("already linked"));
+    }
+
+    #[test]
+    fn sites_without_werd_yml_use_the_default_php_and_no_services() {
+        let root = tempfile::tempdir().unwrap();
+        let work = tempfile::tempdir().unwrap();
+        Settings {
+            default_php: Some("8.4".into()),
+            ..Settings::default()
+        }
+        .save(root.path())
+        .unwrap();
+        let mut state = State::default();
+        let folder = laravel_folder(work.path(), "blog", None);
+        let project = add(root.path(), &mut state, &folder).unwrap();
+        assert_eq!(project.php, "8.4");
+        assert!(project.links.is_empty() && project.requirements.is_empty());
+        assert!(
+            !Path::new(&folder).join("werd.yml").exists(),
+            "werd.yml is never created"
+        );
+    }
+
+    #[test]
+    fn start_explains_missing_services_and_runtimes() {
+        let root = tempfile::tempdir().unwrap();
+        let work = tempfile::tempdir().unwrap();
+        let mut state = State::default();
+        let folder = laravel_folder(work.path(), "api", Some("services:\n  mail: true\n"));
+        let project = add(root.path(), &mut state, &folder).unwrap();
+        let error = start(root.path(), &mut state, &project.id)
             .unwrap_err()
             .to_string();
-        assert!(error.contains("Laravel"));
-        assert!(add(root.path(), &mut state, "/definitely/missing/folder").is_err());
-    }
+        assert!(error.contains("not set up yet: mail (mailpit)"), "{error}");
 
-    #[test]
-    fn start_fails_cleanly_without_runtimes() {
-        let root = tempfile::tempdir().unwrap();
-        let work = tempfile::tempdir().unwrap();
-        let mut state = State::default();
-        let folder = laravel_folder(work.path(), "blog");
-        fs::write(
-            Path::new(&folder).join("werd.yml"),
-            "version: 1\nphp: '8.5'\nservices:\n  postgres: null\n  redis: null\n  mailpit: false\n  rustfs: false\n",
-        )
-        .unwrap();
-        let project = add(root.path(), &mut state, &folder).unwrap();
-        assert!(project.services.is_empty());
-
+        state.projects[0].requirements.clear();
         let error = start(root.path(), &mut state, &project.id)
             .unwrap_err()
             .to_string();
         assert!(error.contains("PHP 8.5 is not installed"), "{error}");
         assert!(state.processes.is_empty());
-        assert_eq!(state.project(&project.id).unwrap().status, ProjectStatus::Stopped);
     }
 
     #[test]
-    fn reset_ports_and_env_require_the_right_state() {
+    fn link_env_runtime_changes_and_removal() {
         let root = tempfile::tempdir().unwrap();
         let work = tempfile::tempdir().unwrap();
         let mut state = State::default();
-        let project = add(root.path(), &mut state, &laravel_folder(work.path(), "api")).unwrap();
+        let mut redis = instance("r1", "redis", "7.2", &[]);
+        redis.port = 6390;
+        state.instances.list.push(redis);
+        let project = add(root.path(), &mut state, &laravel_folder(work.path(), "api", None)).unwrap();
 
-        assert!(env(root.path(), &state, &project.id)
-            .unwrap_err()
-            .to_string()
-            .contains("Start the project"));
-
-        state.projects[0].ports = Some(crate::model::Ports::from([("redis".to_string(), 7000)]));
-        state.projects[0].services = vec![ServiceName::Redis];
+        link(root.path(), &mut state, &project.id, "cache", "r1", None).unwrap();
+        link(root.path(), &mut state, &project.id, "queue", "r1", None).unwrap();
+        let env = env(root.path(), &state, &project.id).unwrap();
         assert_eq!(
-            env(root.path(), &state, &project.id).unwrap(),
-            "REDIS_HOST=127.0.0.1\nREDIS_PORT=7000\nREDIS_PASSWORD=null"
+            env.matches("REDIS_PORT=6390").count(),
+            1,
+            "shared keys appear once:\n{env}"
         );
+        assert!(env.contains("CACHE_STORE=redis") && env.contains("QUEUE_CONNECTION=redis"));
 
-        state.projects[0].status = ProjectStatus::Running;
-        assert!(reset_ports(root.path(), &mut state, &project.id).is_err());
-        state.projects[0].status = ProjectStatus::Error;
-        let reset = reset_ports(root.path(), &mut state, &project.id).unwrap();
-        assert_eq!(reset.ports, None);
-        assert_eq!(reset.status, ProjectStatus::Stopped);
+        assert!(link(root.path(), &mut state, &project.id, "cron", "r1", None).is_err());
+        assert!(!unlink(root.path(), &mut state, &project.id, "queue")
+            .unwrap()
+            .links
+            .contains_key("queue"));
+
+        let error = set_runtime(root.path(), &mut state, &project.id, "php", Some("8.1")).unwrap_err();
+        assert!(error.to_string().contains("Install php 8.1"));
+        let mut installed = Installed::default();
+        installed.set("node", "22", "22.1.0");
+        installed.save(root.path()).unwrap();
+        let updated = set_runtime(root.path(), &mut state, &project.id, "node", Some("22")).unwrap();
+        assert_eq!(updated.node.as_deref(), Some("22"));
+
+        remove(root.path(), &mut state, &project.id).unwrap();
+        assert!(state.projects.is_empty());
     }
 }

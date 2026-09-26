@@ -6,7 +6,7 @@ use std::fs;
 use std::path::Path;
 
 /// Current on-disk layout; see `migrations.rs`.
-pub const LAYOUT_VERSION: u32 = 2;
+pub const LAYOUT_VERSION: u32 = 3;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]

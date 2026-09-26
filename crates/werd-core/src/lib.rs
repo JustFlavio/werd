@@ -11,7 +11,6 @@
 //! - `manifest`: `werd.yml`
 //! - `state`, `projects`: linked projects and their lifecycle
 //! - `instances`: shared service instances (PostgreSQL, MySQL, Redis, …)
-//! - `services`: per-site services from 0.1 (replaced by instances)
 //! - `proxy`: PHP FastCGI + Caddy per site
 //! - [`platform`]: OS integration (browser, certificates)
 //! - `rpc`, `daemon`: local API and the daemon process
@@ -32,7 +31,6 @@ mod projects;
 mod proxy;
 mod rpc;
 pub mod runtimes;
-mod services;
 pub mod settings;
 mod shims;
 mod state;

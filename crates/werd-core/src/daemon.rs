@@ -96,9 +96,53 @@ fn runtime_users(state: &State, product: &str, line: &str) -> Vec<String> {
 /// Creates a service instance. When its runtime (or pgvector) is missing, a
 /// background job installs it first; the instance then starts if requested.
 fn create_service(daemon: &Daemon, state: &mut State, params: &Value) -> Result<Value> {
-    let root = daemon.root.clone();
     let start_after = params["start"].as_bool().unwrap_or(true);
     let request: CreateRequest = serde_json::from_value(params.clone()).context("Invalid service request")?;
+    create_instance(daemon, state, request, start_after)
+}
+
+/// Creates the instances a site still needs and links them; returns the install jobs.
+fn resolve_site(daemon: &Daemon, state: &mut State, id: &str) -> Result<Value> {
+    let catalog = daemon.catalog();
+    let mut jobs = Vec::new();
+    for requirement in projects::pending(state, id)? {
+        let product = catalog.product(&requirement.product)?;
+        let line = match &requirement.line {
+            Some(line) => line.clone(),
+            None => product
+                .available_lines()
+                .first()
+                .map(|(line, _)| (*line).clone())
+                .with_context(|| format!("{} is not available for this platform", product.label))?,
+        };
+        let request = CreateRequest {
+            product: requirement.product.clone(),
+            line,
+            name: None,
+            port: None,
+            autostart: true,
+            extensions: requirement.extensions.clone(),
+        };
+        let created = create_instance(daemon, state, request, true)?;
+        let instance = created["instance"]["id"]
+            .as_str()
+            .context("Missing instance id")?
+            .to_string();
+        projects::link(&daemon.root, state, id, &requirement.category, &instance, None)?;
+        if !created["job"].is_null() {
+            jobs.push(created["job"].clone());
+        }
+    }
+    Ok(json!({ "project": state.project(id)?, "jobs": jobs }))
+}
+
+fn create_instance(
+    daemon: &Daemon,
+    state: &mut State,
+    request: CreateRequest,
+    start_after: bool,
+) -> Result<Value> {
+    let root = daemon.root.clone();
     let catalog = daemon.catalog();
     let instance = instances::create(&root, &mut state.instances, &catalog, request)?;
 
@@ -208,6 +252,39 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
             }
         }
         "stop" => json!(projects::stop(root, state, id(params)?)?),
+        "remove" => {
+            projects::remove(root, state, id(params)?)?;
+            json!(null)
+        }
+        "php" => json!(projects::set_runtime(
+            root,
+            state,
+            id(params)?,
+            "php",
+            Some(text(params, "line")?)
+        )?),
+        "node" => json!(projects::set_runtime(
+            root,
+            state,
+            id(params)?,
+            "node",
+            params["line"].as_str()
+        )?),
+        "link" => json!(projects::link(
+            root,
+            state,
+            id(params)?,
+            text(params, "category")?,
+            text(params, "instance")?,
+            params["database"].as_str(),
+        )?),
+        "unlink" => json!(projects::unlink(
+            root,
+            state,
+            id(params)?,
+            text(params, "category")?
+        )?),
+        "resolve" => resolve_site(daemon, state, id(params)?)?,
         "reset-ports" => json!(projects::reset_ports(root, state, id(params)?)?),
         "open" => json!(projects::open(state, id(params)?)?),
         "logs" => {
@@ -322,7 +399,7 @@ fn reap_exited(root: &Path, state: &mut State) {
     }
     instances::reap_exited(root, &mut state.instances);
     for (id, name, exit) in failed {
-        projects::stop_processes(root, state, &id);
+        projects::stop_processes(state, &id);
         if let Ok(index) = state.index(&id) {
             let project = &mut state.projects[index];
             project.status = ProjectStatus::Error;

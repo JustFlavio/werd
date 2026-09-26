@@ -55,25 +55,62 @@ impl fmt::Display for ServiceName {
     }
 }
 
+/// Categories a site can link a service instance to.
+pub const CATEGORIES: [&str; 6] = ["database", "cache", "queue", "mail", "storage", "search"];
+
+/// A site's use of a service instance.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Link {
+    /// Service instance id.
+    pub instance: String,
+    /// Database (or bucket) of the site inside the instance.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub database: Option<String>,
+}
+
+/// A service a site asks for (from `werd.yml`) that is not linked yet.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Requirement {
+    pub category: String,
+    pub product: String,
+    /// Wanted line; any installed line matches when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub line: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub extensions: Vec<String>,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Project {
     pub id: String,
     pub name: String,
     pub path: String,
+    /// PHP line the site runs on.
     pub php: String,
-    pub services: Vec<ServiceName>,
+    /// Node.js major used by the shims inside the site folder, if set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub node: Option<String>,
+    /// Service instance per category (`database`, `cache`, …).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub links: BTreeMap<String, Link>,
+    /// Services from `werd.yml` still waiting to be linked.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub requirements: Vec<Requirement>,
     #[serde(default)]
     pub status: ProjectStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    /// Ports of the site itself (`site`, `fastcgi`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ports: Option<Ports>,
-    /// Requested line per runtime product, e.g. `postgresql` → `18`.
+
+    // Fields of 0.1 and 0.2 per-site services, read only by the data migration.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub services: Vec<ServiceName>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub versions: BTreeMap<String, String>,
-    /// Optional extensions, e.g. `pgvector`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub extensions: Vec<String>,
 }

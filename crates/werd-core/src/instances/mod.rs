@@ -479,6 +479,15 @@ pub(crate) fn create_database(root: &Path, instances: &Instances, id: &str, name
     Ok(name)
 }
 
+/// `.env` lines to reach an instance, using `database` as the site database or bucket.
+pub(crate) fn env_for(
+    root: &Path,
+    instance: &ServiceInstance,
+    database: Option<&str>,
+) -> Result<Vec<String>> {
+    driver(&instance.product)?.env(&InstanceContext { root, instance }, database)
+}
+
 /// Instances as shown in lists, each with its web UI address when it has one.
 pub(crate) fn summaries(root: &Path, instances: &Instances) -> Vec<serde_json::Value> {
     instances

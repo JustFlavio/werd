@@ -5,7 +5,6 @@ use crate::paths::{caddy_data, project_dir};
 use crate::ports;
 use crate::process::{hidden_command, spawn_logged, spawn_ready, ManagedChild};
 use crate::runtimes;
-use crate::services::ServiceContext;
 use anyhow::{bail, Result};
 use std::fs;
 use std::path::Path;
@@ -26,26 +25,32 @@ pub(crate) fn caddyfile(public_dir: &Path, site_port: u16, fastcgi_port: u16) ->
 
 /// Starts php-cgi (from the project's PHP line) and Caddy, returning the site URL.
 pub(crate) fn start_site(
-    context: &ServiceContext,
+    root: &Path,
+    project_id: &str,
     project_path: &Path,
     php_line: &str,
     ports: &mut Ports,
     children: &mut Vec<ManagedChild>,
 ) -> Result<String> {
     let php_dir = runtimes::line_dir(
-        context.root,
+        root,
         "php",
-        &runtimes::resolve_line(context.root, "php", Some(php_line), "PHP")?,
+        &runtimes::resolve_line(root, "php", Some(php_line), "PHP")?,
     );
     let php = php_dir.join(runtimes::exe("php-cgi"));
-    let caddy = context.binary("caddy", "caddy", "Caddy")?;
+    let caddy_dir = runtimes::line_dir(
+        root,
+        "caddy",
+        &runtimes::resolve_line(root, "caddy", None, "Caddy")?,
+    );
+    let caddy = caddy_dir.join(runtimes::exe("caddy"));
     let public_dir = project_path.join("public");
     if !public_dir.join("index.php").is_file() {
         bail!("public/index.php not found in {}", project_path.display());
     }
     let site_port = ports::assign(ports, "site")?;
     let fastcgi_port = ports::assign(ports, "fastcgi")?;
-    let directory = project_dir(context.root, context.project_id);
+    let directory = project_dir(root, project_id);
     fs::create_dir_all(&directory)?;
 
     let caddyfile_path = directory.join("Caddyfile");
@@ -70,7 +75,7 @@ pub(crate) fn start_site(
         .arg(&caddyfile_path)
         .args(["--adapter", "caddyfile"])
         .current_dir(&directory)
-        .env("XDG_DATA_HOME", caddy_data(context.root));
+        .env("XDG_DATA_HOME", caddy_data(root));
     children.push(spawn_ready(
         &directory,
         "caddy",
