@@ -48,6 +48,8 @@ All notable changes to Werd are documented here. The format follows
 - **desktop:** Switch the global PHP version from the tray
 - **ui:** Call the default PHP the global PHP version and explain the PATH
 - **ui:** Style select menus to match Werd
+- **core:** Set up Caddy, PHP and Composer on the first start
+- **ui:** Show the first-run setup on the Dashboard
 
 ### Bug fixes
 - **ui:** Resolve accessibility and hook dependency lint findings
@@ -108,6 +110,7 @@ All notable changes to Werd are documented here. The format follows
 - Bump version to 0.3.0-beta.1
 - Format the JSON files the version script rewrites
 - Bump version to 0.3.0-beta.2
+- Bump version to 0.3.0-beta.3
 
 ## [0.1.1] - 2026-09-25
 
