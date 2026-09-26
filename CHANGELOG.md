@@ -47,6 +47,7 @@ All notable changes to Werd are documented here. The format follows
 - **services:** Rename service instances
 - **desktop:** Switch the global PHP version from the tray
 - **ui:** Call the default PHP the global PHP version and explain the PATH
+- **ui:** Style select menus to match Werd
 
 ### Bug fixes
 - **ui:** Resolve accessibility and hook dependency lint findings
@@ -60,6 +61,10 @@ All notable changes to Werd are documented here. The format follows
 - **core:** Migrate 0.1 services without data as pending requirements
 - **release:** Install Werd outside its data folder
 - **core:** Put Werd first on the user PATH
+- **core:** Download Caddy when the first site starts
+- **cli:** Wait for a site that starts after downloading Caddy
+- **ui:** Wait for the site to start before opening it
+- **core:** Download Caddy only for a site that can start
 
 ### Refactoring
 - **core:** Split the daemon into focused modules
@@ -102,6 +107,7 @@ All notable changes to Werd are documented here. The format follows
 - Bump version to 0.3.0
 - Bump version to 0.3.0-beta.1
 - Format the JSON files the version script rewrites
+- Bump version to 0.3.0-beta.2
 
 ## [0.1.1] - 2026-09-25
 
