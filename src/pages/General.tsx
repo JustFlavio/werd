@@ -10,6 +10,8 @@ export function General({
   busy,
   onSaveDomains,
   onUpdateHosts,
+  launchAtLogin,
+  onToggleLaunchAtLogin,
   onTogglePath,
   onRefreshCatalog,
   onTrustCa,
@@ -20,6 +22,8 @@ export function General({
   busy: string | null;
   onSaveDomains: (changes: Partial<Pick<Settings, "domains" | "https_port">>) => void;
   onUpdateHosts: () => void;
+  launchAtLogin: boolean | null;
+  onToggleLaunchAtLogin: (enabled: boolean) => void;
   onTogglePath: (enable: boolean) => void;
   onRefreshCatalog: () => void;
   onTrustCa: () => void;
@@ -51,6 +55,22 @@ export function General({
                 </option>
               ))}
             </select>
+          }
+        />
+
+        <Section
+          title={t.general.startup}
+          description={t.general.startupHint}
+          action={
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={launchAtLogin ?? false}
+                disabled={launchAtLogin === null || busy === "login"}
+                onChange={(event) => onToggleLaunchAtLogin(event.target.checked)}
+              />
+              {t.general.startupToggle}
+            </label>
           }
         />
 

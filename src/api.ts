@@ -229,6 +229,30 @@ export async function syncHosts(): Promise<void> {
   return invoke<void>("sync_hosts");
 }
 
+// ---- Desktop shell ----------------------------------------------------------
+
+let demoLaunchAtLogin = false;
+
+/** Whether Werd starts (in the tray) when the user signs in. */
+export async function launchAtLogin(): Promise<boolean> {
+  if (!desktop) return demoLaunchAtLogin;
+  return invoke<boolean>("launch_at_login");
+}
+
+export async function setLaunchAtLogin(enabled: boolean): Promise<boolean> {
+  if (!desktop) {
+    demoLaunchAtLogin = enabled;
+    return enabled;
+  }
+  return invoke<boolean>("set_launch_at_login", { enabled });
+}
+
+/** Translates the tray menu; a no-op outside the desktop app. */
+export async function setTrayLabels(labels: { open: string; stop_all: string; quit: string }): Promise<void> {
+  if (!desktop) return;
+  return invoke<void>("set_tray_labels", { labels });
+}
+
 export const REPOSITORY_URL = "https://github.com/JustFlavio/werd";
 
 export async function openUrl(url: string): Promise<void> {

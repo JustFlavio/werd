@@ -211,6 +211,11 @@ export const it: Messages = {
     services: "Servizi",
     empty: "Ancora nessuna riga.",
   },
+  tray: {
+    open: "Apri Werd",
+    stopAll: "Ferma tutti i siti e i servizi",
+    quit: "Esci",
+  },
   general: {
     title: "Generale",
     language: "Lingua",
@@ -233,6 +238,10 @@ export const it: Messages = {
       "Gli aggiornamenti online arriveranno con la release pubblica; ogni nuova versione di Werd include un catalogo aggiornato.",
     dataFolder: "Cartella dati",
     dataFolderHint: "Qui stanno runtime, dati dei siti e log.",
+    startup: "Avvio",
+    startupHint:
+      "Avvia Werd nella tray quando accedi a Windows, così i servizi ad avvio automatico sono pronti. Chiudendo la finestra Werd resta nella tray.",
+    startupToggle: "Avvia all’accesso",
     domains: "Domini .test",
     domainsHint:
       "Ogni sito risponde su https://<nome>.test oltre che sul suo indirizzo localhost. Werd tiene i domini nel file hosts.",

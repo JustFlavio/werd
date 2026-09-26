@@ -17,6 +17,7 @@ import {
   domainsStatus,
   enablePath,
   getSettings,
+  launchAtLogin,
   listProjects,
   listServices,
   openSite,
@@ -27,6 +28,8 @@ import {
   type ServiceInstance,
   type Settings,
   type SystemInfo,
+  setLaunchAtLogin,
+  setTrayLabels,
   startProject,
   stopProject,
   stopService,
@@ -77,6 +80,7 @@ export default function App() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [system, setSystem] = useState<SystemInfo | null>(null);
   const [domains, setDomains] = useState<DomainsStatus | null>(null);
+  const [atLogin, setAtLogin] = useState<boolean | null>(null);
 
   const fail = useCallback((cause: unknown) => setToast({ tone: "error", text: message(cause) }), []);
   const runtimes = useRuntimes(fail);
@@ -95,6 +99,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    void setTrayLabels({ open: t.tray.open, stop_all: t.tray.stopAll, quit: t.tray.quit }).catch(() => {});
+  }, [t]);
+
+  useEffect(() => {
     void refresh();
     const timer = window.setInterval(() => void refresh(), 2500);
     return () => window.clearInterval(timer);
@@ -105,6 +113,7 @@ export default function App() {
     if (page === "general") {
       void systemInfo().then(setSystem).catch(fail);
       void getSettings().then(setSettings).catch(fail);
+      void launchAtLogin().then(setAtLogin).catch(fail);
     }
   }, [page, fail]);
 
@@ -287,6 +296,10 @@ export default function App() {
               })
             }
             onUpdateHosts={() => void updateHosts()}
+            launchAtLogin={atLogin}
+            onToggleLaunchAtLogin={(enabled) =>
+              void run("login", async () => setAtLogin(await setLaunchAtLogin(enabled)))
+            }
             onTogglePath={(enable) =>
               void run("path", async () => {
                 await (enable ? enablePath() : disablePath());

@@ -214,6 +214,11 @@ export const en = {
     services: "Services",
     empty: "No lines yet.",
   },
+  tray: {
+    open: "Open Werd",
+    stopAll: "Stop all sites and services",
+    quit: "Quit",
+  },
   general: {
     title: "General",
     language: "Language",
@@ -235,6 +240,10 @@ export const en = {
     catalogUnavailable: "Online updates arrive with the public release; new Werd versions ship an updated catalog.",
     dataFolder: "Data folder",
     dataFolderHint: "Runtimes, site data and logs live here.",
+    startup: "Startup",
+    startupHint:
+      "Start Werd in the tray when you sign in to Windows, so services marked to start automatically are ready. Closing the window keeps Werd in the tray.",
+    startupToggle: "Launch at login",
     domains: ".test domains",
     domainsHint:
       "Serve each site on https://<name>.test as well as its localhost address. Werd keeps the domains in the hosts file.",
