@@ -17,6 +17,7 @@
 //! - [`platform`]: OS integration (browser, certificates)
 //! - `rpc`, `daemon`: local API and the daemon process
 
+pub mod actions;
 pub mod catalog;
 mod create;
 mod daemon;

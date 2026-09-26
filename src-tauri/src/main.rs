@@ -64,6 +64,34 @@ async fn pick_folder(app: AppHandle, title: String) -> Result<Option<String>, St
     .map_err(|error| error.to_string())?
 }
 
+/// Code editors found on this computer.
+#[tauri::command]
+fn editors() -> Vec<werd_core::actions::Editor> {
+    werd_core::actions::editors()
+}
+
+/// Opens a site in the file manager, a terminal, Tinker or an editor. The
+/// webview passes a site id; the folder comes from the daemon.
+#[tauri::command]
+async fn site_action(id: String, action: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        ensure_daemon(&daemon_executable()?)?;
+        let snapshot = daemon_rpc("sites.list", json!({}))?;
+        let path = snapshot["projects"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|project| project["id"] == id.as_str())
+            .and_then(|project| project["path"].as_str())
+            .map(std::path::PathBuf::from)
+            .ok_or_else(|| anyhow::anyhow!("Site not found"))?;
+        werd_core::actions::run(&werd_core::home()?, &path, &action)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+    .map_err(|error| format!("{error:#}"))
+}
+
 #[tauri::command]
 fn launch_at_login(app: AppHandle) -> Result<bool, String> {
     app.autolaunch().is_enabled().map_err(|error| error.to_string())
@@ -155,6 +183,8 @@ fn main() {
             open_url,
             sync_hosts,
             pick_folder,
+            editors,
+            site_action,
             launch_at_login,
             set_launch_at_login,
             set_tray_labels
