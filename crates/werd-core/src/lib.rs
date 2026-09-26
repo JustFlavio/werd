@@ -18,6 +18,7 @@
 //! - `rpc`, `daemon`: local API and the daemon process
 
 pub mod actions;
+mod artisan;
 pub mod catalog;
 mod create;
 mod daemon;

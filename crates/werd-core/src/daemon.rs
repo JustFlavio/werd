@@ -290,6 +290,33 @@ fn update_settings(root: &Path, state: &mut State, params: &Value) -> Result<Val
     Ok(json!(settings))
 }
 
+/// Methods that run a slow command in a site folder. They copy the site under
+/// the lock and run without it, so other calls are not blocked meanwhile.
+fn dispatch_unlocked(
+    daemon: &Daemon,
+    state: &Mutex<State>,
+    method: &str,
+    params: &Value,
+) -> Option<Result<Value>> {
+    let method = method.strip_prefix("sites.").unwrap_or(method);
+    if !matches!(method, "about" | "boost") {
+        return None;
+    }
+    let project = (|| {
+        let state = state.lock().map_err(|_| anyhow!("Daemon state unavailable"))?;
+        Ok::<_, anyhow::Error>(state.project(id(params)?)?.clone())
+    })();
+    Some(project.and_then(|project| match method {
+        "about" => crate::artisan::about(&daemon.root, &project),
+        _ => {
+            if !crate::artisan::has_boost(&project) {
+                bail!("{} does not use Laravel Boost", project.name);
+            }
+            crate::artisan::boost_update(&daemon.root, &project).map(Value::from)
+        }
+    }))
+}
+
 /// Executes one RPC method. `sites.*` names and the 0.1 names are both accepted.
 fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) -> Result<Value> {
     let root = daemon.root.as_path();
@@ -300,13 +327,22 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
             projects: state.projects.clone(),
             daemon_version: VERSION.into()
         }),
-        "add" => json!(projects::add_with(
-            root,
-            state,
-            text(params, "path")?,
-            params["name"].as_str(),
-            params["php"].as_str(),
-        )?),
+        "add" => {
+            let project = projects::add_with(
+                root,
+                state,
+                text(params, "path")?,
+                params["name"].as_str(),
+                params["php"].as_str(),
+            )?;
+            // Asked for explicitly by the client (the Add site dialog), like Herd's link.
+            if params["update_env"].as_bool() == Some(true) {
+                if let Some(url) = projects::site_url(root, &project) {
+                    crate::create::set_app_url(Path::new(&project.path), &url)?;
+                }
+            }
+            json!(project)
+        }
         "inspect" => {
             let path = crate::parks::display_path(Path::new(text(params, "path")?))?;
             json!(crate::inspect::inspect(
@@ -596,6 +632,9 @@ pub fn run_daemon() -> Result<()> {
         let token = endpoint.token.clone();
         thread::spawn(move || {
             let _ = rpc::serve_connection(stream, &token, |method, params| {
+                if let Some(result) = dispatch_unlocked(&daemon, &state, method, &params) {
+                    return result;
+                }
                 let mut state = state.lock().map_err(|_| anyhow!("Daemon state unavailable"))?;
                 dispatch(&daemon, &mut state, method, &params)
             });
