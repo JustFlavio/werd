@@ -43,6 +43,8 @@ pub fn install(root: &Path, source: &Path) -> Result<()> {
 }
 
 /// Adds `entry` to a `;`-separated PATH value unless it is already there.
+// Used by the Windows PATH integration; tested on every platform.
+#[cfg_attr(not(windows), allow(dead_code))]
 pub fn with_entry(path: &str, entry: &str) -> Option<String> {
     let normalize = |value: &str| value.trim().trim_end_matches(['\\', '/']).to_ascii_lowercase();
     if path
@@ -60,6 +62,7 @@ pub fn with_entry(path: &str, entry: &str) -> Option<String> {
 }
 
 /// Removes `entry` from a `;`-separated PATH value, if present.
+#[cfg_attr(not(windows), allow(dead_code))]
 pub fn without_entry(path: &str, entry: &str) -> Option<String> {
     let normalize = |value: &str| value.trim().trim_end_matches(['\\', '/']).to_ascii_lowercase();
     let kept: Vec<&str> = path
