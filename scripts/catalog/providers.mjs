@@ -2,7 +2,7 @@
 // `ctx.sha256(url, upstreamHash?)` returns the upstream hash when given,
 // the cached hash for a known URL, or downloads and hashes the file.
 
-import { compareVersions, exists, fetchJson, fetchText, githubReleases, latestPerLine } from "./lib.mjs";
+import { compareVersions, exists, fetchJson, fetchText, githubHeaders, githubReleases, latestPerLine } from "./lib.mjs";
 
 const WINDOWS = "windows-x64";
 const minor = (version) => version.split(".").slice(0, 2).join(".");
@@ -163,6 +163,130 @@ async function pgvector(ctx) {
   return { label: "pgvector", kind: "extension", extends: "postgresql", lines };
 }
 
+/** MySQL server versions follow the MySQL Cluster tags on GitHub; zips move to /archives once superseded. */
+async function mysql(ctx) {
+  const tags = [];
+  for (let page = 1; page <= 3; page++) {
+    const batch = await fetchJson(
+      `https://api.github.com/repos/mysql/mysql-server/tags?per_page=100&page=${page}`,
+      githubHeaders(),
+    );
+    tags.push(...batch.map((tag) => tag.name));
+    if (batch.length < 100) break;
+  }
+  const versions = tags.map((name) => name.match(/^mysql-cluster-(\d+\.\d+\.\d+)$/)?.[1]).filter(Boolean);
+  const perLine = latestPerLine(versions, minor);
+  // LTS lines plus the newest innovation release.
+  const innovation = [...perLine.keys()]
+    .filter((line) => line.startsWith("9."))
+    .sort(compareVersions)
+    .pop();
+  const wanted = ["8.0", "8.4", innovation].filter(Boolean);
+  const lines = {};
+  for (const line of wanted) {
+    const [lineMajor, lineMinor, latestPatch] = perLine.get(line).split(".").map(Number);
+    for (let patch = latestPatch; patch >= 0; patch--) {
+      const version = `${lineMajor}.${lineMinor}.${patch}`;
+      const file = `mysql-${version}-winx64.zip`;
+      const candidates = [
+        `https://cdn.mysql.com/Downloads/MySQL-${line}/${file}`,
+        `https://cdn.mysql.com/archives/mysql-${line}/${file}`,
+      ];
+      let url = candidates.find((candidate) => ctx.known(candidate));
+      for (const candidate of url ? [] : candidates) {
+        if (await exists(candidate)) {
+          url = candidate;
+          break;
+        }
+      }
+      if (!url) continue;
+      lines[line] = {
+        latest: version,
+        lts: line !== innovation,
+        builds: { [WINDOWS]: { url, sha256: await ctx.sha256(url), format: "zip", marker: "bin/mysqld.exe" } },
+      };
+      break;
+    }
+  }
+  return { label: "MySQL", kind: "service", categories: ["database"], default_port: 3306, lines };
+}
+
+async function mariadb(ctx) {
+  const api = "https://downloads.mariadb.org/rest-api/mariadb/";
+  const { major_releases: majors } = await fetchJson(api);
+  const lines = {};
+  for (const major of majors) {
+    if (major.release_status !== "Stable" || compareVersions(major.release_id, "10.11") < 0) continue;
+    const latest = await fetchJson(`${api}${major.release_id}/latest/`);
+    const release = Object.values(latest.releases)[0];
+    const file = release?.files.find((candidate) => /-winx64\.zip$/.test(candidate.file_name));
+    if (!file) continue;
+    const url = file.file_download_url.replace(/^http:/, "https:");
+    lines[major.release_id] = {
+      latest: release.release_id,
+      lts: major.release_support_type === "Long Term Support",
+      ...(major.release_eol_date ? { eol: major.release_eol_date } : {}),
+      builds: {
+        [WINDOWS]: {
+          url,
+          sha256: await ctx.sha256(url, file.checksum.sha256sum),
+          format: "zip",
+          marker: "bin/mariadbd.exe",
+        },
+      },
+    };
+  }
+  return { label: "MariaDB", kind: "service", categories: ["database"], default_port: 3306, lines };
+}
+
+async function mongodb(ctx) {
+  const { versions } = await fetchJson("https://downloads.mongodb.org/full.json");
+  const byLine = new Map();
+  for (const release of versions) {
+    if (!release.production_release || compareVersions(release.version, "7.0") < 0) continue;
+    const download = release.downloads.find((item) => item.target === "windows" && item.arch === "x86_64");
+    if (!download?.archive) continue;
+    const line = minor(release.version);
+    if (!byLine.has(line) || compareVersions(release.version, byLine.get(line).version) > 0) {
+      byLine.set(line, { version: release.version, archive: download.archive });
+    }
+  }
+  const lines = {};
+  for (const [line, { version, archive }] of byLine) {
+    lines[line] = {
+      latest: version,
+      builds: {
+        [WINDOWS]: {
+          url: archive.url,
+          sha256: await ctx.sha256(archive.url, archive.sha256),
+          format: "zip",
+          marker: "bin/mongod.exe",
+        },
+      },
+    };
+  }
+  return { label: "MongoDB", kind: "service", categories: ["database"], default_port: 27017, lines };
+}
+
+/** Single-executable GitHub releases (Meilisearch ships a bare .exe). */
+function githubExecutable({ repo, label, categories, defaultPort, lineOf, asset, marker, minLine }) {
+  return async (ctx) => {
+    const product = await github({
+      repo,
+      label,
+      kind: "service",
+      categories,
+      defaultPort,
+      lineOf,
+      asset,
+      marker,
+      minLine,
+    })(ctx);
+    for (const line of Object.values(product.lines)) line.builds[WINDOWS].format = "file";
+    return product;
+  };
+}
+
 export const providers = {
   php,
   node,
@@ -179,6 +303,19 @@ export const providers = {
   }),
   postgresql,
   pgvector,
+  mysql,
+  mariadb,
+  mongodb,
+  meilisearch: githubExecutable({
+    repo: "meilisearch/meilisearch",
+    label: "Meilisearch",
+    categories: ["search"],
+    defaultPort: 7700,
+    lineOf: major,
+    asset: /^meilisearch-windows-amd64\.exe$/,
+    marker: "meilisearch.exe",
+    minLine: "1",
+  }),
   redis: github({
     repo: "redis-windows/redis-windows",
     label: "Redis",

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated": "2026-09-25T23:54:42.336Z",
+  "generated": "2026-09-26T00:39:47.561Z",
   "products": {
     "cacert": {
       "kind": "tool",
@@ -71,6 +71,201 @@
             }
           },
           "latest": "1.31.2"
+        }
+      }
+    },
+    "mariadb": {
+      "categories": [
+        "database"
+      ],
+      "default_port": 3306,
+      "kind": "service",
+      "label": "MariaDB",
+      "lines": {
+        "10.11": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "bin/mariadbd.exe",
+              "sha256": "398ea30e5036010bbebe01d2b1804280424dcc2626e36d8e95155c04d25a0490",
+              "url": "https://downloads.mariadb.org/rest-api/mariadb/10.11.19/mariadb-10.11.19-winx64.zip"
+            }
+          },
+          "eol": "2028-02-16",
+          "latest": "10.11.19",
+          "lts": true
+        },
+        "11.4": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "bin/mariadbd.exe",
+              "sha256": "d62986d433eeebfde218560b276103831604a61e929e87f1a17f5aebd80257e2",
+              "url": "https://downloads.mariadb.org/rest-api/mariadb/11.4.13/mariadb-11.4.13-winx64.zip"
+            }
+          },
+          "eol": "2029-05-29",
+          "latest": "11.4.13",
+          "lts": true
+        },
+        "11.8": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "bin/mariadbd.exe",
+              "sha256": "830c46727d9278eae212ae3eca44eeb9e71b2a68704e95f344a64fba7b1963f5",
+              "url": "https://downloads.mariadb.org/rest-api/mariadb/11.8.9/mariadb-11.8.9-winx64.zip"
+            }
+          },
+          "eol": "2030-02-13",
+          "latest": "11.8.9",
+          "lts": true
+        },
+        "12.3": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "bin/mariadbd.exe",
+              "sha256": "4b5706b47148b47c8f36963c8352d1ddee37a1287b4690428f631a74b09b85a0",
+              "url": "https://downloads.mariadb.org/rest-api/mariadb/12.3.3/mariadb-12.3.3-winx64.zip"
+            }
+          },
+          "eol": "2029-06-12",
+          "latest": "12.3.3",
+          "lts": true
+        },
+        "13.0": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "bin/mariadbd.exe",
+              "sha256": "ba9cefd6674b3f2f7bc67334c05305dc7c919643d76836e10767e70db0b5fb74",
+              "url": "https://downloads.mariadb.org/rest-api/mariadb/13.0.2/mariadb-13.0.2-winx64.zip"
+            }
+          },
+          "latest": "13.0.2",
+          "lts": false
+        }
+      }
+    },
+    "meilisearch": {
+      "categories": [
+        "search"
+      ],
+      "default_port": 7700,
+      "kind": "service",
+      "label": "Meilisearch",
+      "lines": {
+        "1": {
+          "builds": {
+            "windows-x64": {
+              "format": "file",
+              "marker": "meilisearch.exe",
+              "sha256": "1a3a3f2fa249b2a471eca479d37b1d3bbb9bda1aacae3eaf7839218105810125",
+              "url": "https://github.com/meilisearch/meilisearch/releases/download/v1.54.0/meilisearch-windows-amd64.exe"
+            }
+          },
+          "latest": "1.54.0"
+        }
+      }
+    },
+    "mongodb": {
+      "categories": [
+        "database"
+      ],
+      "default_port": 27017,
+      "kind": "service",
+      "label": "MongoDB",
+      "lines": {
+        "7.0": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "bin/mongod.exe",
+              "sha256": "09b7893dc07fbb6d67d4c2690f6d1fa5b3039a0b3b5de34fb1d9096d55a2230f",
+              "url": "https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-7.0.43.zip"
+            }
+          },
+          "latest": "7.0.43"
+        },
+        "8.0": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "bin/mongod.exe",
+              "sha256": "5a0675fdec49b544cd5d374ad50a9a594cf5b3278b5ace658aa51cbb4df17177",
+              "url": "https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-8.0.32.zip"
+            }
+          },
+          "latest": "8.0.32"
+        },
+        "8.2": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "bin/mongod.exe",
+              "sha256": "a45fca0ea0ff5dd8ab00bc10b103df33177cb519839e05f36dfe841a84cd21cd",
+              "url": "https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-8.2.12.zip"
+            }
+          },
+          "latest": "8.2.12"
+        },
+        "8.3": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "bin/mongod.exe",
+              "sha256": "55574b06b41848207213a5e69575dd3487abf3cf07ecfe01b3aef1bab0084241",
+              "url": "https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-8.3.11.zip"
+            }
+          },
+          "latest": "8.3.11"
+        }
+      }
+    },
+    "mysql": {
+      "categories": [
+        "database"
+      ],
+      "default_port": 3306,
+      "kind": "service",
+      "label": "MySQL",
+      "lines": {
+        "8.0": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "bin/mysqld.exe",
+              "sha256": "28e9eda019d88eff4478d811ea2110b83f02a3966be157fe91cc55def3ab0d4d",
+              "url": "https://cdn.mysql.com/Downloads/MySQL-8.0/mysql-8.0.46-winx64.zip"
+            }
+          },
+          "latest": "8.0.46",
+          "lts": true
+        },
+        "8.4": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "bin/mysqld.exe",
+              "sha256": "a492371d687d2bab088b0062581144a0044b8964baefdf4faa579292b423d25c",
+              "url": "https://cdn.mysql.com/Downloads/MySQL-8.4/mysql-8.4.11-winx64.zip"
+            }
+          },
+          "latest": "8.4.11",
+          "lts": true
+        },
+        "9.7": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "bin/mysqld.exe",
+              "sha256": "5592ea38e53edd67f5baa68303e7fcf2f0a40fc08978fdb4a7b0c38d12baea17",
+              "url": "https://cdn.mysql.com/Downloads/MySQL-9.7/mysql-9.7.2-winx64.zip"
+            }
+          },
+          "latest": "9.7.2",
+          "lts": false
         }
       }
     },

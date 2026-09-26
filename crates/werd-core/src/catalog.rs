@@ -75,8 +75,10 @@ pub struct Line {
 #[serde(rename_all = "lowercase")]
 pub enum Format {
     Zip,
-    /// A single file saved under the marker name (e.g. `composer.phar`).
+    /// A PHP archive saved under the marker name (e.g. `composer.phar`).
     Phar,
+    /// A single executable saved under the marker name (e.g. `meilisearch.exe`).
+    File,
     /// Formats this build of Werd cannot install yet.
     #[serde(other)]
     Unsupported,

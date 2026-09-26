@@ -292,7 +292,7 @@ pub fn install(
     progress.step("Installing");
     match build.format {
         Format::Zip => extract_into(&archive, &destination, &build.marker)?,
-        Format::Phar => place_file(&archive, &destination, &build.marker)?,
+        Format::Phar | Format::File => place_file(&archive, &destination, &build.marker)?,
         Format::Unsupported => bail!("Unsupported archive format"),
     }
 
