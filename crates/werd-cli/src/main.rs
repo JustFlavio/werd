@@ -11,7 +11,9 @@ use anyhow::{bail, Context, Result};
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
 use serde_json::{json, Value};
-use werd_core::{daemon_executable, ensure_daemon, rpc, DoctorResult, Project, Snapshot, LOG_SOURCES};
+use werd_core::{
+    daemon_executable, ensure_daemon, rpc, DoctorResult, Project, ProjectStatus, Snapshot, LOG_SOURCES,
+};
 
 #[derive(Parser)]
 #[command(
@@ -237,6 +239,28 @@ fn print_project(verb: &str, project: &Project) {
     }
 }
 
+/// A site reported as starting waits for Werd to download Caddy; follow it.
+fn wait_until_started(project: Project) -> Result<Project> {
+    if project.status != ProjectStatus::Starting {
+        return Ok(project);
+    }
+    println!("Downloading Caddy, the web server every site uses…");
+    loop {
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        let snapshot: Snapshot = serde_json::from_value(call("list", json!({}))?)?;
+        let current = snapshot
+            .projects
+            .into_iter()
+            .find(|candidate| candidate.id == project.id)
+            .context("The site disappeared")?;
+        match current.status {
+            ProjectStatus::Starting => continue,
+            ProjectStatus::Error => bail!("{}", current.error.unwrap_or_else(|| "Start failed".into())),
+            _ => return Ok(current),
+        }
+    }
+}
+
 fn run(cli: Cli) -> Result<()> {
     let (method, params) = match &cli.command {
         Command::Completions { shell } => {
@@ -402,7 +426,7 @@ fn run(cli: Cli) -> Result<()> {
             }
             println!("Start it with `werd up {}`", project.name);
         }
-        Command::Up { .. } => print_project("Started", &serde_json::from_value(result)?),
+        Command::Up { .. } => print_project("Started", &wait_until_started(serde_json::from_value(result)?)?),
         Command::Down { .. } => print_project("Stopped", &serde_json::from_value(result)?),
         Command::ResetPorts { .. } => {
             print_project("Ports reset for", &serde_json::from_value(result)?);
