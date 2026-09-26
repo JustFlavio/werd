@@ -17,6 +17,21 @@ async fn rpc(method: String, params: Option<Value>) -> Result<Value, String> {
     .map_err(|error| format!("{error:#}"))
 }
 
+/// Maps every site's `.test` domain in the hosts file. Runs here rather than in
+/// the daemon so the UAC prompt belongs to the visible window.
+#[tauri::command]
+async fn sync_hosts() -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        ensure_daemon(&daemon_executable()?)?;
+        let status = daemon_rpc("domains.status", Value::Null)?;
+        let domains: Vec<String> = serde_json::from_value(status["domains"].clone())?;
+        werd_core::platform::sync_hosts(&domains)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+    .map_err(|error| format!("{error:#}"))
+}
+
 /// Opens local service UIs (Mailpit, RustFS console) and the project repository.
 /// The core rejects any other URL, so the webview cannot launch arbitrary programs.
 #[tauri::command]
@@ -26,7 +41,7 @@ fn open_url(url: String) -> Result<(), String> {
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![rpc, open_url])
+        .invoke_handler(tauri::generate_handler![rpc, open_url, sync_hosts])
         .run(tauri::generate_context!())
         .expect("Cannot start Werd");
 }

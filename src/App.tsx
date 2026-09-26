@@ -12,7 +12,9 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import {
   addProject,
+  type DomainsStatus,
   disablePath,
+  domainsStatus,
   enablePath,
   getSettings,
   listProjects,
@@ -28,6 +30,7 @@ import {
   startProject,
   stopProject,
   stopService,
+  syncHosts,
   systemInfo,
   trustCa,
   updateSettings,
@@ -73,15 +76,17 @@ export default function App() {
   const [offline, setOffline] = useState<string | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [system, setSystem] = useState<SystemInfo | null>(null);
+  const [domains, setDomains] = useState<DomainsStatus | null>(null);
 
   const fail = useCallback((cause: unknown) => setToast({ tone: "error", text: message(cause) }), []);
   const runtimes = useRuntimes(fail);
 
   const refresh = useCallback(async () => {
     try {
-      const [snapshot, services] = await Promise.all([listProjects(), listServices()]);
+      const [snapshot, services, hosts] = await Promise.all([listProjects(), listServices(), domainsStatus()]);
       setProjects(snapshot.projects);
       setInstances(services);
+      setDomains(hosts);
       setDaemonVersion(snapshot.daemon_version);
       setOffline(null);
     } catch (cause) {
@@ -97,7 +102,10 @@ export default function App() {
 
   useEffect(() => {
     if (page === "php") void getSettings().then(setSettings).catch(fail);
-    if (page === "general") void systemInfo().then(setSystem).catch(fail);
+    if (page === "general") {
+      void systemInfo().then(setSystem).catch(fail);
+      void getSettings().then(setSettings).catch(fail);
+    }
   }, [page, fail]);
 
   async function run(key: string, action: () => Promise<unknown>) {
@@ -115,6 +123,13 @@ export default function App() {
   const toggle = (project: Project) =>
     void run(project.id, () => (project.status === "running" ? stopProject(project.id) : startProject(project.id)));
 
+  /** Adds missing site domains to the hosts file; Windows shows a UAC prompt. */
+  const updateHosts = () =>
+    run("hosts", async () => {
+      await syncHosts();
+      setToast({ tone: "info", text: t.shell.hostsUpdated });
+    });
+
   const stopAll = () =>
     void run("stop-all", async () => {
       for (const project of projects.filter((item) => item.status === "running")) await stopProject(project.id);
@@ -127,6 +142,13 @@ export default function App() {
       const project = await addProject(path);
       setSelectedId(project.id);
       await refresh();
+      const hosts = await domainsStatus();
+      if (hosts.missing.length > 0) {
+        await syncHosts()
+          .then(() => setToast({ tone: "info", text: t.shell.hostsUpdated }))
+          .catch(fail);
+        await refresh();
+      }
       return true;
     } catch (cause) {
       fail(cause);
@@ -174,6 +196,20 @@ export default function App() {
             <span>{t.shell.daemonOfflineBanner(offline)}</span>
             <button type="button" className="button button-small" onClick={() => void refresh()}>
               {t.common.retry}
+            </button>
+          </div>
+        )}
+
+        {domains && domains.missing.length > 0 && (
+          <div className="banner banner-warn" role="status">
+            <span>{t.shell.hostsMissing(domains.missing)}</span>
+            <button
+              type="button"
+              className="button button-small"
+              disabled={busy === "hosts"}
+              onClick={() => void updateHosts()}
+            >
+              {t.shell.updateHosts}
             </button>
           </div>
         )}
@@ -238,7 +274,19 @@ export default function App() {
         {page === "general" && (
           <General
             system={system}
+            settings={settings}
+            domains={domains}
             busy={busy}
+            onSaveDomains={(changes) =>
+              void run("domains", async () => {
+                setSettings(await updateSettings(changes));
+                if (changes.domains) {
+                  const hosts = await domainsStatus();
+                  if (hosts.missing.length > 0) await syncHosts();
+                }
+              })
+            }
+            onUpdateHosts={() => void updateHosts()}
             onTogglePath={(enable) =>
               void run("path", async () => {
                 await (enable ? enablePath() : disablePath());

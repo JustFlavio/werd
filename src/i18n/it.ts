@@ -3,6 +3,7 @@ import type { Messages } from "./en";
 
 export const it: Messages = {
   common: {
+    save: "Salva",
     close: "Chiudi",
     cancel: "Annulla",
     copy: "Copia",
@@ -29,6 +30,10 @@ export const it: Messages = {
     error: "Errore",
   },
   shell: {
+    hostsMissing: (domains: string[]) =>
+      `Non ancora nel file hosts: ${domains.length <= 3 ? domains.join(", ") : `${domains.slice(0, 3).join(", ")} +${domains.length - 3}`}. Windows chiede l’autorizzazione di amministratore per aggiungerli.`,
+    updateHosts: "Aggiorna file hosts",
+    hostsUpdated: "Il file hosts è aggiornato.",
     daemonOffline: "Gestore non raggiungibile",
     daemonOfflineBanner: (error: string) => `Impossibile contattare il gestore Werd: ${error}`,
     portsReset: "Le porte verranno riassegnate al prossimo avvio. Ricorda di aggiornare il .env.",
@@ -70,6 +75,7 @@ export const it: Messages = {
     path: "Percorso",
     url: "URL",
     urlPending: "Disponibile dopo l’avvio",
+    domain: "Dominio",
     services: "Servizi",
     servicesHint: "Servizi condivisi usati da questo sito. Dove serve, ogni categoria ha il suo database o bucket.",
     envTitle: "Variabili .env",
@@ -227,6 +233,13 @@ export const it: Messages = {
       "Gli aggiornamenti online arriveranno con la release pubblica; ogni nuova versione di Werd include un catalogo aggiornato.",
     dataFolder: "Cartella dati",
     dataFolderHint: "Qui stanno runtime, dati dei siti e log.",
+    domains: "Domini .test",
+    domainsHint:
+      "Ogni sito risponde su https://<nome>.test oltre che sul suo indirizzo localhost. Werd tiene i domini nel file hosts.",
+    domainsToggle: "Usa i domini .test",
+    httpsPort: "Porta HTTPS",
+    httpsPortHint: "Usa un’altra porta (es. 8443) se un altro programma occupa già la 443.",
+    hostsOk: (count: number) => `${count} ${count === 1 ? "dominio" : "domini"} nel file hosts.`,
   },
   about: {
     title: "Informazioni",

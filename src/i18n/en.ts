@@ -13,6 +13,7 @@ export const en = {
     copied: "Copied",
     open: "Open",
     retry: "Retry",
+    save: "Save",
     none: "—",
   },
   nav: {
@@ -36,6 +37,10 @@ export const en = {
     daemonOffline: "Daemon unreachable",
     daemonOfflineBanner: (error: string) => `Cannot reach the Werd daemon: ${error}`,
     portsReset: "Ports will be reassigned on the next start. Remember to update your .env.",
+    hostsMissing: (domains: string[]) =>
+      `Not in the hosts file yet: ${domains.length <= 3 ? domains.join(", ") : `${domains.slice(0, 3).join(", ")} +${domains.length - 3}`}. Windows asks for administrator approval to add them.`,
+    updateHosts: "Update hosts file",
+    hostsUpdated: "The hosts file is up to date.",
   },
   dashboard: {
     title: "Dashboard",
@@ -74,6 +79,7 @@ export const en = {
     path: "Path",
     url: "URL",
     urlPending: "Available once started",
+    domain: "Domain",
     services: "Services",
     servicesHint: "Shared services this site uses. Each category gets its own database or bucket where it applies.",
     envTitle: ".env values",
@@ -229,6 +235,13 @@ export const en = {
     catalogUnavailable: "Online updates arrive with the public release; new Werd versions ship an updated catalog.",
     dataFolder: "Data folder",
     dataFolderHint: "Runtimes, site data and logs live here.",
+    domains: ".test domains",
+    domainsHint:
+      "Serve each site on https://<name>.test as well as its localhost address. Werd keeps the domains in the hosts file.",
+    domainsToggle: "Use .test domains",
+    httpsPort: "HTTPS port",
+    httpsPortHint: "Use another port (e.g. 8443) if a different program already listens on 443.",
+    hostsOk: (count: number) => `${count} domain${count === 1 ? "" : "s"} in the hosts file.`,
   },
   about: {
     title: "About",

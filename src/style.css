@@ -614,6 +614,11 @@ h2 {
   border-bottom: 1px solid #5a2d2d;
   color: #f3b4b2;
 }
+.banner-warn {
+  background: #2a2416;
+  border-bottom: 1px solid #5c4a1f;
+  color: #f2d493;
+}
 
 .toast {
   position: fixed;
@@ -893,6 +898,18 @@ h2 {
 }
 
 /* ---------- Site links ---------- */
+
+.inline-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.inline-form .input {
+  max-width: 280px;
+}
+.inline-form .input-narrow {
+  width: 90px;
+}
 
 .callout-warn {
   border: 1px solid #5c4a1f;

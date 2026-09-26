@@ -17,17 +17,19 @@ const projects: Project[] = [
   {
     id: "shop",
     name: "shop",
+    domain: "shop.test",
     path: "C:\\Users\\dev\\Developer\\shop",
     php: "8.4",
     node: "22",
     links: { database: { instance: "pg", database: "shop" }, cache: { instance: "redis" }, mail: { instance: "mail" } },
     status: "running",
-    url: "https://localhost:52011",
+    url: "https://shop.test",
     ports: { site: 52011, fastcgi: 52012 },
   },
   {
     id: "blog",
     name: "blog",
+    domain: "blog.test",
     path: "C:\\Users\\dev\\Developer\\blog",
     php: "8.5",
     links: { database: { instance: "pg", database: "blog" } },
@@ -37,6 +39,7 @@ const projects: Project[] = [
   {
     id: "api",
     name: "billing-api",
+    domain: "billing-api.test",
     path: "C:\\Users\\dev\\Developer\\billing-api",
     php: "8.3",
     status: "error",
@@ -118,7 +121,12 @@ const settings: Settings = {
   memory_limit_mb: 512,
   catalog_url: null,
   path_enabled: false,
+  domains: true,
+  https_port: 443,
 };
+
+/** Domains the demo hosts file maps; billing-api is missing so the banner shows. */
+const hosts = new Set(["shop.test", "blog.test"]);
 
 const jobs: Job[] = [];
 
@@ -292,6 +300,29 @@ export async function demoRpc(method: string, params: Record<string, unknown>): 
       project.requirements = [];
       return { project, jobs };
     }
+    case "sites.domain": {
+      const project = findProject(params.id);
+      const raw = String(params.domain).trim().toLowerCase();
+      const domain = raw.endsWith(".test") ? raw : `${raw}.test`;
+      if (!/^[a-z0-9-]+(.[a-z0-9-]+)*.test$/.test(domain)) throw new Error(`${domain} is not a valid .test domain`);
+      project.domain = domain;
+      if (project.status === "running") project.url = `https://${domain}`;
+      return project;
+    }
+    case "domains.status": {
+      const domains = projects.flatMap((project) => (project.domain ? [project.domain] : [])).sort();
+      return {
+        enabled: settings.domains,
+        https_port: settings.https_port,
+        active: settings.domains,
+        warning: null,
+        domains,
+        missing: settings.domains ? domains.filter((domain) => !hosts.has(domain)) : [],
+      };
+    }
+    case "hosts.sync":
+      for (const project of projects) if (project.domain) hosts.add(project.domain);
+      return null;
     case "sites.remove":
       projects.splice(projects.indexOf(findProject(params.id)), 1);
       return null;

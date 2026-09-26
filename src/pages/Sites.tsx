@@ -9,6 +9,7 @@ import {
   removeProject,
   resolveProject,
   type ServiceInstance,
+  setProjectDomain,
   setProjectNode,
   setProjectPhp,
   unlinkProject,
@@ -67,7 +68,7 @@ export function Sites(props: SitesProps) {
                   <StatusDot status={project.status} />
                   <span className="site-row-text">
                     <strong>{project.name}</strong>
-                    <small>{project.path}</small>
+                    <small>{project.domain ?? project.path}</small>
                   </span>
                 </button>
               </li>
@@ -112,6 +113,8 @@ function SiteDetail({
   const t = useT();
   const [env, setEnv] = useState("");
   const [removing, setRemoving] = useState(false);
+  const [domain, setDomain] = useState(project.domain ?? "");
+  useEffect(() => setDomain(project.domain ?? ""), [project.domain]);
   const running = project.status === "running";
   const links = project.links ?? {};
   const pending = project.requirements ?? [];
@@ -197,6 +200,28 @@ function SiteDetail({
         <dl className="fields">
           <dt>{t.sites.path}</dt>
           <dd className="mono">{project.path}</dd>
+          <dt>{t.sites.domain}</dt>
+          <dd>
+            <form
+              className="inline-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                change(() => setProjectDomain(project.id, domain));
+              }}
+            >
+              <input
+                className="input mono"
+                value={domain}
+                aria-label={t.sites.domain}
+                onChange={(event) => setDomain(event.target.value)}
+              />
+              {domain.trim() && domain !== project.domain && (
+                <button type="submit" className="button button-small">
+                  {t.common.save}
+                </button>
+              )}
+            </form>
+          </dd>
           <dt>{t.sites.url}</dt>
           <dd className="mono">{project.url ?? <span className="muted">{t.sites.urlPending}</span>}</dd>
           <dt>PHP</dt>

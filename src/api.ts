@@ -22,6 +22,8 @@ export interface Project {
   id: string;
   name: string;
   path: string;
+  /** `.test` domain, e.g. `shop.test`. */
+  domain?: string | null;
   php: string;
   node?: string | null;
   links?: Partial<Record<Category, Link>>;
@@ -82,6 +84,20 @@ export interface Settings {
   memory_limit_mb: number;
   catalog_url: string | null;
   path_enabled: boolean;
+  domains: boolean;
+  https_port: number;
+}
+
+export interface DomainsStatus {
+  enabled: boolean;
+  https_port: number;
+  /** Whether the shared Caddy currently serves `.test` domains. */
+  active: boolean;
+  /** Why domains are not served although enabled (e.g. port 443 busy). */
+  warning: string | null;
+  domains: string[];
+  /** Site domains the hosts file does not map yet. */
+  missing: string[];
 }
 
 export interface SystemInfo {
@@ -123,6 +139,7 @@ export const setProjectNode = (id: string, line: string | null) => rpc<Project>(
 export const linkProject = (id: string, category: Category, instance: string) =>
   rpc<Project>("sites.link", { id, category, instance });
 export const unlinkProject = (id: string, category: Category) => rpc<Project>("sites.unlink", { id, category });
+export const setProjectDomain = (id: string, domain: string) => rpc<Project>("sites.domain", { id, domain });
 export const resolveProject = (id: string) => rpc<{ project: Project; jobs: Job[] }>("sites.resolve", { id });
 
 // ---- Runtimes, jobs, settings ------------------------------------------------
@@ -135,8 +152,9 @@ export const setDefaultRuntime = (product: string, line: string) =>
   rpc<Settings>("runtimes.default", { product, line });
 export const listJobs = () => rpc<Job[]>("jobs.list");
 export const getSettings = () => rpc<Settings>("settings.get");
-export const updateSettings = (changes: Partial<Pick<Settings, "upload_max_mb" | "memory_limit_mb">>) =>
-  rpc<Settings>("settings.set", changes);
+export const updateSettings = (
+  changes: Partial<Pick<Settings, "upload_max_mb" | "memory_limit_mb" | "domains" | "https_port">>,
+) => rpc<Settings>("settings.set", changes);
 
 // ---- Service instances ---------------------------------------------------------
 
@@ -200,6 +218,16 @@ export const enablePath = () => rpc<Settings>("path.enable");
 export const disablePath = () => rpc<Settings>("path.disable");
 export const doctor = () => rpc<DoctorResult[]>("doctor");
 export const trustCa = () => rpc<string>("trust-ca");
+export const domainsStatus = () => rpc<DomainsStatus>("domains.status");
+
+/** Adds every site domain to the hosts file. Windows asks for administrator approval. */
+export async function syncHosts(): Promise<void> {
+  if (demo) {
+    await demoRpc("hosts.sync", {});
+    return;
+  }
+  return invoke<void>("sync_hosts");
+}
 
 export const REPOSITORY_URL = "https://github.com/JustFlavio/werd";
 
