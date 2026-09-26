@@ -4,6 +4,7 @@ import {
   ExternalLink,
   FlaskConical,
   FolderOpen,
+  Loader2,
   Play,
   Plus,
   RefreshCw,
@@ -11,9 +12,10 @@ import {
   Square,
   SquareTerminal,
   Trash2,
+  TriangleAlert,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type AboutReport,
   type Category,
@@ -37,6 +39,7 @@ import {
 } from "../api";
 import { CATEGORIES, instancesFor } from "../categories";
 import { AddSiteWizard } from "../components/AddSiteWizard";
+import { Progress } from "../components/RuntimeTable";
 import { useT } from "../i18n";
 import type { Runtimes } from "../runtimes";
 import { CopyButton, EmptyState, Modal, PageHeader, Section, StatusDot } from "../ui";
@@ -169,6 +172,8 @@ function SiteDetail({
   const t = useT();
   const [tab, setTab] = useState<Tab>("general");
   const [removing, setRemoving] = useState(false);
+  const [setup, setSetup] = useState<SetupRow[] | null>(null);
+  const [setupDone, setSetupDone] = useState(false);
   const running = project.status === "running";
   const pending = project.requirements ?? [];
   const action = (name: string) => void siteAction(project.id, name).catch(onError);
@@ -189,7 +194,12 @@ function SiteDetail({
           <button
             type="button"
             className={`button ${running ? "" : "button-primary"}`}
-            disabled={busy === project.id || pending.length > 0 || project.status === "starting"}
+            disabled={
+              busy === project.id ||
+              pending.length > 0 ||
+              project.status === "starting" ||
+              (setup !== null && !setupDone)
+            }
             title={pending.length > 0 ? t.sites.resolveFirst : undefined}
             onClick={() => onToggle(project)}
           >
@@ -243,8 +253,18 @@ function SiteDetail({
             className="button button-primary"
             onClick={() =>
               void resolveProject(project.id)
-                .then(({ jobs }) => {
+                .then(({ project: linked, jobs }) => {
                   for (const job of jobs as Job[]) runtimes.track(job);
+                  // One row per service this click created, in the order werd.yml asked for them.
+                  setSetup(
+                    pending.flatMap((requirement) => {
+                      const instance = linked.links?.[requirement.category]?.instance;
+                      return instance
+                        ? [{ category: requirement.category, instance, since: Date.now() / 1000 - 5 }]
+                        : [];
+                    }),
+                  );
+                  setSetupDone(false);
                   return onChanged();
                 })
                 .catch(onError)
@@ -253,6 +273,19 @@ function SiteDetail({
             {t.sites.createMissing}
           </button>
         </div>
+      )}
+
+      {setup && (
+        <ServiceSetup
+          rows={setup}
+          instances={instances}
+          runtimes={runtimes}
+          onFinished={() => {
+            setSetupDone(true);
+            void onChanged();
+          }}
+          onDismiss={() => setSetup(null)}
+        />
       )}
 
       <div className="tabs" role="tablist">
@@ -308,6 +341,99 @@ function SiteDetail({
           </div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+interface SetupRow {
+  category: Category;
+  instance: string;
+  /** When the setup began (seconds); older jobs of the same version are ignored. */
+  since: number;
+}
+
+type SetupState = "downloading" | "starting" | "ready" | "failed";
+
+/** Progress of the services created by "Create missing services", one row each. */
+function ServiceSetup({
+  rows,
+  instances,
+  runtimes,
+  onFinished,
+  onDismiss,
+}: {
+  rows: SetupRow[];
+  instances: ServiceInstance[];
+  runtimes: Runtimes;
+  onFinished: () => void;
+  onDismiss: () => void;
+}) {
+  const t = useT();
+  const finished = useRef(false);
+  const states = rows.map((row) => {
+    const instance = instances.find((candidate) => candidate.id === row.instance);
+    const latest = instance ? runtimes.jobFor(instance.product, instance.line) : undefined;
+    const job = latest && latest.started_at >= row.since ? latest : undefined;
+    let state: SetupState;
+    let detail: string | null = null;
+    if (job?.state === "running") state = job.step === "Starting" ? "starting" : "downloading";
+    else if (job?.state === "failed") {
+      state = "failed";
+      detail = job.error;
+    } else if (instance?.status === "running") state = "ready";
+    else if (instance?.status === "error") {
+      state = "failed";
+      detail = instance.error ?? null;
+    } else state = "starting";
+    return { row, instance, job, state, detail };
+  });
+  const allFinished = states.every((entry) => entry.state === "ready" || entry.state === "failed");
+
+  useEffect(() => {
+    if (allFinished && !finished.current) {
+      finished.current = true;
+      onFinished();
+    }
+  }, [allFinished, onFinished]);
+
+  return (
+    <div className="service-setup" role="status">
+      <div className="service-setup-head">
+        <strong>{allFinished ? t.sites.setupFinished : t.sites.setupRunning}</strong>
+        {allFinished && (
+          <button type="button" className="icon-button" aria-label={t.common.close} onClick={onDismiss}>
+            <X size={14} />
+          </button>
+        )}
+      </div>
+      <ul>
+        {states.map(({ row, instance, job, state, detail }) => (
+          <li key={row.instance} className={`service-setup-row service-setup-${state}`}>
+            <span className="service-setup-name">
+              <strong>{instance?.name ?? t.services.categories[row.category]}</strong>
+              <small>{t.services.categories[row.category]}</small>
+            </span>
+            <span className="service-setup-state">
+              {state === "downloading" && job ? (
+                <Progress job={job} />
+              ) : state === "starting" ? (
+                <>
+                  <Loader2 size={14} className="spin" /> {t.sites.setupStarting}
+                </>
+              ) : state === "ready" ? (
+                <>
+                  <Check size={14} /> {t.sites.setupReady}
+                </>
+              ) : (
+                <span title={detail ?? undefined}>
+                  <TriangleAlert size={14} /> {t.sites.setupFailed}
+                </span>
+              )}
+            </span>
+            {state === "failed" && detail && <p className="service-setup-error">{detail}</p>}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

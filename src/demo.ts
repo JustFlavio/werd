@@ -236,6 +236,12 @@ function startJob(product: string, line: string, action: string): Job {
       job.step = "Done";
       job.state = "done";
       installed.set(`${product}/${line}`, entry.latest ?? line);
+      // Services created before their download start once it is done.
+      for (const instance of instances) {
+        if (instance.product === product && instance.line === line && instance.status === "stopped") {
+          instance.status = "running";
+        }
+      }
     }
   }, 250);
   return { ...job };
