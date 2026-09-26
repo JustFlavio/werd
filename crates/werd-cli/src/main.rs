@@ -61,13 +61,16 @@ enum Command {
     ResetPorts { project: String },
     /// Show a site: PHP and Node versions, linked services and what is still missing.
     Info { project: String },
-    /// Choose the PHP or Node.js version of a site.
+    /// Choose the PHP or Node.js version, or the .test domain, of a site.
     Set {
         project: String,
         #[arg(long)]
         php: Option<String>,
         #[arg(long)]
         node: Option<String>,
+        /// e.g. `shop` or `shop.test`
+        #[arg(long)]
+        domain: Option<String>,
     },
     /// Link a site category (database, cache, queue, mail, storage, search) to a service.
     Link {
@@ -123,6 +126,11 @@ enum Command {
         #[command(subcommand)]
         action: Option<CatalogAction>,
     },
+    /// Show .test domains, update the hosts file or change the HTTPS port.
+    Domains {
+        #[command(subcommand)]
+        action: Option<sites::DomainsAction>,
+    },
     /// Trust Werd's local HTTPS certificate authority.
     TrustCa,
     /// Check the environment.
@@ -159,7 +167,13 @@ fn resolve(project: &str) -> Result<String> {
     let matches: Vec<&Project> = snapshot
         .projects
         .iter()
-        .filter(|candidate| candidate.name.eq_ignore_ascii_case(project))
+        .filter(|candidate| {
+            candidate.name.eq_ignore_ascii_case(project)
+                || candidate
+                    .domain
+                    .as_deref()
+                    .is_some_and(|domain| domain.eq_ignore_ascii_case(project))
+        })
         .collect();
     match matches.as_slice() {
         [single] => Ok(single.id.clone()),
@@ -281,9 +295,20 @@ fn run(cli: Cli) -> Result<()> {
         Command::Logs { project, source } => ("logs", json!({ "id": resolve(project)?, "service": source })),
         Command::ResetPorts { project } => ("reset-ports", json!({ "id": resolve(project)? })),
         Command::Info { project } => return sites::info(&resolve(project)?, cli.json),
-        Command::Set { project, php, node } => {
-            return sites::set(&resolve(project)?, php.as_deref(), node.as_deref())
+        Command::Set {
+            project,
+            php,
+            node,
+            domain,
+        } => {
+            return sites::set(
+                &resolve(project)?,
+                php.as_deref(),
+                node.as_deref(),
+                domain.as_deref(),
+            )
         }
+        Command::Domains { action } => return sites::domains(action.as_ref(), cli.json),
         Command::Link {
             project,
             category,
@@ -322,6 +347,10 @@ fn run(cli: Cli) -> Result<()> {
         Command::Add { .. } => {
             let project: Project = serde_json::from_value(result)?;
             println!("Linked {} ({})", project.name, project.path);
+            if let Err(error) = sites::sync_hosts_if_needed() {
+                println!("The hosts file was not updated: {error:#}");
+                println!("Run `werd domains sync` to retry.");
+            }
             println!("Start it with `werd up {}`", project.name);
         }
         Command::Up { .. } => print_project("Started", &serde_json::from_value(result)?),
@@ -371,7 +400,8 @@ fn run(cli: Cli) -> Result<()> {
         | Command::Unlink { .. }
         | Command::Resolve { .. }
         | Command::Remove { .. }
-        | Command::Path { .. } => {}
+        | Command::Path { .. }
+        | Command::Domains { .. } => {}
     }
     Ok(())
 }

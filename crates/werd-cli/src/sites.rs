@@ -2,7 +2,8 @@
 
 use crate::call;
 use crate::runtimes::wait;
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
+use clap::Subcommand;
 use serde_json::{json, Value};
 use werd_core::jobs::Job;
 
@@ -33,6 +34,7 @@ pub fn info(id: &str, json_output: bool) -> Result<()> {
         site["path"].as_str().unwrap_or_default()
     );
     println!("status   {}", site["status"].as_str().unwrap_or_default());
+    println!("domain   {}", site["domain"].as_str().unwrap_or("-"));
     println!("php      {}", site["php"].as_str().unwrap_or("-"));
     println!("node     {}", site["node"].as_str().unwrap_or("default"));
     if let Some(url) = site["url"].as_str() {
@@ -74,9 +76,14 @@ pub fn info(id: &str, json_output: bool) -> Result<()> {
     Ok(())
 }
 
-pub fn set(id: &str, php: Option<&str>, node: Option<&str>) -> Result<()> {
-    if php.is_none() && node.is_none() {
-        bail!("Pass --php <version> and/or --node <version>");
+pub fn set(id: &str, php: Option<&str>, node: Option<&str>, domain: Option<&str>) -> Result<()> {
+    if php.is_none() && node.is_none() && domain.is_none() {
+        bail!("Pass --php <version>, --node <version> or --domain <name>");
+    }
+    if let Some(domain) = domain {
+        let site = call("sites.domain", json!({ "id": id, "domain": domain }))?;
+        println!("Domain set to {}", site["domain"].as_str().unwrap_or(domain));
+        sync_hosts_if_needed()?;
     }
     if let Some(line) = php {
         call("sites.php", json!({ "id": id, "line": line }))?;
@@ -121,5 +128,90 @@ pub fn resolve_services(id: &str) -> Result<()> {
         .as_object()
         .map_or(0, serde_json::Map::len);
     println!("{links} service(s) linked. Start the site with `werd up`.");
+    Ok(())
+}
+
+#[derive(Subcommand)]
+pub enum DomainsAction {
+    /// Show every site domain and whether the hosts file has it (default).
+    Status,
+    /// Add the site domains to the hosts file (asks for administrator approval).
+    Sync,
+    /// Serve sites on https://<name>.test.
+    Enable,
+    /// Use only https://localhost:<port> addresses.
+    Disable,
+    /// Serve .test domains on another HTTPS port, e.g. when 443 is taken.
+    Port { port: u16 },
+}
+
+/// Updates the hosts file when a site domain is missing from it.
+pub fn sync_hosts_if_needed() -> Result<()> {
+    let status = call("domains.status", json!({}))?;
+    let missing: Vec<String> = serde_json::from_value(status["missing"].clone())?;
+    if missing.is_empty() {
+        return Ok(());
+    }
+    println!(
+        "Adding {} to the hosts file; Windows will ask for administrator approval.",
+        missing.join(", ")
+    );
+    let domains: Vec<String> = serde_json::from_value(status["domains"].clone())?;
+    werd_core::platform::sync_hosts(&domains)
+}
+
+pub fn domains(action: Option<&DomainsAction>, json_output: bool) -> Result<()> {
+    match action {
+        None | Some(DomainsAction::Status) => {}
+        Some(DomainsAction::Sync) => {
+            let status = call("domains.status", json!({}))?;
+            let domains: Vec<String> = serde_json::from_value(status["domains"].clone())?;
+            werd_core::platform::sync_hosts(&domains)?;
+            println!(
+                "The hosts file now maps {} domain(s) to this computer.",
+                domains.len()
+            );
+            return Ok(());
+        }
+        Some(DomainsAction::Enable | DomainsAction::Disable) => {
+            let enabled = matches!(action, Some(DomainsAction::Enable));
+            call("settings.set", json!({ "domains": enabled }))?;
+            if enabled {
+                sync_hosts_if_needed()?;
+            }
+        }
+        Some(DomainsAction::Port { port }) => {
+            call("settings.set", json!({ "https_port": port }))?;
+        }
+    }
+    let status = call("domains.status", json!({}))?;
+    if json_output {
+        println!("{}", serde_json::to_string_pretty(&status)?);
+        return Ok(());
+    }
+    let enabled = status["enabled"]
+        .as_bool()
+        .context("Invalid answer from the daemon")?;
+    if !enabled {
+        println!(".test domains are off; sites use https://localhost:<port>. Turn them on with `werd domains enable`.");
+        return Ok(());
+    }
+    println!(".test domains are on (HTTPS port {})", status["https_port"]);
+    if let Some(warning) = status["warning"].as_str() {
+        println!("warning: {warning}");
+    }
+    let missing: Vec<String> = serde_json::from_value(status["missing"].clone())?;
+    for domain in status["domains"].as_array().into_iter().flatten() {
+        let domain = domain.as_str().unwrap_or_default();
+        let note = if missing.iter().any(|name| name == domain) {
+            "  (not in the hosts file)"
+        } else {
+            ""
+        };
+        println!("  {domain}{note}");
+    }
+    if !missing.is_empty() {
+        println!("Run `werd domains sync` to add the missing domains.");
+    }
     Ok(())
 }
