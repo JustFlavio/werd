@@ -85,6 +85,7 @@ if (assets.length) {
 const release = join(root, "target", "release");
 metrics.daemonBytes = size(join(release, `werd-daemon${exe}`));
 metrics.cliBytes = size(join(release, `werd${exe}`));
+metrics.shimBytes = size(join(release, `werd-shim${exe}`));
 metrics.desktopBytes = size(join(release, `werd-desktop${exe}`));
 const installers = files(join(release, "bundle")).filter((path) => /\.(exe|msi|dmg|AppImage|deb|rpm)$/.test(path));
 metrics.installers = Object.fromEntries(
@@ -166,6 +167,7 @@ const rows = [
   ["Frontend bundle gzip", kib(metrics.bundleGzipBytes)],
   ["werd-daemon binary", mib(metrics.daemonBytes)],
   ["werd CLI binary", mib(metrics.cliBytes)],
+  ["werd-shim binary", mib(metrics.shimBytes)],
   ["werd-desktop binary", mib(metrics.desktopBytes)],
   ...Object.entries(metrics.installers).map(([name, bytes]) => [`Installer ${name}`, mib(bytes)]),
   ["Daemon cold start (to first ping)", metrics.startupMs == null ? "n/a" : `${metrics.startupMs.toFixed(0)} ms`],

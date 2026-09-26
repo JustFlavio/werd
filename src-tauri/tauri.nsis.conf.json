@@ -1,6 +1,6 @@
 {
   "bundle": {
     "targets": ["nsis"],
-    "externalBin": ["binaries/werd-daemon", "binaries/werd"]
+    "externalBin": ["binaries/werd-daemon", "binaries/werd", "binaries/werd-shim"]
   }
 }

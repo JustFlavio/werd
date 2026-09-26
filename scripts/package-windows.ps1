@@ -10,7 +10,7 @@ $resourceCompiler = Get-ChildItem -LiteralPath $windowsKits -Filter rc.exe -Recu
 if (-not $resourceCompiler) { throw 'Windows SDK rc.exe (x64) not found' }
 $env:RC = $resourceCompiler.FullName
 $env:PATH = "$($resourceCompiler.DirectoryName);$env:PATH"
-& $cargo build --release -p werd-core -p werd-cli
+& $cargo build --release -p werd-core -p werd-cli -p werd-shim
 if ($LASTEXITCODE -ne 0) { throw 'Building the daemon/CLI failed' }
 $triple = (& (Join-Path $env:USERPROFILE '.cargo\bin\rustc.exe') --print host-tuple).Trim()
 if ($triple -ne 'x86_64-pc-windows-msvc') { throw "Unsupported target: $triple" }
@@ -18,6 +18,7 @@ $sidecars = Join-Path $PSScriptRoot '..\src-tauri\binaries'
 New-Item -ItemType Directory -Force -Path $sidecars | Out-Null
 Copy-Item -LiteralPath 'target\release\werd-daemon.exe' -Destination (Join-Path $sidecars "werd-daemon-$triple.exe") -Force
 Copy-Item -LiteralPath 'target\release\werd.exe' -Destination (Join-Path $sidecars "werd-$triple.exe") -Force
+Copy-Item -LiteralPath 'target\release\werd-shim.exe' -Destination (Join-Path $sidecars "werd-shim-$triple.exe") -Force
 & '.\node_modules\.bin\tauri.cmd' build --config src-tauri/tauri.nsis.conf.json
 if ($LASTEXITCODE -ne 0) { throw 'Building the NSIS installer failed' }
 Write-Output 'Installer NSIS: target/release/bundle/nsis'
