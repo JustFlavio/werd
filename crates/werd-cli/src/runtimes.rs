@@ -81,7 +81,7 @@ fn print_lines(rows: &[RuntimeLine], show_product: bool) {
 }
 
 /// Polls a background job until it ends, drawing progress on stderr.
-fn wait(job: Job) -> Result<Job> {
+pub fn wait(job: Job) -> Result<Job> {
     let mut stderr = std::io::stderr();
     loop {
         let jobs: Vec<Job> = serde_json::from_value(call("jobs.list", json!({}))?)?;

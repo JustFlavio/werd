@@ -4,6 +4,7 @@
 #![allow(clippy::print_stdout)]
 
 mod runtimes;
+mod services;
 
 use anyhow::{bail, Context, Result};
 use clap::{CommandFactory, Parser, Subcommand};
@@ -78,6 +79,12 @@ enum Command {
     Update { target: Option<String> },
     /// Remove an installed line, e.g. `werd uninstall node@18`.
     Uninstall { target: String },
+    /// Manage shared services: PostgreSQL, MySQL, MariaDB, Redis, Mailpit, …
+    #[command(visible_alias = "services")]
+    Service {
+        #[command(subcommand)]
+        action: Option<services::ServiceAction>,
+    },
     /// Add or remove the php, composer, node, npm and npx commands from your PATH.
     Path {
         #[command(subcommand)]
@@ -189,6 +196,12 @@ fn run(cli: Cli) -> Result<()> {
             return runtimes::run_line_action(product, action, cli.json);
         }
         Command::Runtimes => return runtimes::list_all(cli.json),
+        Command::Service { .. } => {
+            let Command::Service { action } = cli.command else {
+                unreachable!()
+            };
+            return services::run(action, cli.json);
+        }
         Command::Install { target } => {
             let (product, line) = runtimes::parse_target(target)?;
             runtimes::install(product, line, false)?;
@@ -297,6 +310,7 @@ fn run(cli: Cli) -> Result<()> {
         | Command::Install { .. }
         | Command::Update { .. }
         | Command::Uninstall { .. }
+        | Command::Service { .. }
         | Command::Path { .. } => {}
     }
     Ok(())
