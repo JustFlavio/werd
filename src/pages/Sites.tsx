@@ -189,7 +189,7 @@ function SiteDetail({
           <button
             type="button"
             className={`button ${running ? "" : "button-primary"}`}
-            disabled={busy === project.id || pending.length > 0}
+            disabled={busy === project.id || pending.length > 0 || project.status === "starting"}
             title={pending.length > 0 ? t.sites.resolveFirst : undefined}
             onClick={() => onToggle(project)}
           >
@@ -199,7 +199,8 @@ function SiteDetail({
               </>
             ) : (
               <>
-                <Play size={13} /> {busy === project.id ? t.sites.starting : t.sites.start}
+                <Play size={13} />{" "}
+                {busy === project.id || project.status === "starting" ? t.sites.starting : t.sites.start}
               </>
             )}
           </button>

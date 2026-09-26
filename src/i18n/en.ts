@@ -213,6 +213,7 @@ export const en = {
     createdMessage: "Your application was created. Build something great!",
     linkedMessage: "Your site is linked and ready to start.",
     showOutput: "Show console output",
+    notStarted: "The site did not start. Open its page to see why.",
     openInBrowser: "Open in browser",
   },
   php: {

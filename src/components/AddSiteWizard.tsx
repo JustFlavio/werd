@@ -19,6 +19,7 @@ import {
   installRuntime,
   type Job,
   listJobs,
+  listProjects,
   type NewProject,
   openSite,
   type ProjectInfo,
@@ -203,7 +204,13 @@ export function AddSiteWizard({
     if (!created) return;
     setOpening(true);
     try {
-      await startProject(created);
+      let project = await startProject(created);
+      // The first start may download Caddy first; wait for the site to run.
+      for (let waited = 0; project.status === "starting" && waited < 180_000; waited += 1000) {
+        await delay(1000);
+        project = (await listProjects()).projects.find((candidate) => candidate.id === created) ?? project;
+      }
+      if (project.status !== "running") throw new Error(project.error ?? w.notStarted);
       await openSite(created);
     } catch (cause) {
       log(cause instanceof Error ? cause.message : String(cause));

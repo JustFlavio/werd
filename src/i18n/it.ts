@@ -211,6 +211,7 @@ export const it: Messages = {
     createdMessage: "La tua applicazione è stata creata. Costruisci qualcosa di grande!",
     linkedMessage: "Il sito è collegato e pronto per essere avviato.",
     showOutput: "Mostra output console",
+    notStarted: "Il sito non è partito. Apri la sua pagina per vedere perché.",
     openInBrowser: "Apri nel browser",
   },
   php: {
@@ -281,7 +282,7 @@ export const it: Messages = {
     categories: {
       database: "Database",
       cache: "Cache",
-      queue: "Code",
+      queue: "Coda",
       search: "Ricerca",
       storage: "Storage",
       mail: "Mail",
