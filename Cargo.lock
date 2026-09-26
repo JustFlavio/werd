@@ -4510,6 +4510,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "werd-helper"
+version = "0.2.0"
+dependencies = [
+ "werd-core",
+]
+
+[[package]]
 name = "werd-shim"
 version = "0.2.0"
 dependencies = [

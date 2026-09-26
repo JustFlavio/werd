@@ -1,0 +1,15 @@
+[package]
+name = "werd-helper"
+description = "Elevated helper that maps Werd's .test domains in the hosts file"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+werd-core = { path = "../werd-core" }

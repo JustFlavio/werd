@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/werd-core", "crates/werd-cli", "crates/werd-shim", "src-tauri"]
+members = ["crates/werd-core", "crates/werd-cli", "crates/werd-shim", "crates/werd-helper", "src-tauri"]
 resolver = "2"
 
 [workspace.package]
@@ -11,7 +11,8 @@ authors = ["Werd contributors"]
 
 [workspace.lints.rust]
 # Denied everywhere. The only exceptions are documented Win32 calls in werd-core
-# (process.rs: handle inheritance and the process job, platform.rs: environment change broadcast).
+# (process.rs: handle inheritance and the process job; platform.rs: environment change
+# broadcast and elevation of the hosts helper).
 unsafe_code = "deny"
 
 [workspace.lints.clippy]
