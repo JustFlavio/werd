@@ -49,4 +49,10 @@ edit("Cargo.toml", (text) => text.replace(/(\[workspace\.package\][^[]*?\nversio
 
 // Refresh the workspace entries in Cargo.lock without touching dependencies.
 execFileSync("cargo", ["update", "--workspace", "--offline"], { cwd: root, stdio: "inherit" });
-console.log(`\nVersion set to ${version}. Next: commit "chore(release): v${version}" and tag v${version}.`);
+// JSON.stringify ignores the project style; let Biome restore it.
+execFileSync("npx", ["biome", "format", "--write", "package.json", "src-tauri/tauri.conf.json"], {
+  cwd: root,
+  stdio: "inherit",
+  shell: process.platform === "win32",
+});
+console.log(`\nVersion set to ${version}. Next: commit "build: bump version to ${version}" and tag v${version}.`);
