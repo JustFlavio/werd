@@ -1,9 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use serde_json::{json, Value};
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use std::sync::Mutex;
+use tauri::menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Manager, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, WindowEvent};
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_dialog::DialogExt;
 use werd_core::{daemon_executable, ensure_daemon, rpc as daemon_rpc};
@@ -110,32 +111,122 @@ fn set_launch_at_login(app: AppHandle, enabled: bool) -> Result<bool, String> {
 }
 
 /// Tray menu labels in the interface language.
-#[derive(serde::Deserialize)]
+#[derive(Clone, serde::Deserialize)]
 struct TrayLabels {
     open: String,
     stop_all: String,
     quit: String,
+    /// Prefix of the PHP entries, e.g. "Use PHP".
+    use_php: String,
 }
 
-#[tauri::command]
-fn set_tray_labels(app: AppHandle, labels: TrayLabels) -> Result<(), String> {
-    let menu = tray_menu(&app, &labels).map_err(|error| error.to_string())?;
-    if let Some(tray) = app.tray_by_id(TRAY_ID) {
-        tray.set_menu(Some(menu)).map_err(|error| error.to_string())?;
+impl Default for TrayLabels {
+    fn default() -> Self {
+        Self {
+            open: "Open Werd".into(),
+            stop_all: "Stop all sites and services".into(),
+            quit: "Quit".into(),
+            use_php: "Use PHP".into(),
+        }
     }
-    Ok(())
 }
 
-fn tray_menu(app: &AppHandle, labels: &TrayLabels) -> tauri::Result<Menu<tauri::Wry>> {
-    Menu::with_items(
+/// The labels last sent by the window, reused when the menu is rebuilt.
+struct TrayState(Mutex<TrayLabels>);
+
+/// Installed PHP lines, newest first, and whether each is the default.
+fn php_lines() -> Vec<(String, bool)> {
+    let Ok(rows) = daemon_rpc("runtimes.list", json!({})) else {
+        return Vec::new();
+    };
+    rows.as_array()
+        .into_iter()
+        .flatten()
+        .filter(|row| row["product"] == "php" && !row["installed"].is_null())
+        .filter_map(|row| {
+            Some((
+                row["line"].as_str()?.to_string(),
+                row["is_default"].as_bool().unwrap_or(false),
+            ))
+        })
+        .collect()
+}
+
+fn tray_menu(
+    app: &AppHandle,
+    labels: &TrayLabels,
+    php: &[(String, bool)],
+) -> tauri::Result<Menu<tauri::Wry>> {
+    let mut items: Vec<Box<dyn IsMenuItem<tauri::Wry>>> = vec![
+        Box::new(MenuItem::with_id(app, "open", &labels.open, true, None::<&str>)?),
+        Box::new(PredefinedMenuItem::separator(app)?),
+    ];
+    // The global PHP version, used by `php` and `composer` outside Werd sites.
+    for (line, default) in php {
+        items.push(Box::new(CheckMenuItem::with_id(
+            app,
+            format!("php:{line}"),
+            format!("{} {line}", labels.use_php),
+            true,
+            *default,
+            None::<&str>,
+        )?));
+    }
+    if !php.is_empty() {
+        items.push(Box::new(PredefinedMenuItem::separator(app)?));
+    }
+    items.push(Box::new(MenuItem::with_id(
         app,
-        &[
-            &MenuItem::with_id(app, "open", &labels.open, true, None::<&str>)?,
-            &MenuItem::with_id(app, "stop-all", &labels.stop_all, true, None::<&str>)?,
-            &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "quit", &labels.quit, true, None::<&str>)?,
-        ],
-    )
+        "stop-all",
+        &labels.stop_all,
+        true,
+        None::<&str>,
+    )?));
+    items.push(Box::new(MenuItem::with_id(
+        app,
+        "quit",
+        &labels.quit,
+        true,
+        None::<&str>,
+    )?));
+    let references: Vec<&dyn IsMenuItem<tauri::Wry>> = items.iter().map(|item| item.as_ref()).collect();
+    Menu::with_items(app, &references)
+}
+
+/// Rebuilds the tray menu with the current labels and PHP versions.
+/// Calls the daemon, so it runs off the main thread.
+fn refresh_tray(app: &AppHandle) {
+    let labels = app
+        .state::<TrayState>()
+        .0
+        .lock()
+        .map(|labels| labels.clone())
+        .unwrap_or_default();
+    let php = php_lines();
+    if let (Ok(menu), Some(tray)) = (tray_menu(app, &labels, &php), app.tray_by_id(TRAY_ID)) {
+        let _ = tray.set_menu(Some(menu));
+    }
+}
+
+/// Called by the window when the language or the installed PHP versions change.
+#[tauri::command]
+async fn set_tray_labels(app: AppHandle, labels: TrayLabels) -> Result<(), String> {
+    if let Ok(mut current) = app.state::<TrayState>().0.lock() {
+        *current = labels;
+    }
+    tauri::async_runtime::spawn_blocking(move || refresh_tray(&app))
+        .await
+        .map_err(|error| error.to_string())
+}
+
+/// Makes `line` the global PHP version from the tray.
+fn use_php(app: AppHandle, line: String) {
+    std::thread::spawn(move || {
+        let _ = daemon_rpc("runtimes.default", json!({ "product": "php", "line": line }));
+        refresh_tray(&app);
+        // Lets the window refresh its PHP pages.
+        let _ = app.emit("werd://runtimes-changed", ());
+    });
 }
 
 fn show_window(app: &AppHandle) {
@@ -190,12 +281,8 @@ fn main() {
             set_tray_labels
         ])
         .setup(|app| {
-            let labels = TrayLabels {
-                open: "Open Werd".into(),
-                stop_all: "Stop all".into(),
-                quit: "Quit".into(),
-            };
-            let menu = tray_menu(app.handle(), &labels)?;
+            app.manage(TrayState(Mutex::new(TrayLabels::default())));
+            let menu = tray_menu(app.handle(), &TrayLabels::default(), &[])?;
             let mut tray = TrayIconBuilder::with_id(TRAY_ID)
                 .tooltip("Werd")
                 .menu(&menu)
@@ -208,7 +295,11 @@ fn main() {
                         });
                     }
                     "quit" => app.exit(0),
-                    _ => {}
+                    id => {
+                        if let Some(line) = id.strip_prefix("php:") {
+                            use_php(app.clone(), line.to_string());
+                        }
+                    }
                 })
                 .on_tray_icon_event(|tray, event| {
                     if let TrayIconEvent::Click {
@@ -234,9 +325,12 @@ fn main() {
 
             // Start the daemon right away, so autostart services come up at login
             // even while the window stays hidden.
-            std::thread::spawn(|| {
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
                 if let Ok(executable) = daemon_executable() {
-                    let _ = ensure_daemon(&executable);
+                    if ensure_daemon(&executable).is_ok() {
+                        refresh_tray(&handle);
+                    }
                 }
             });
             if !std::env::args().any(|arg| arg == HIDDEN_ARG) {
