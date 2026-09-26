@@ -287,11 +287,36 @@ function githubExecutable({ repo, label, categories, defaultPort, lineOf, asset,
   };
 }
 
+/**
+ * phpredis from the official PECL Windows builds on php.net, one line per PHP line.
+ * Laravel uses it by default (REDIS_CLIENT=phpredis); PHP for Windows does not ship it.
+ */
+async function phpredis(ctx) {
+  const base = "https://downloads.php.net/~windows/pecl/releases/redis/";
+  const versions = [...(await fetchText(base)).matchAll(/href="(\d+\.\d+\.\d+)\/"/g)].map((match) => match[1]);
+  const version = versions.sort(compareVersions).at(-1);
+  if (!version) throw new Error("no phpredis release found");
+  const listing = await fetchText(`${base}${version}/`);
+  const files = [...listing.matchAll(/href="(php_redis-[^"]+-nts-v[cs]\d+-x64\.zip)"/g)].map((match) => match[1]);
+  const lines = {};
+  for (const file of files) {
+    const line = file.match(/^php_redis-[^-]+-(\d+\.\d+)-nts/)?.[1];
+    if (!line || compareVersions(line, "7.4") < 0) continue;
+    const url = `${base}${version}/${file}`;
+    lines[line] = {
+      latest: version,
+      builds: { [WINDOWS]: { url, sha256: await ctx.sha256(url), format: "zip", marker: "php_redis.dll" } },
+    };
+  }
+  return { label: "phpredis", kind: "extension", extends: "php", lines };
+}
+
 export const providers = {
   php,
   node,
   composer,
   cacert,
+  phpredis,
   caddy: github({
     repo: "caddyserver/caddy",
     label: "Caddy",

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated": "2026-09-26T00:39:47.561Z",
+  "generated": "2026-09-26T16:38:04.525Z",
   "products": {
     "cacert": {
       "kind": "tool",
@@ -505,6 +505,90 @@
             }
           },
           "latest": "8.5.11"
+        }
+      }
+    },
+    "phpredis": {
+      "extends": "php",
+      "kind": "extension",
+      "label": "phpredis",
+      "lines": {
+        "7.4": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "php_redis.dll",
+              "sha256": "c74f1fb5500b493050839330b4cbfb84dafc07da99b898939ac4b690fe74de1a",
+              "url": "https://downloads.php.net/~windows/pecl/releases/redis/6.3.0/php_redis-6.3.0-7.4-nts-vc15-x64.zip"
+            }
+          },
+          "latest": "6.3.0"
+        },
+        "8.0": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "php_redis.dll",
+              "sha256": "9d3143049d3c27e715ea92a023dfab92389df985aec224d6ed9d092b4ba5ea9a",
+              "url": "https://downloads.php.net/~windows/pecl/releases/redis/6.3.0/php_redis-6.3.0-8.0-nts-vs16-x64.zip"
+            }
+          },
+          "latest": "6.3.0"
+        },
+        "8.1": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "php_redis.dll",
+              "sha256": "952ec845408e343f273eab109e62a9c7732178d93985120736da4a171d41b9b0",
+              "url": "https://downloads.php.net/~windows/pecl/releases/redis/6.3.0/php_redis-6.3.0-8.1-nts-vs16-x64.zip"
+            }
+          },
+          "latest": "6.3.0"
+        },
+        "8.2": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "php_redis.dll",
+              "sha256": "b2b730b99b97352212b338c01f7dde577857e31c5f8e1d011ec2871e63f8f87c",
+              "url": "https://downloads.php.net/~windows/pecl/releases/redis/6.3.0/php_redis-6.3.0-8.2-nts-vs16-x64.zip"
+            }
+          },
+          "latest": "6.3.0"
+        },
+        "8.3": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "php_redis.dll",
+              "sha256": "519fc1bdf54323d3ab08443c66f77e783d314c13b532e27cc8b390def7f81b60",
+              "url": "https://downloads.php.net/~windows/pecl/releases/redis/6.3.0/php_redis-6.3.0-8.3-nts-vs16-x64.zip"
+            }
+          },
+          "latest": "6.3.0"
+        },
+        "8.4": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "php_redis.dll",
+              "sha256": "6db881ed172703962002d7e02dacc8ddb3f789904c648fee3e6ceec1319679cd",
+              "url": "https://downloads.php.net/~windows/pecl/releases/redis/6.3.0/php_redis-6.3.0-8.4-nts-vs17-x64.zip"
+            }
+          },
+          "latest": "6.3.0"
+        },
+        "8.5": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "php_redis.dll",
+              "sha256": "481d6d1af45060ab41af6abe250faa270276fc47a493badc2e178024cdf6e255",
+              "url": "https://downloads.php.net/~windows/pecl/releases/redis/6.3.0/php_redis-6.3.0-8.5-nts-vs17-x64.zip"
+            }
+          },
+          "latest": "6.3.0"
         }
       }
     },
