@@ -5,6 +5,7 @@ use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, WindowEvent};
 use tauri_plugin_autostart::ManagerExt;
+use tauri_plugin_dialog::DialogExt;
 use werd_core::{daemon_executable, ensure_daemon, rpc as daemon_rpc};
 
 /// Passed by the login item so Werd starts in the tray without a window.
@@ -45,6 +46,22 @@ async fn sync_hosts() -> Result<(), String> {
 #[tauri::command]
 fn open_url(url: String) -> Result<(), String> {
     werd_core::platform::open_url(&url).map_err(|error| error.to_string())
+}
+
+/// Lets the user choose a folder with the system dialog; None when cancelled.
+#[tauri::command]
+async fn pick_folder(app: AppHandle, title: String) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(folder) = app.dialog().file().set_title(title).blocking_pick_folder() else {
+            return Ok(None);
+        };
+        folder
+            .into_path()
+            .map(|path| Some(path.to_string_lossy().into_owned()))
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -121,9 +138,11 @@ fn stop_all() -> anyhow::Result<()> {
 fn main() {
     tauri::Builder::default()
         // Opening Werd again (shortcut, login item) focuses the running window.
+        // Registered first, as the plugin requires.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             show_window(app)
         }))
+        .plugin(tauri_plugin_dialog::init())
         // The name is fixed because the Windows uninstaller removes this login item by name.
         .plugin(
             tauri_plugin_autostart::Builder::new()
@@ -135,6 +154,7 @@ fn main() {
             rpc,
             open_url,
             sync_hosts,
+            pick_folder,
             launch_at_login,
             set_launch_at_login,
             set_tray_labels
