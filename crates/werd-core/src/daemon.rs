@@ -200,6 +200,52 @@ fn create_instance(
     Ok(json!({ "instance": instance, "job": job }))
 }
 
+/// PHP lines available on this platform, newest first.
+fn php_lines(catalog: &Catalog) -> Vec<String> {
+    catalog
+        .product("php")
+        .map(|product| {
+            product
+                .available_lines()
+                .into_iter()
+                .map(|(line, _)| line.clone())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Starts a job that creates a Laravel project and links it as a site.
+fn create_project(daemon: &Daemon, params: &Value) -> Result<Value> {
+    let request: crate::create::NewProject =
+        serde_json::from_value(params.clone()).context("Invalid project request")?;
+    request.validate(&daemon.root)?;
+    let (root, catalog, fetcher, shared) = (
+        daemon.root.clone(),
+        daemon.catalog(),
+        Arc::clone(&daemon.fetcher),
+        Arc::clone(&daemon.state),
+    );
+    let name = request.name.clone();
+    let job = daemon.jobs.start("laravel", &name, "create", move |progress| {
+        let folder = crate::create::run(&root, &catalog, fetcher.as_ref(), &request, progress)?;
+        progress.step("Linking the site");
+        let mut state = shared.lock().map_err(|_| anyhow!("Daemon state unavailable"))?;
+        let project = projects::add_with(
+            &root,
+            &mut state,
+            &folder.to_string_lossy(),
+            None,
+            Some(&request.php),
+        )?;
+        if let Some(url) = projects::site_url(&root, &project) {
+            crate::create::set_app_url(&folder, &url)?;
+        }
+        progress.result(&project.id);
+        Ok(())
+    })?;
+    Ok(json!(job))
+}
+
 fn set_default(root: &Path, params: &Value) -> Result<Value> {
     let product = text(params, "product")?;
     let line = text(params, "line")?;
@@ -254,7 +300,30 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
             projects: state.projects.clone(),
             daemon_version: VERSION.into()
         }),
-        "add" => json!(projects::add(root, state, text(params, "path")?)?),
+        "add" => json!(projects::add_with(
+            root,
+            state,
+            text(params, "path")?,
+            params["name"].as_str(),
+            params["php"].as_str(),
+        )?),
+        "inspect" => {
+            let path = crate::parks::display_path(Path::new(text(params, "path")?))?;
+            json!(crate::inspect::inspect(
+                root,
+                Path::new(&path),
+                &php_lines(&daemon.catalog())
+            ))
+        }
+        "info" => {
+            let path = state.project(id(params)?)?.path.clone();
+            json!(crate::inspect::inspect(
+                root,
+                Path::new(&path),
+                &php_lines(&daemon.catalog())
+            ))
+        }
+        "create" => create_project(daemon, params)?,
         "start" => {
             let id = id(params)?;
             match projects::start(root, state, id) {

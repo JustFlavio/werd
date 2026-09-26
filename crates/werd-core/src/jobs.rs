@@ -8,6 +8,8 @@ use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const KEEP_FINISHED: usize = 20;
+/// Output lines kept per job.
+pub const LOG_LINES: usize = 400;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -33,6 +35,15 @@ pub struct Job {
     pub step: String,
     pub error: Option<String>,
     pub started_at: u64,
+    /// Output of the commands the job runs (last lines only).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub log: Vec<String>,
+    /// Lines dropped from the start of `log`, so clients can print only new lines.
+    #[serde(default)]
+    pub log_dropped: u64,
+    /// What the job produced, e.g. the id of a created site.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<String>,
 }
 
 /// Lets a running job report progress.
@@ -52,6 +63,20 @@ impl Progress {
 
     pub fn step(&self, step: &str) {
         self.jobs.update(&self.id, |job| job.step = step.into());
+    }
+
+    /// Appends one output line, keeping the last [`LOG_LINES`].
+    pub fn log(&self, line: &str) {
+        self.jobs.update(&self.id, |job| {
+            job.log.push(line.trim_end().to_string());
+            let excess = job.log.len().saturating_sub(LOG_LINES);
+            job.log.drain(..excess);
+            job.log_dropped += excess as u64;
+        });
+    }
+
+    pub fn result(&self, value: &str) {
+        self.jobs.update(&self.id, |job| job.result = Some(value.into()));
     }
 
     /// A progress sink that goes nowhere, for synchronous callers and tests.
@@ -118,6 +143,9 @@ impl Jobs {
                     .duration_since(UNIX_EPOCH)
                     .map(|d| d.as_secs())
                     .unwrap_or(0),
+                log: Vec::new(),
+                log_dropped: 0,
+                result: None,
             };
             jobs.push(job.clone());
             job
@@ -168,12 +196,20 @@ mod tests {
             .start("php", "8.4", "install", |progress| {
                 progress.step("Downloading");
                 progress.bytes(50, Some(100));
+                for index in 0..LOG_LINES + 5 {
+                    progress.log(&format!("line {index}\n"));
+                }
+                progress.result("site-1");
                 Ok(())
             })
             .unwrap();
         let finished = jobs.wait(&done.id);
         assert_eq!(finished.state, JobState::Done);
         assert_eq!((finished.downloaded, finished.total), (50, Some(100)));
+        assert_eq!(finished.log.len(), LOG_LINES);
+        assert_eq!(finished.log[0], "line 5");
+        assert_eq!(finished.log_dropped, 5);
+        assert_eq!(finished.result.as_deref(), Some("site-1"));
 
         let failed = jobs
             .start("node", "22", "install", |_| bail!("network down"))

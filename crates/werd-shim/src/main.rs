@@ -138,7 +138,9 @@ fn site_version(home: &Path, product: &str, cwd: &Path) -> Option<String> {
         .and_then(|site| site[product].as_str().map(str::to_string))
 }
 
-/// Picks the line to run: requested if installed, then the default, then the newest.
+/// Picks the line to run: `WERD_PHP`/`WERD_NODE` (set by Werd for commands it
+/// runs, e.g. creating a project), then the project files, the site setting,
+/// the default and the newest installed line.
 fn resolve(home: &Path, tool: Tool, cwd: &Path) -> Result<String, String> {
     let product = tool.runtime();
     let installed = installed_lines(home, product);
@@ -146,7 +148,8 @@ fn resolve(home: &Path, tool: Tool, cwd: &Path) -> Result<String, String> {
     if installed.is_empty() {
         return Err(format!("werd: no {label} version is installed. Install one from Werd or with `werd {product} install <version>`."));
     }
-    if let Some(wanted) = requested(cwd, tool) {
+    let forced = env::var(format!("WERD_{}", product.to_ascii_uppercase())).ok();
+    if let Some(wanted) = forced.or_else(|| requested(cwd, tool)) {
         if installed.contains(&wanted) {
             return Ok(wanted);
         }

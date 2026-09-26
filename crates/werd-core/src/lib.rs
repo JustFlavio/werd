@@ -18,9 +18,11 @@
 //! - `rpc`, `daemon`: local API and the daemon process
 
 pub mod catalog;
+mod create;
 mod daemon;
 mod doctor;
 pub mod domains;
+mod inspect;
 mod instances;
 pub mod jobs;
 pub mod manifest;

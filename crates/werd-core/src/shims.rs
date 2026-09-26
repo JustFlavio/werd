@@ -42,6 +42,16 @@ pub fn install(root: &Path, source: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Makes sure the shims exist in `<home>/bin`, even without PATH integration,
+/// for commands Werd runs itself.
+pub fn ensure_installed(root: &Path) -> Result<()> {
+    let marker = bin_dir(root).join(if cfg!(windows) { "composer.exe" } else { "composer" });
+    if marker.is_file() {
+        return Ok(());
+    }
+    install(root, &shim_source()?)
+}
+
 /// Adds `entry` to a `;`-separated PATH value unless it is already there.
 // Used by the Windows PATH integration; tested on every platform.
 #[cfg_attr(not(windows), allow(dead_code))]

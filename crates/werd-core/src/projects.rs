@@ -80,6 +80,18 @@ pub(crate) fn auto_link(state: &mut State, index: usize) {
 
 /// Links a Laravel project folder. `werd.yml` is read when present, never written.
 pub(crate) fn add(root: &Path, state: &mut State, path: &str) -> Result<Project> {
+    add_with(root, state, path, None, None)
+}
+
+/// Like [`add`], with the site name (and so its domain) and PHP line chosen
+/// by the user instead of the folder name and `werd.yml`.
+pub(crate) fn add_with(
+    root: &Path,
+    state: &mut State,
+    path: &str,
+    name: Option<&str>,
+    php: Option<&str>,
+) -> Result<Project> {
     let display_path = crate::parks::display_path(Path::new(path))?;
     let canonical = Path::new(&display_path);
     if !canonical.is_dir() {
@@ -92,26 +104,33 @@ pub(crate) fn add(root: &Path, state: &mut State, path: &str) -> Result<Project>
         bail!("This project is already linked to Werd");
     }
     let manifest = Manifest::load(canonical)?;
-    let name = canonical
-        .file_name()
-        .unwrap_or_default()
-        .to_string_lossy()
-        .to_string();
+    let name = match name.map(str::trim).filter(|name| !name.is_empty()) {
+        Some(name) => name.to_string(),
+        None => canonical
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string(),
+    };
     let domain = state.unique_domain(&name, None);
+    // Ports are picked now so the site address is known before the first start.
+    let mut site_ports = crate::model::Ports::new();
+    ports::assign(&mut site_ports, "site")?;
+    ports::assign(&mut site_ports, "fastcgi")?;
     state.projects.push(Project {
         id: Uuid::new_v4().to_string(),
         name,
         domain: Some(domain),
         parked: None,
         path: display_path,
-        php: initial_php(root, manifest.php),
+        php: initial_php(root, php.map(str::to_string).or(manifest.php)),
         node: manifest.node,
         links: Default::default(),
         requirements: manifest.requirements,
         status: ProjectStatus::Stopped,
         url: None,
         error: None,
-        ports: None,
+        ports: Some(site_ports),
         services: Vec::new(),
         versions: Default::default(),
         extensions: Vec::new(),
@@ -324,7 +343,7 @@ pub(crate) fn domains(state: &State) -> Vec<String> {
 }
 
 /// The address a site has (or will have once started).
-fn site_url(root: &Path, project: &Project) -> Option<String> {
+pub(crate) fn site_url(root: &Path, project: &Project) -> Option<String> {
     if let Some(url) = &project.url {
         return Some(url.clone());
     }
