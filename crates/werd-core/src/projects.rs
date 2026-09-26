@@ -80,21 +80,18 @@ pub(crate) fn auto_link(state: &mut State, index: usize) {
 
 /// Links a Laravel project folder. `werd.yml` is read when present, never written.
 pub(crate) fn add(root: &Path, state: &mut State, path: &str) -> Result<Project> {
-    let canonical = fs::canonicalize(path).with_context(|| format!("Folder not found: {path}"))?;
+    let display_path = crate::parks::display_path(Path::new(path))?;
+    let canonical = Path::new(&display_path);
     if !canonical.is_dir() {
         bail!("{path} is not a folder");
     }
-    if !canonical.join("artisan").is_file() || !canonical.join("composer.json").is_file() {
+    if !crate::parks::is_laravel(canonical) {
         bail!("This folder does not look like a Laravel project (artisan and composer.json are missing)");
     }
-    let display_path = canonical
-        .to_string_lossy()
-        .trim_start_matches(r"\\?\")
-        .to_string();
     if state.projects.iter().any(|project| project.path == display_path) {
         bail!("This project is already linked to Werd");
     }
-    let manifest = Manifest::load(&canonical)?;
+    let manifest = Manifest::load(canonical)?;
     let name = canonical
         .file_name()
         .unwrap_or_default()
@@ -105,6 +102,7 @@ pub(crate) fn add(root: &Path, state: &mut State, path: &str) -> Result<Project>
         id: Uuid::new_v4().to_string(),
         name,
         domain: Some(domain),
+        parked: None,
         path: display_path,
         php: initial_php(root, manifest.php),
         node: manifest.node,
@@ -126,6 +124,14 @@ pub(crate) fn add(root: &Path, state: &mut State, path: &str) -> Result<Project>
 
 /// Stops a site and forgets it. The project folder and linked services are untouched.
 pub(crate) fn remove(root: &Path, state: &mut State, id: &str) -> Result<()> {
+    if let Some(folder) = &state.project(id)?.parked {
+        bail!("This site comes from the parked folder {folder}; unpark the folder or move the project out of it");
+    }
+    remove_parked(root, state, id)
+}
+
+/// Forgets a site without the parked-folder check; used by the parked-folder scan.
+pub(crate) fn remove_parked(root: &Path, state: &mut State, id: &str) -> Result<()> {
     let index = state.index(id)?;
     let was_running = stop_processes(state, id);
     state.projects.remove(index);

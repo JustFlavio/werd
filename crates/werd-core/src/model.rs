@@ -90,6 +90,9 @@ pub struct Project {
     /// `.test` domain of the site.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
+    /// Parked folder the site was found in; such sites follow their folder.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parked: Option<String>,
     /// Node.js major used by the shims inside the site folder, if set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub node: Option<String>,

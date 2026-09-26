@@ -19,6 +19,8 @@ use std::thread;
 use std::time::Duration;
 
 const MONITOR_INTERVAL: Duration = Duration::from_secs(2);
+/// Parked folders are rescanned every few monitor ticks.
+const PARKS_SCAN_TICKS: u64 = 3;
 
 /// Everything a request needs besides the locked project state.
 #[derive(Clone)]
@@ -349,6 +351,9 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
                 "missing": if settings.domains { crate::domains::missing_from_hosts(&domains) } else { Vec::new() },
             })
         }
+        "parks.list" => json!(Settings::load(root)?.parked),
+        "parks.add" => json!(crate::parks::add(root, state, text(params, "path")?)?),
+        "parks.remove" => json!(crate::parks::remove(root, state, text(params, "path")?)?),
         "path.enable" => {
             shims::enable(root)?;
             json!(Settings::load(root)?)
@@ -498,11 +503,21 @@ pub fn run_daemon() -> Result<()> {
         }
     });
 
+    if let Ok(mut state) = state.lock() {
+        let _ = crate::parks::scan(&root, &mut state);
+    }
     let monitor = Arc::clone(&state);
-    thread::spawn(move || loop {
-        thread::sleep(MONITOR_INTERVAL);
-        if let Ok(mut state) = monitor.lock() {
-            reap_exited(&root, &mut state);
+    thread::spawn(move || {
+        let mut tick = 0u64;
+        loop {
+            thread::sleep(MONITOR_INTERVAL);
+            tick = tick.wrapping_add(1);
+            if let Ok(mut state) = monitor.lock() {
+                reap_exited(&root, &mut state);
+                if tick.is_multiple_of(PARKS_SCAN_TICKS) {
+                    let _ = crate::parks::scan(&root, &mut state);
+                }
+            }
         }
     });
 

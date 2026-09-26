@@ -13,6 +13,7 @@
 //! - `instances`: shared service instances (PostgreSQL, MySQL, Redis, …)
 //! - `proxy`, `router`: PHP FastCGI per site behind one shared Caddy
 //! - [`domains`]: `.test` names and the hosts file
+//! - `parks`: parked folders
 //! - [`platform`]: OS integration (browser, certificates)
 //! - `rpc`, `daemon`: local API and the daemon process
 
@@ -25,6 +26,7 @@ pub mod jobs;
 pub mod manifest;
 mod migrations;
 pub mod model;
+mod parks;
 mod paths;
 pub mod platform;
 mod ports;

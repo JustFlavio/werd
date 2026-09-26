@@ -28,6 +28,8 @@ pub struct Settings {
     pub domains: bool,
     /// Port of `.test` domains; 443 keeps it out of the URL.
     pub https_port: u16,
+    /// Folders whose Laravel subfolders are sites.
+    pub parked: Vec<String>,
 }
 
 impl Default for Settings {
@@ -42,6 +44,7 @@ impl Default for Settings {
             path_enabled: false,
             domains: true,
             https_port: 443,
+            parked: Vec::new(),
         }
     }
 }
