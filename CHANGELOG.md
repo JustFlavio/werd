@@ -42,6 +42,9 @@ All notable changes to Werd are documented here. The format follows
 - **desktop:** Open a site in the file manager, a terminal, Tinker or an editor
 - **ui:** Add the client calls for project inspection, creation and site actions
 - **ui:** Add sites the Herd way and split the site page into tabs
+- **core:** Read php artisan about and run boost:update for a site
+- **ui:** Show php artisan about on the Information tab and a success screen
+- **services:** Rename service instances
 
 ### Bug fixes
 - **ui:** Resolve accessibility and hook dependency lint findings
@@ -51,6 +54,9 @@ All notable changes to Werd are documented here. The format follows
 - **core:** Stop child processes when the daemon exits abnormally
 - **release:** Stop the daemon and clean up when Werd is updated or uninstalled
 - **desktop:** Use the amber Werd mark for the app, tray and installer icons
+- **desktop:** Give the Werd mark SVGs a title
+- **core:** Migrate 0.1 services without data as pending requirements
+- **release:** Install Werd outside its data folder
 
 ### Refactoring
 - **core:** Split the daemon into focused modules
@@ -67,6 +73,7 @@ All notable changes to Werd are documented here. The format follows
 - Document werd.yml version 2, services and site commands
 - Document .test domains, the tray and the shared Caddy
 - Update the changelog
+- Document the add site flows and werd new
 
 ### Tests
 - **ui:** Add vitest setup with first component and helper tests
