@@ -12,6 +12,19 @@
 
 !macro NSIS_HOOK_PREINSTALL
   !insertmacro WERD_STOP_DAEMON
+  ; The default per-user folder, $LOCALAPPDATA\Werd, is also Werd's data folder.
+  ; Keep programs apart, like other per-user apps, and remove the programs an
+  ; older installer put among the data. A folder the user picked is kept.
+  ${If} $INSTDIR == "$LOCALAPPDATA\Werd"
+    StrCpy $INSTDIR "$LOCALAPPDATA\Programs\Werd"
+    SetOutPath $INSTDIR
+    Delete "$LOCALAPPDATA\Werd\werd-desktop.exe"
+    Delete "$LOCALAPPDATA\Werd\werd.exe"
+    Delete "$LOCALAPPDATA\Werd\werd-daemon.exe"
+    Delete "$LOCALAPPDATA\Werd\werd-shim.exe"
+    Delete "$LOCALAPPDATA\Werd\werd-helper.exe"
+    Delete "$LOCALAPPDATA\Werd\uninstall.exe"
+  ${EndIf}
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL

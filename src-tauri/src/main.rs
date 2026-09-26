@@ -225,6 +225,13 @@ fn main() {
             }
             tray.build(app)?;
 
+            // The login item stores the program path; refresh it so it follows Werd
+            // when an update moves the program (0.3 moved it out of the data folder).
+            let launcher = app.autolaunch();
+            if launcher.is_enabled().unwrap_or(false) {
+                let _ = launcher.enable();
+            }
+
             // Start the daemon right away, so autostart services come up at login
             // even while the window stays hidden.
             std::thread::spawn(|| {
