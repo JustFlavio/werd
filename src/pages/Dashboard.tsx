@@ -1,10 +1,9 @@
 import { Info } from "lucide-react";
 import { useMemo } from "react";
 import type { Page } from "../App";
-import type { Project, ServiceInstance, ServiceName } from "../api";
+import type { Project, ServiceInstance } from "../api";
 import { useT } from "../i18n";
 import type { Runtimes } from "../runtimes";
-import { SERVICES, serviceUrl } from "../services";
 import { PageHeader, Section, StatusDot } from "../ui";
 
 interface ActiveService {
@@ -51,16 +50,6 @@ export function Dashboard({
         detail: t.dashboard.servesFastcgi(names(running)),
       },
     );
-    for (const service of Object.keys(SERVICES) as ServiceName[]) {
-      const using = running.filter((project) => project.services.includes(service));
-      if (using.length) {
-        rows.push({
-          id: `site:${service}`,
-          label: SERVICES[service].label,
-          detail: t.dashboard.instancesFor(names(using)),
-        });
-      }
-    }
     return rows;
   }, [running, runningInstances, t]);
 
@@ -68,7 +57,6 @@ export function Dashboard({
   const defaultPhp = phpLines.find((row) => row.is_default);
   const inboxes = [
     ...runningInstances.filter((instance) => instance.product === "mailpit").map((instance) => instance.web_ui),
-    ...running.map((project) => serviceUrl(project, "mailpit")),
   ].filter((url): url is string => Boolean(url));
   const link = (page: Page) => (
     <button key={page} type="button" className="link" onClick={() => onNavigate(page)}>

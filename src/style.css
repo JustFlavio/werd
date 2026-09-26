@@ -891,3 +891,32 @@ h2 {
 .remove-keep {
   margin-top: 14px;
 }
+
+/* ---------- Site links ---------- */
+
+.callout-warn {
+  border: 1px solid #5c4a1f;
+  background: #2a2416;
+  color: #f2d493;
+}
+.callout-warn p {
+  margin: 0 0 6px;
+}
+.callout-warn .button {
+  margin-top: 10px;
+}
+.pending-list {
+  margin: 0;
+  padding-left: 18px;
+}
+.link-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.link-cell .select {
+  min-width: 200px;
+}
+.fields dd .select {
+  min-width: 140px;
+}

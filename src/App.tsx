@@ -192,13 +192,16 @@ export default function App() {
         {page === "sites" && (
           <Sites
             projects={projects}
+            instances={instances}
+            runtimes={runtimes}
+            onChanged={refresh}
+            onError={fail}
             busy={busy}
             selectedId={selectedId}
             onSelect={setSelectedId}
             onAdd={add}
             onToggle={toggle}
             onOpenSite={(project) => void openSite(project.id).catch(fail)}
-            onOpenUrl={open}
             onResetPorts={(project) =>
               void run(project.id, async () => {
                 await resetPorts(project.id);
@@ -229,7 +232,9 @@ export default function App() {
         {page === "services" && (
           <Services instances={instances} runtimes={runtimes} onChanged={refresh} onOpenUrl={open} onError={fail} />
         )}
-        {page === "logs" && <Logs projects={projects} projectId={selectedId} onProjectChange={setSelectedId} />}
+        {page === "logs" && (
+          <Logs projects={projects} instances={instances} projectId={selectedId} onProjectChange={setSelectedId} />
+        )}
         {page === "general" && (
           <General
             system={system}

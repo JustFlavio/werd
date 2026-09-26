@@ -19,28 +19,19 @@ const projects: Project[] = [
     name: "shop",
     path: "C:\\Users\\dev\\Developer\\shop",
     php: "8.4",
-    services: ["postgres", "redis", "mailpit", "rustfs"],
+    node: "22",
+    links: { database: { instance: "pg", database: "shop" }, cache: { instance: "redis" }, mail: { instance: "mail" } },
     status: "running",
     url: "https://localhost:52011",
-    ports: {
-      site: 52011,
-      fastcgi: 52012,
-      postgres: 52013,
-      redis: 52014,
-      mailpit_smtp: 52015,
-      mailpit_ui: 52016,
-      rustfs_api: 52017,
-      rustfs_console: 52018,
-    },
-    versions: { postgresql: "18", redis: "7.2" },
-    extensions: ["pgvector"],
+    ports: { site: 52011, fastcgi: 52012 },
   },
   {
     id: "blog",
     name: "blog",
     path: "C:\\Users\\dev\\Developer\\blog",
     php: "8.5",
-    services: ["postgres", "mailpit"],
+    links: { database: { instance: "pg", database: "blog" } },
+    requirements: [{ category: "search", product: "meilisearch" }],
     status: "stopped",
   },
   {
@@ -48,11 +39,16 @@ const projects: Project[] = [
     name: "billing-api",
     path: "C:\\Users\\dev\\Developer\\billing-api",
     php: "8.3",
-    services: ["postgres", "redis"],
     status: "error",
-    error: "Port 52031 (postgres) is in use by another process. Stop it or reassign the project's ports",
+    error: "PHP 8.3 is not installed. Install it from Werd first.",
   },
 ];
+
+function findProject(id: unknown) {
+  const project = projects.find((candidate) => candidate.id === id);
+  if (!project) throw new Error("Project not found");
+  return project;
+}
 
 type Row = Omit<RuntimeLine, "update_available" | "is_default">;
 const row = (
@@ -99,6 +95,10 @@ const catalog: Row[] = [
   row("redis", "Redis", "service", "7.2", "7.2.16"),
   row("mailpit", "Mailpit", "service", "1", "1.31.2"),
   row("rustfs", "RustFS", "service", "1", "1.0.0"),
+  row("meilisearch", "Meilisearch", "service", "1", "1.54.0"),
+  row("mysql", "MySQL", "service", "8.4", "8.4.11"),
+  row("mariadb", "MariaDB", "service", "11.8", "11.8.9"),
+  row("mongodb", "MongoDB", "service", "8.0", "8.0.32"),
 ];
 
 const installed = new Map<string, string>([
@@ -246,6 +246,55 @@ export async function demoRpc(method: string, params: Record<string, unknown>): 
         `[12:04:11] ${params.id}: ready`,
         "[12:04:11] Site started: https://localhost:52011",
       ];
+    case "sites.php":
+      findProject(params.id).php = line;
+      return findProject(params.id);
+    case "sites.node":
+      findProject(params.id).node = (params.line as string | null) ?? null;
+      return findProject(params.id);
+    case "sites.link": {
+      const project = findProject(params.id);
+      const category = params.category as keyof NonNullable<Project["links"]>;
+      project.links = {
+        ...project.links,
+        [category]: { instance: String(params.instance), database: category === "database" ? project.name : null },
+      };
+      project.requirements = (project.requirements ?? []).filter((requirement) => requirement.category !== category);
+      return project;
+    }
+    case "sites.unlink": {
+      const project = findProject(params.id);
+      const links = { ...project.links };
+      delete links[params.category as keyof typeof links];
+      project.links = links;
+      return project;
+    }
+    case "sites.resolve": {
+      const project = findProject(params.id);
+      const jobs: Job[] = [];
+      for (const requirement of project.requirements ?? []) {
+        const offering = offerings.find((candidate) => candidate.product === requirement.product);
+        const version = requirement.line ?? offering?.lines[0]?.line ?? "1";
+        const id = crypto.randomUUID();
+        instances.push({
+          id,
+          name: `${offering?.label ?? requirement.product} ${version}`,
+          product: requirement.product,
+          line: version,
+          port: offering?.default_port ?? 10000,
+          autostart: true,
+          status: installed.has(`${requirement.product}/${version}`) ? "running" : "stopped",
+        });
+        project.links = { ...project.links, [requirement.category]: { instance: id } };
+        if (!installed.has(`${requirement.product}/${version}`))
+          jobs.push(startJob(requirement.product, version, "install"));
+      }
+      project.requirements = [];
+      return { project, jobs };
+    }
+    case "sites.remove":
+      projects.splice(projects.indexOf(findProject(params.id)), 1);
+      return null;
     case "sites.env":
       return params.id === "shop"
         ? "DB_CONNECTION=pgsql\nDB_HOST=127.0.0.1\nDB_PORT=52013\nREDIS_HOST=127.0.0.1\nREDIS_PORT=52014\nMAIL_MAILER=smtp\nMAIL_HOST=127.0.0.1\nMAIL_PORT=52015"

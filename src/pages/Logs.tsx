@@ -1,27 +1,34 @@
 import { useEffect, useRef, useState } from "react";
-import { type Project, projectLogs } from "../api";
+import { type Project, projectLogs, type ServiceInstance, serviceLogs } from "../api";
+import { SITE_LOG_SOURCES } from "../categories";
 import { useT } from "../i18n";
-import { LOG_SOURCES } from "../services";
 import { EmptyState, PageHeader } from "../ui";
+
+/** `site:<id>` or `service:<id>`. */
+type Target = string;
 
 export function Logs({
   projects,
+  instances,
   projectId,
   onProjectChange,
 }: {
   projects: Project[];
+  instances: ServiceInstance[];
   projectId: string | null;
   onProjectChange: (id: string) => void;
 }) {
   const t = useT();
   const [source, setSource] = useState<string>("werd");
+  const [service, setService] = useState<string | null>(null);
   const [lines, setLines] = useState<string[]>([]);
   const viewer = useRef<HTMLPreElement>(null);
-  const current = projects.find((project) => project.id === projectId) ?? projects[0] ?? null;
-  const currentId = current?.id;
+
+  const site = projects.find((project) => project.id === projectId) ?? projects[0] ?? null;
+  const target: Target | null = service ? `service:${service}` : site ? `site:${site.id}` : null;
 
   useEffect(() => {
-    if (!currentId) return;
+    if (!target) return;
     let cancelled = false;
     const show = (next: string[]) => {
       if (cancelled) return;
@@ -32,19 +39,18 @@ export function Logs({
         if (element) element.scrollTop = element.scrollHeight;
       });
     };
+    const [kind, id] = target.split(/:(.*)/s);
     const load = () =>
-      void projectLogs(currentId, source)
-        .then(show)
-        .catch(() => show([]));
+      void (kind === "service" ? serviceLogs(id) : projectLogs(id, source)).then(show).catch(() => show([]));
     load();
     const timer = window.setInterval(load, 2500);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [currentId, source]);
+  }, [target, source]);
 
-  if (!current)
+  if (!target)
     return (
       <>
         <PageHeader title={t.logs.title} />
@@ -57,31 +63,54 @@ export function Logs({
       <PageHeader title={t.logs.title}>
         <select
           className="select"
-          value={current.id}
-          onChange={(event) => onProjectChange(event.target.value)}
+          value={target}
           aria-label={t.logs.site}
+          onChange={(event) => {
+            const [kind, id] = event.target.value.split(/:(.*)/s);
+            if (kind === "service") {
+              setService(id);
+            } else {
+              setService(null);
+              onProjectChange(id);
+            }
+          }}
         >
-          {projects.map((project) => (
-            <option key={project.id} value={project.id}>
-              {project.name}
-            </option>
-          ))}
+          {projects.length > 0 && (
+            <optgroup label={t.logs.sites}>
+              {projects.map((project) => (
+                <option key={project.id} value={`site:${project.id}`}>
+                  {project.name}
+                </option>
+              ))}
+            </optgroup>
+          )}
+          {instances.length > 0 && (
+            <optgroup label={t.logs.services}>
+              {instances.map((instance) => (
+                <option key={instance.id} value={`service:${instance.id}`}>
+                  {instance.name}
+                </option>
+              ))}
+            </optgroup>
+          )}
         </select>
-        <select
-          className="select"
-          value={source}
-          onChange={(event) => setSource(event.target.value)}
-          aria-label={t.logs.source}
-        >
-          {LOG_SOURCES.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
+        {!service && (
+          <select
+            className="select"
+            value={source}
+            onChange={(event) => setSource(event.target.value)}
+            aria-label={t.logs.source}
+          >
+            {SITE_LOG_SOURCES.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        )}
       </PageHeader>
       <pre ref={viewer} className="log-viewer">
-        {lines.length ? lines.join("\n") : <span className="muted">{t.logs.noLines(source)}</span>}
+        {lines.length ? lines.join("\n") : <span className="muted">{t.logs.empty}</span>}
       </pre>
     </>
   );

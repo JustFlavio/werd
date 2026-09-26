@@ -1,21 +1,35 @@
 import { invoke } from "@tauri-apps/api/core";
 import { demoRpc } from "./demo";
 
-export type ServiceName = "postgres" | "redis" | "mailpit" | "rustfs";
 export type ProjectStatus = "stopped" | "starting" | "running" | "error";
+
+/** Site categories that can be linked to a service instance. */
+export type Category = "database" | "cache" | "queue" | "mail" | "storage" | "search";
+
+export interface Link {
+  instance: string;
+  database?: string | null;
+}
+
+export interface Requirement {
+  category: Category;
+  product: string;
+  line?: string | null;
+  extensions?: string[];
+}
 
 export interface Project {
   id: string;
   name: string;
   path: string;
   php: string;
-  services: ServiceName[];
+  node?: string | null;
+  links?: Partial<Record<Category, Link>>;
+  requirements?: Requirement[];
   status: ProjectStatus;
   url?: string;
   error?: string;
   ports?: Record<string, number>;
-  versions?: Record<string, string>;
-  extensions?: string[];
 }
 
 export interface Snapshot {
@@ -103,6 +117,13 @@ export const resetPorts = (id: string) => rpc<Project>("sites.reset-ports", { id
 export const openSite = (id: string) => rpc<string>("sites.open", { id });
 export const projectEnv = (id: string) => rpc<string>("sites.env", { id });
 export const projectLogs = (id: string, service = "werd") => rpc<string[]>("sites.logs", { id, service });
+export const removeProject = (id: string) => rpc<null>("sites.remove", { id });
+export const setProjectPhp = (id: string, line: string) => rpc<Project>("sites.php", { id, line });
+export const setProjectNode = (id: string, line: string | null) => rpc<Project>("sites.node", { id, line });
+export const linkProject = (id: string, category: Category, instance: string) =>
+  rpc<Project>("sites.link", { id, category, instance });
+export const unlinkProject = (id: string, category: Category) => rpc<Project>("sites.unlink", { id, category });
+export const resolveProject = (id: string) => rpc<{ project: Project; jobs: Job[] }>("sites.resolve", { id });
 
 // ---- Runtimes, jobs, settings ------------------------------------------------
 
