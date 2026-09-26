@@ -1274,3 +1274,82 @@ h2 {
 .about-no {
   color: var(--fail);
 }
+
+/* ---------- Select menus ----------
+   Customizable <select> (appearance: base-select, WebView2/Chromium 134+):
+   the real element keeps keyboard and screen reader support, the menu gets
+   Werd's look instead of the system list. Older engines keep the native menu. */
+
+@supports (appearance: base-select) {
+  .select,
+  .select::picker(select) {
+    appearance: base-select;
+  }
+  .select {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 120px;
+    cursor: pointer;
+  }
+  .select:hover:not(:disabled) {
+    border-color: #4a4e56;
+  }
+  .select:focus-visible,
+  .select:open {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .select::picker-icon {
+    margin-left: auto;
+    color: var(--muted);
+    transition: rotate 0.15s;
+  }
+  .select:open::picker-icon {
+    rotate: 180deg;
+  }
+  .select::picker(select) {
+    margin-top: 4px;
+    padding: 4px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--sidebar);
+    color: var(--text);
+    box-shadow: 0 12px 32px #0009;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  .select option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 5px;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .select option:hover,
+  .select option:focus-visible {
+    outline: none;
+    background: var(--surface-hover);
+    color: var(--text-strong);
+  }
+  .select option:checked {
+    color: var(--text-strong);
+    font-weight: 600;
+  }
+  .select option::checkmark {
+    order: 1;
+    margin-left: auto;
+    color: var(--accent);
+  }
+  .select option:disabled {
+    color: var(--off);
+    cursor: default;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .select::picker-icon {
+    transition: none;
+  }
+}
