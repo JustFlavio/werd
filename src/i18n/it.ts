@@ -42,6 +42,11 @@ export const it: Messages = {
   dashboard: {
     title: "Dashboard",
     activeServices: "Servizi attivi",
+    setupTitle: "Preparazione di Werd",
+    setupHint: "Scarico il server web, PHP e Composer, così il primo sito è subito pronto.",
+    setupDownloading: (what: string) => `Scarico ${what}. Subito dopo il primo sito sarà pronto per partire.`,
+    setupFailed: (error: string) =>
+      `Werd non ha completato la preparazione, probabilmente per mancanza di connessione. ${error}`,
     stopAll: "Ferma tutto",
     noneRunning: (link: ReactNode) => ["Nessun servizio in esecuzione. Avvia un sito dalla pagina ", link, "."],
     servesHttps: (names: string) => `HTTPS per ${names}`,

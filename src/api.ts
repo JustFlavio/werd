@@ -212,6 +212,8 @@ export const uninstallRuntime = (product: string, line: string) => rpc<null>("ru
 export const setDefaultRuntime = (product: string, line: string) =>
   rpc<Settings>("runtimes.default", { product, line });
 export const listJobs = () => rpc<Job[]>("jobs.list");
+/** Runs the first-run setup again (Caddy, PHP, Composer); null when nothing is missing. */
+export const runSetup = () => rpc<Job | null>("setup.run");
 export const getSettings = () => rpc<Settings>("settings.get");
 export const updateSettings = (
   changes: Partial<Pick<Settings, "upload_max_mb" | "memory_limit_mb" | "domains" | "https_port">>,

@@ -1353,3 +1353,32 @@ h2 {
     transition: none;
   }
 }
+
+.setup-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 280px);
+  align-items: center;
+  gap: 18px;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.setup-card strong {
+  color: var(--text-strong);
+}
+.setup-card p {
+  margin: 2px 0 0;
+}
+.setup-failed {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.setup-failed span {
+  flex: 1;
+}
+.setup-failed .button {
+  margin-top: 0;
+}

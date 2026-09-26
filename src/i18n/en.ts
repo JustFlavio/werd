@@ -46,6 +46,11 @@ export const en = {
   dashboard: {
     title: "Dashboard",
     activeServices: "Active services",
+    setupTitle: "Setting up Werd",
+    setupHint: "Downloading the web server, PHP and Composer so your first site is ready to go.",
+    setupDownloading: (what: string) => `Downloading ${what}. Your first site will be ready to start right after.`,
+    setupFailed: (error: string) =>
+      `Werd could not finish setting up, probably because there is no internet connection. ${error}`,
     stopAll: "Stop all",
     noneRunning: (link: ReactNode): ReactNode[] => ["Nothing is running. Start a site from the ", link, " page."],
     servesHttps: (names: string) => `HTTPS for ${names}`,

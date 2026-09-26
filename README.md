@@ -47,7 +47,9 @@ Werd keeps its data in `%LOCALAPPDATA%\Werd` on Windows and the equivalent local
 
 ## First project
 
-1. Install PHP from the **PHP** page (or `werd php install 8.4`).
+On its first start Werd downloads Caddy, the newest PHP (made the global version) and Composer in the background; the Dashboard shows the progress. Internet is needed only to download versions and to create new projects; sites and services run offline.
+
+1. Install other PHP versions from the **PHP** page if you need them (or `werd php install 8.4`).
 2. Add the services you need in **Services → Add service** (or `werd service add postgresql@18 --with pgvector`). Building pgvector currently needs Visual Studio Build Tools.
 3. Add the folder in **Sites → Add site** (or `werd add`), link its services, start it, copy the `.env` values from the site page and run your migrations.
 4. To avoid browser warnings, trust the local CA in **General → HTTPS certificate** (or `werd trust-ca`).

@@ -513,6 +513,8 @@ export async function demoRpc(method: string, params: Record<string, unknown>): 
       if (product === "php") settings.default_php = line;
       if (product === "node") settings.default_node = line;
       return { ...settings };
+    case "setup.run":
+      return null;
     case "jobs.list":
       return jobs.map((job) => ({ ...job }));
     case "settings.get":

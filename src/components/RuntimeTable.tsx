@@ -3,7 +3,7 @@ import type { Job, RuntimeLine } from "../api";
 import { useT } from "../i18n";
 import type { Runtimes } from "../runtimes";
 
-function Progress({ job }: { job: Job }) {
+export function Progress({ job }: { job: Job }) {
   const t = useT();
   const percent = job.total ? Math.min(100, Math.round((job.downloaded / job.total) * 100)) : null;
   return (

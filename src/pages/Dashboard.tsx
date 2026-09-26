@@ -1,7 +1,8 @@
-import { Info } from "lucide-react";
+import { Info, RotateCw, TriangleAlert } from "lucide-react";
 import { useMemo } from "react";
 import type { Page } from "../App";
-import type { Project, ServiceInstance } from "../api";
+import { type Project, runSetup, type ServiceInstance } from "../api";
+import { Progress } from "../components/RuntimeTable";
 import { useT } from "../i18n";
 import type { Runtimes } from "../runtimes";
 import { PageHeader, Section, StatusDot } from "../ui";
@@ -53,6 +54,10 @@ export function Dashboard({
     return rows;
   }, [running, runningInstances, t]);
 
+  // The first-run setup job (Caddy, PHP, Composer), shown until it succeeds.
+  const setup = runtimes.jobs.filter((job) => job.product === "setup").sort((a, b) => b.started_at - a.started_at)[0];
+  const setupStep = setup?.step.match(/^Downloading (.+)$/)?.[1];
+
   const phpLines = runtimes.rows.filter((row) => row.product === "php" && row.installed);
   const defaultPhp = phpLines.find((row) => row.is_default);
   const inboxes = [
@@ -68,6 +73,32 @@ export function Dashboard({
     <>
       <PageHeader title={t.dashboard.title} />
       <div className="page-body">
+        {setup?.state === "running" && (
+          <div className="setup-card" role="status">
+            <div>
+              <strong>{t.dashboard.setupTitle}</strong>
+              <p className="muted">{setupStep ? t.dashboard.setupDownloading(setupStep) : t.dashboard.setupHint}</p>
+            </div>
+            <Progress job={setup} />
+          </div>
+        )}
+        {setup?.state === "failed" && (
+          <div className="callout callout-warn setup-failed">
+            <TriangleAlert size={15} />
+            <span>{t.dashboard.setupFailed(setup.error ?? "")}</span>
+            <button
+              type="button"
+              className="button button-small"
+              onClick={() =>
+                void runSetup()
+                  .then((job) => job && runtimes.track(job))
+                  .catch(() => {})
+              }
+            >
+              <RotateCw size={13} /> {t.common.retry}
+            </button>
+          </div>
+        )}
         <div className="dashboard-top">
           <Section
             title={t.dashboard.activeServices}
