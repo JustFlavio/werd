@@ -36,6 +36,12 @@ All notable changes to Werd are documented here. The format follows
 - **cli:** Add werd park, unpark and parked
 - **desktop:** Add a native folder picker
 - **ui:** Pick folders with the system dialog and manage parked folders
+- **core:** Describe a project from its composer and package files
+- **core:** Create new Laravel projects with the official installer
+- **cli:** Add werd new and show the project stack in werd info
+- **desktop:** Open a site in the file manager, a terminal, Tinker or an editor
+- **ui:** Add the client calls for project inspection, creation and site actions
+- **ui:** Add sites the Herd way and split the site page into tabs
 
 ### Bug fixes
 - **ui:** Resolve accessibility and hook dependency lint findings
@@ -44,6 +50,7 @@ All notable changes to Werd are documented here. The format follows
 - **core:** Allow the Windows-only PATH helpers on other platforms
 - **core:** Stop child processes when the daemon exits abnormally
 - **release:** Stop the daemon and clean up when Werd is updated or uninstalled
+- **desktop:** Use the amber Werd mark for the app, tray and installer icons
 
 ### Refactoring
 - **core:** Split the daemon into focused modules
@@ -59,6 +66,7 @@ All notable changes to Werd are documented here. The format follows
 - Describe version management and the new CLI commands
 - Document werd.yml version 2, services and site commands
 - Document .test domains, the tray and the shared Caddy
+- Update the changelog
 
 ### Tests
 - **ui:** Add vitest setup with first component and helper tests

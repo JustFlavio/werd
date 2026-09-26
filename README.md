@@ -18,6 +18,7 @@ A desktop app and a `werd` CLI share one Rust daemon. Sites run their own PHP Fa
   - Composer, Mailpit, RustFS and Caddy.
 - When a newer patch ships, **Update** replaces the installed one (e.g. PHP 8.4.25 → 8.4.26).
 - **Services** like Herd's: add PostgreSQL 17, MySQL 8.4 or Redis once, choose name, port and autostart, and share them between sites. Each site gets its own database inside them.
+- **Add a site like in Herd:** link an existing project (Werd reads composer.json and proposes a PHP version that fits), or create a new one with the official Laravel installer and a starter kit (React, Vue, Svelte, Livewire or a community kit). From the site page, open it in a terminal, Tinker, VS Code, Cursor or PhpStorm.
 - **Sites** choose their PHP line and Node version and link a database, cache, queue, mail, storage and search service. An optional [`werd.yml`](docs/werd-yml.md) declares all of this for your team; missing services are created with one click.
 - `php`, `composer`, `node`, `npm` and `npx` on your PATH pick the version of the folder you are in (`werd.yml`, `.nvmrc`, the site settings), or your default.
 - Start a site with one action on `https://<name>.test`, with a local CA you can trust from the app. Werd keeps the domains in the hosts file (Windows asks for administrator approval) and every site also keeps a stable `https://localhost:<port>` address. If another program uses port 443, choose another HTTPS port in **General**.
@@ -59,6 +60,7 @@ Some Laravel packages you will need:
 
 ```text
 werd list                       linked projects and their status
+werd new <name> [--kit react|vue|svelte|livewire] [--git] [--npm]   create a Laravel project
 werd add [folder]               link a Laravel project (default: current folder)
 werd up <project>               start (alias: start)
 werd down <project>             stop (alias: stop)
@@ -107,7 +109,7 @@ Closing the window does not stop your sites: the daemon owns the processes. More
 2. **Public repository:** online catalog updates, prebuilt pgvector (no compiler needed), signed releases.
 3. **Services:** database backup and restore, Typesense and Reverb, separate Redis connections for cache and queue.
 4. **Debugging:** `dump()` viewer, built-in mail viewer, Laravel log viewer, Xdebug toggle.
-5. **Desktop polish:** auto-update, light theme, onboarding, Laravel installer.
+5. **Desktop polish:** auto-update, light theme, onboarding.
 6. **Sharing:** public URLs and LAN access.
 
 ## Contributing
