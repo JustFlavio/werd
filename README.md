@@ -21,6 +21,7 @@ A desktop app and a `werd` CLI share one Rust daemon. Sites run their own PHP Fa
 - **Sites** choose their PHP line and Node version and link a database, cache, queue, mail, storage and search service. An optional [`werd.yml`](docs/werd-yml.md) declares all of this for your team; missing services are created with one click.
 - `php`, `composer`, `node`, `npm` and `npx` on your PATH pick the version of the folder you are in (`werd.yml`, `.nvmrc`, the site settings), or your default.
 - Start a site with one action on `https://<name>.test`, with a local CA you can trust from the app. Werd keeps the domains in the hosts file (Windows asks for administrator approval) and every site also keeps a stable `https://localhost:<port>` address. If another program uses port 443, choose another HTTPS port in **General**.
+- Park a folder and every Laravel project inside it becomes a site, like Herd's paths. New projects appear on their own; deleted ones disappear.
 - Werd lives in the tray and can start at login, so services marked to start automatically are ready when you are. If Werd crashes, its PHP, Caddy and service processes stop with it instead of keeping ports busy.
 - See the `.env` values to paste into your project. Werd never edits your files.
 - Read site and service logs, open the Mailpit inbox, the RustFS console and Meilisearch, see service credentials.
@@ -71,6 +72,8 @@ werd link <project> <category> <service>   e.g. werd link shop database "Postgre
 werd unlink <project> <category>
 werd resolve <project>          create the services werd.yml asks for
 werd remove <project>           forget a site (folder untouched)
+werd park|unpark [folder]       every Laravel project in the folder becomes a site
+werd parked                     list parked folders
 werd service [list|available|add|start|stop|info|logs|db|rm]
 werd php [list|install|update|uninstall|use|limits]
 werd node [list|install|update|uninstall|use]
@@ -102,11 +105,10 @@ Closing the window does not stop your sites: the daemon owns the processes. More
 
 1. **macOS and Linux:** runtime catalogs, tar archives, CA trust and PATH integration on each OS.
 2. **Public repository:** online catalog updates, prebuilt pgvector (no compiler needed), signed releases.
-3. **Sites:** parked folders (every subfolder becomes a site).
-4. **Services:** database backup and restore, Typesense and Reverb, separate Redis connections for cache and queue.
-5. **Debugging:** `dump()` viewer, built-in mail viewer, Laravel log viewer, Xdebug toggle.
-6. **Desktop polish:** auto-update, light theme, onboarding, Laravel installer.
-7. **Sharing:** public URLs and LAN access.
+3. **Services:** database backup and restore, Typesense and Reverb, separate Redis connections for cache and queue.
+4. **Debugging:** `dump()` viewer, built-in mail viewer, Laravel log viewer, Xdebug toggle.
+5. **Desktop polish:** auto-update, light theme, onboarding, Laravel installer.
+6. **Sharing:** public URLs and LAN access.
 
 ## Contributing
 

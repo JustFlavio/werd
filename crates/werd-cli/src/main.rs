@@ -40,6 +40,18 @@ enum Command {
         #[arg(default_value = ".")]
         path: String,
     },
+    /// Park a folder: every Laravel project inside it becomes a site.
+    Park {
+        #[arg(default_value = ".")]
+        path: String,
+    },
+    /// Stop parking a folder; its sites are removed (folders untouched).
+    Unpark {
+        #[arg(default_value = ".")]
+        path: String,
+    },
+    /// List parked folders.
+    Parked,
     /// Start a project and its services.
     #[command(visible_alias = "start")]
     Up { project: String },
@@ -309,6 +321,40 @@ fn run(cli: Cli) -> Result<()> {
             )
         }
         Command::Domains { action } => return sites::domains(action.as_ref(), cli.json),
+        Command::Park { path } | Command::Unpark { path } => {
+            let park = matches!(cli.command, Command::Park { .. });
+            let absolute =
+                std::fs::canonicalize(path).with_context(|| format!("Folder not found: {path}"))?;
+            call(
+                if park { "parks.add" } else { "parks.remove" },
+                json!({ "path": absolute }),
+            )?;
+            if park {
+                println!(
+                    "Parked {}; its Laravel projects are now sites (see `werd list`).",
+                    path
+                );
+                if let Err(error) = sites::sync_hosts_if_needed() {
+                    println!("The hosts file was not updated: {error:#}");
+                }
+            } else {
+                println!("Unparked {path}; its sites were removed, the folders are untouched.");
+            }
+            return Ok(());
+        }
+        Command::Parked => {
+            let parked: Vec<String> = serde_json::from_value(call("parks.list", json!({}))?)?;
+            if cli.json {
+                println!("{}", serde_json::to_string_pretty(&parked)?);
+            } else if parked.is_empty() {
+                println!("No parked folders. Park one with `werd park <folder>`.");
+            } else {
+                for folder in parked {
+                    println!("{folder}");
+                }
+            }
+            return Ok(());
+        }
         Command::Link {
             project,
             category,
@@ -401,7 +447,10 @@ fn run(cli: Cli) -> Result<()> {
         | Command::Resolve { .. }
         | Command::Remove { .. }
         | Command::Path { .. }
-        | Command::Domains { .. } => {}
+        | Command::Domains { .. }
+        | Command::Park { .. }
+        | Command::Unpark { .. }
+        | Command::Parked => {}
     }
     Ok(())
 }

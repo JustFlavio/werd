@@ -35,6 +35,9 @@ pub fn info(id: &str, json_output: bool) -> Result<()> {
     );
     println!("status   {}", site["status"].as_str().unwrap_or_default());
     println!("domain   {}", site["domain"].as_str().unwrap_or("-"));
+    if let Some(folder) = site["parked"].as_str() {
+        println!("parked   {folder}");
+    }
     println!("php      {}", site["php"].as_str().unwrap_or("-"));
     println!("node     {}", site["node"].as_str().unwrap_or("default"));
     if let Some(url) = site["url"].as_str() {
