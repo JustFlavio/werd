@@ -56,9 +56,9 @@ export const en = {
     openMailHint: "Start a site that uses Mailpit",
     openLogs: "Open logs",
     diagnostics: "Diagnostics",
-    phpVersion: "Default PHP version",
+    phpVersion: "Global PHP version",
     phpVersionHint: (link: ReactNode): ReactNode[] => [
-      "Used by new sites and the php command. Install more versions from the ",
+      "Used by new sites and by the php command outside your sites (also from the tray). Install more versions from the ",
       link,
       " page.",
     ],
@@ -323,6 +323,7 @@ export const en = {
     open: "Open Werd",
     stopAll: "Stop all sites and services",
     quit: "Quit",
+    usePhp: "Use PHP",
   },
   general: {
     title: "General",
@@ -334,7 +335,7 @@ export const en = {
     trust: "Trust certificate",
     cli: "Command line",
     cliHint:
-      "Adds php, composer, node, npm and npx to your PATH. Each picks the right version for the folder you run it in.",
+      "Puts php, composer, node, npm and npx first on your PATH. Inside a site they use its versions; anywhere else, the global PHP version.",
     cliToggle: "Add Werd to PATH",
     cliEnabled: (bin: string) => `Commands are in ${bin}. Open a new terminal to use them.`,
     cliEnabledToast: "Werd was added to your PATH. Open a new terminal to use php, composer and node.",

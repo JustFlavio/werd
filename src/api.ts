@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { demoRpc } from "./demo";
 
 export type ProjectStatus = "stopped" | "starting" | "running" | "error";
@@ -332,9 +333,22 @@ export async function setLaunchAtLogin(enabled: boolean): Promise<boolean> {
 }
 
 /** Translates the tray menu; a no-op outside the desktop app. */
-export async function setTrayLabels(labels: { open: string; stop_all: string; quit: string }): Promise<void> {
+/** Translates the tray menu and rebuilds its PHP entries; a no-op outside the desktop app. */
+export async function setTrayLabels(labels: {
+  open: string;
+  stop_all: string;
+  quit: string;
+  use_php: string;
+}): Promise<void> {
   if (!desktop) return;
   return invoke<void>("set_tray_labels", { labels });
+}
+
+/** Calls `handler` when the tray changed the global PHP version. Returns an unsubscribe function. */
+export function onRuntimesChanged(handler: () => void): () => void {
+  if (!desktop) return () => {};
+  const pending = listen("werd://runtimes-changed", handler);
+  return () => void pending.then((unlisten) => unlisten());
 }
 
 export const REPOSITORY_URL = "https://github.com/JustFlavio/werd";

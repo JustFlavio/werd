@@ -19,6 +19,7 @@ import {
   launchAtLogin,
   listProjects,
   listServices,
+  onRuntimesChanged,
   openSite,
   openUrl,
   type Project,
@@ -99,9 +100,23 @@ export default function App() {
     }
   }, []);
 
+  // The tray lists installed PHP versions with the global one checked.
+  const phpKey = runtimes.rows
+    .filter((row) => row.product === "php" && row.installed)
+    .map((row) => `${row.line}${row.is_default ? "*" : ""}`)
+    .join(",");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: phpKey only triggers the rebuild; the tray reads the versions from the daemon.
   useEffect(() => {
-    void setTrayLabels({ open: t.tray.open, stop_all: t.tray.stopAll, quit: t.tray.quit }).catch(() => {});
-  }, [t]);
+    void setTrayLabels({
+      open: t.tray.open,
+      stop_all: t.tray.stopAll,
+      quit: t.tray.quit,
+      use_php: t.tray.usePhp,
+    }).catch(() => {});
+  }, [t, phpKey]);
+
+  const refreshRuntimes = runtimes.refresh;
+  useEffect(() => onRuntimesChanged(() => void refreshRuntimes()), [refreshRuntimes]);
 
   useEffect(() => {
     void refresh();
