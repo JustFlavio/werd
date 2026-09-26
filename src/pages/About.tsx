@@ -1,10 +1,22 @@
-import { REPOSITORY_URL } from "../api";
+import { RefreshCw } from "lucide-react";
+import { useState } from "react";
+import { type DoctorResult, doctor, REPOSITORY_URL } from "../api";
 import { useT } from "../i18n";
 import { Logo } from "../Logo";
-import { PageHeader, Section } from "../ui";
+import { PageHeader, Section, StatusDot } from "../ui";
 
-export function About({ daemonVersion, onOpenUrl }: { daemonVersion: string; onOpenUrl: (url: string) => void }) {
+export function About({
+  daemonVersion,
+  onOpenUrl,
+  onError,
+}: {
+  daemonVersion: string;
+  onOpenUrl: (url: string) => void;
+  onError: (cause: unknown) => void;
+}) {
   const t = useT();
+  const [checks, setChecks] = useState<DoctorResult[] | null>(null);
+
   return (
     <>
       <PageHeader title={t.about.title} />
@@ -26,6 +38,29 @@ export function About({ daemonVersion, onOpenUrl }: { daemonVersion: string; onO
             </button>
           }
         />
+        <Section
+          title={t.about.troubleshooting}
+          description={t.about.troubleshootingHint}
+          action={
+            <button type="button" className="button" onClick={() => void doctor().then(setChecks).catch(onError)}>
+              <RefreshCw size={14} /> {t.about.runChecks}
+            </button>
+          }
+        >
+          {checks && (
+            <ul className="checks">
+              {checks.map((check) => (
+                <li key={check.label}>
+                  <StatusDot status={check.ok ? "ok" : "fail"} />
+                  <div>
+                    <strong>{check.label}</strong>
+                    <span className="muted">{check.detail}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
       </div>
     </>
   );

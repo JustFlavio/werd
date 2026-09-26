@@ -705,3 +705,132 @@ h2 {
     grid-template-columns: 200px minmax(0, 1fr);
   }
 }
+
+/* ---------- Runtimes ---------- */
+
+.runtime-table td:first-child {
+  white-space: nowrap;
+}
+.runtime-version {
+  margin-right: 8px;
+}
+.button-row-end {
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+.installed {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ok);
+}
+.error-text {
+  color: var(--fail);
+}
+
+.badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  vertical-align: 1px;
+}
+.badge-accent {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 180px;
+}
+.progress-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width 0.25s ease;
+}
+.progress-fill.indeterminate {
+  animation: progress-slide 1.2s ease-in-out infinite;
+}
+.progress-label {
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 36px;
+  text-align: right;
+}
+@keyframes progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .progress-fill.indeterminate {
+    animation: none;
+  }
+}
+
+.limits {
+  display: grid;
+  gap: 18px;
+  margin: 14px 0 16px;
+  max-width: 560px;
+}
+.limit-field {
+  display: grid;
+  gap: 2px;
+}
+.limit-label {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.input-with-unit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.input-with-unit .input {
+  width: 140px;
+}
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.checkbox input {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+}
+
+.path-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.path-row code {
+  overflow-wrap: anywhere;
+}

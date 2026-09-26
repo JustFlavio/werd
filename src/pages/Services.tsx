@@ -1,15 +1,31 @@
 import type { Project } from "../api";
+import { RuntimeTable } from "../components/RuntimeTable";
 import { useT } from "../i18n";
+import type { Runtimes } from "../runtimes";
 import { describePorts, SERVICE_NAMES, SERVICES, serviceUrl } from "../services";
 import { PageHeader, Section, StatusDot } from "../ui";
 
-export function Services({ projects, onOpenUrl }: { projects: Project[]; onOpenUrl: (url: string) => void }) {
+export function Services({
+  projects,
+  runtimes,
+  onOpenUrl,
+}: {
+  projects: Project[];
+  runtimes: Runtimes;
+  onOpenUrl: (url: string) => void;
+}) {
   const t = useT();
+  const binaries = runtimes.rows.filter(
+    (row) => row.kind === "service" || row.kind === "extension" || row.product === "caddy",
+  );
   return (
     <>
       <PageHeader title={t.services.title} />
       <div className="page-body">
         <p className="muted lead">{t.services.lead(<code key="file">werd.yml</code>)}</p>
+        <Section title={t.services.versions} description={t.services.versionsHint}>
+          <RuntimeTable rows={binaries} runtimes={runtimes} />
+        </Section>
         {SERVICE_NAMES.map((service) => {
           const meta = SERVICES[service];
           const using = projects.filter((project) => project.services.includes(service));

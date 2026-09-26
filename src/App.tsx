@@ -1,20 +1,33 @@
-import { Boxes, Cpu, Globe, Info, LayoutDashboard, ScrollText, Settings, X } from "lucide-react";
+import {
+  Boxes,
+  Cpu,
+  Globe,
+  Hexagon,
+  Info,
+  LayoutDashboard,
+  ScrollText,
+  Settings as SettingsIcon,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
   addProject,
-  type DoctorResult,
-  doctor,
-  installRuntime,
+  disablePath,
+  enablePath,
+  getSettings,
   listProjects,
   openSite,
   openUrl,
   type Project,
-  type RuntimeInfo,
+  refreshCatalog,
   resetPorts,
-  runtimes,
+  type Settings,
+  type SystemInfo,
   startProject,
   stopProject,
+  systemInfo,
   trustCa,
+  updateSettings,
 } from "./api";
 import { useT } from "./i18n";
 import { Logo } from "./Logo";
@@ -22,23 +35,28 @@ import { About } from "./pages/About";
 import { Dashboard } from "./pages/Dashboard";
 import { General } from "./pages/General";
 import { Logs } from "./pages/Logs";
+import { Node } from "./pages/Node";
 import { Php } from "./pages/Php";
 import { Services } from "./pages/Services";
 import { Sites } from "./pages/Sites";
+import { useRuntimes } from "./runtimes";
 
-export type Page = "dashboard" | "sites" | "php" | "services" | "logs" | "general" | "about";
+export type Page = "dashboard" | "sites" | "php" | "node" | "services" | "logs" | "general" | "about";
 
 const NAV: { id: Page; icon: typeof Globe }[] = [
   { id: "dashboard", icon: LayoutDashboard },
   { id: "sites", icon: Globe },
   { id: "php", icon: Cpu },
+  { id: "node", icon: Hexagon },
   { id: "services", icon: Boxes },
   { id: "logs", icon: ScrollText },
-  { id: "general", icon: Settings },
+  { id: "general", icon: SettingsIcon },
   { id: "about", icon: Info },
 ];
 
 type Toast = { tone: "error" | "info"; text: string };
+
+const message = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause));
 
 export default function App() {
   const t = useT();
@@ -49,10 +67,11 @@ export default function App() {
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const [offline, setOffline] = useState<string | null>(null);
-  const [checks, setChecks] = useState<DoctorResult[]>([]);
-  const [runtimeList, setRuntimeList] = useState<RuntimeInfo[]>([]);
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [system, setSystem] = useState<SystemInfo | null>(null);
 
-  const fail = useCallback((cause: unknown) => setToast({ tone: "error", text: String(cause) }), []);
+  const fail = useCallback((cause: unknown) => setToast({ tone: "error", text: message(cause) }), []);
+  const runtimes = useRuntimes(fail);
 
   const refresh = useCallback(async () => {
     try {
@@ -61,7 +80,7 @@ export default function App() {
       setDaemonVersion(snapshot.daemon_version);
       setOffline(null);
     } catch (cause) {
-      setOffline(String(cause));
+      setOffline(message(cause));
     }
   }, []);
 
@@ -72,8 +91,8 @@ export default function App() {
   }, [refresh]);
 
   useEffect(() => {
-    if (page === "general") void doctor().then(setChecks).catch(fail);
-    if (page === "php") void runtimes().then(setRuntimeList).catch(fail);
+    if (page === "php") void getSettings().then(setSettings).catch(fail);
+    if (page === "general") void systemInfo().then(setSystem).catch(fail);
   }, [page, fail]);
 
   async function run(key: string, action: () => Promise<unknown>) {
@@ -156,6 +175,7 @@ export default function App() {
         {page === "dashboard" && (
           <Dashboard
             projects={projects}
+            runtimes={runtimes}
             busy={busy === "stop-all"}
             onStopAll={stopAll}
             onNavigate={setPage}
@@ -186,23 +206,39 @@ export default function App() {
         )}
         {page === "php" && (
           <Php
-            runtimes={runtimeList}
-            busy={busy?.startsWith("install:") ? busy.slice(8) : null}
-            onInstall={(id) =>
-              void run(`install:${id}`, async () => {
-                await installRuntime(id);
-                setRuntimeList(await runtimes());
-              })
-            }
+            runtimes={runtimes}
+            settings={settings}
+            onSaveLimits={async (limits) => {
+              try {
+                setSettings(await updateSettings(limits));
+                setToast({ tone: "info", text: t.php.limitsSaved });
+              } catch (cause) {
+                fail(cause);
+              }
+            }}
           />
         )}
-        {page === "services" && <Services projects={projects} onOpenUrl={open} />}
+        {page === "node" && <Node runtimes={runtimes} />}
+        {page === "services" && <Services projects={projects} runtimes={runtimes} onOpenUrl={open} />}
         {page === "logs" && <Logs projects={projects} projectId={selectedId} onProjectChange={setSelectedId} />}
         {page === "general" && (
           <General
-            checks={checks}
-            daemonVersion={daemonVersion}
-            onRecheck={() => void doctor().then(setChecks).catch(fail)}
+            system={system}
+            busy={busy}
+            onTogglePath={(enable) =>
+              void run("path", async () => {
+                await (enable ? enablePath() : disablePath());
+                setSystem(await systemInfo());
+                setToast({ tone: "info", text: enable ? t.general.cliEnabledToast : t.general.cliDisabledToast });
+              })
+            }
+            onRefreshCatalog={() =>
+              void run("catalog", async () => {
+                await refreshCatalog();
+                setSystem(await systemInfo());
+                await runtimes.refresh();
+              })
+            }
             onTrustCa={() =>
               void trustCa()
                 .then((text) => setToast({ tone: "info", text }))
@@ -210,7 +246,7 @@ export default function App() {
             }
           />
         )}
-        {page === "about" && <About daemonVersion={daemonVersion} onOpenUrl={open} />}
+        {page === "about" && <About daemonVersion={daemonVersion} onOpenUrl={open} onError={fail} />}
       </main>
 
       {toast && (

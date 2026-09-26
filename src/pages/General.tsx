@@ -1,21 +1,22 @@
-import { RefreshCw } from "lucide-react";
-import type { DoctorResult } from "../api";
+import type { SystemInfo } from "../api";
 import { LOCALES, type Locale, useI18n } from "../i18n";
-import { PageHeader, Section, StatusDot } from "../ui";
+import { CopyButton, PageHeader, Section } from "../ui";
 
 export function General({
-  checks,
-  daemonVersion,
-  onRecheck,
+  system,
+  busy,
+  onTogglePath,
+  onRefreshCatalog,
   onTrustCa,
 }: {
-  checks: DoctorResult[];
-  daemonVersion: string;
-  onRecheck: () => void;
+  system: SystemInfo | null;
+  busy: string | null;
+  onTogglePath: (enable: boolean) => void;
+  onRefreshCatalog: () => void;
   onTrustCa: () => void;
 }) {
   const { t, locale, setLocale } = useI18n();
-  const reachable = daemonVersion !== "—";
+  const generated = system?.catalog_generated ? new Date(system.catalog_generated).toLocaleDateString(locale) : "—";
 
   return (
     <>
@@ -41,6 +42,40 @@ export function General({
         />
 
         <Section
+          title={t.general.cli}
+          description={t.general.cliHint}
+          action={
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={system?.path_enabled ?? false}
+                disabled={!system || busy === "path"}
+                onChange={(event) => onTogglePath(event.target.checked)}
+              />
+              {t.general.cliToggle}
+            </label>
+          }
+        >
+          {system?.path_enabled && <p className="muted">{t.general.cliEnabled(system.bin)}</p>}
+        </Section>
+
+        <Section
+          title={t.general.catalog}
+          description={t.general.catalogHint(generated)}
+          action={
+            <button
+              type="button"
+              className="button"
+              disabled={!system?.catalog_refreshable || busy === "catalog"}
+              title={system?.catalog_refreshable ? undefined : t.general.catalogUnavailable}
+              onClick={onRefreshCatalog}
+            >
+              {t.general.checkUpdates}
+            </button>
+          }
+        />
+
+        <Section
           title={t.general.certificate}
           description={t.general.certificateHint}
           action={
@@ -50,42 +85,11 @@ export function General({
           }
         />
 
-        <Section title={t.general.daemon} description={t.general.daemonHint}>
-          <dl className="fields">
-            <dt>{t.general.state}</dt>
-            <dd>
-              <StatusDot status={reachable ? "ok" : "fail"} />
-              {reachable ? t.general.running : t.general.unreachable}
-            </dd>
-            <dt>{t.general.version}</dt>
-            <dd className="mono">{daemonVersion}</dd>
-          </dl>
-        </Section>
-
-        <Section
-          title={t.general.diagnostics}
-          description={t.general.diagnosticsHint}
-          action={
-            <button type="button" className="button" onClick={onRecheck}>
-              <RefreshCw size={14} /> {t.general.recheck}
-            </button>
-          }
-        >
-          {checks.length === 0 ? (
-            <p className="muted">{t.general.noChecks}</p>
-          ) : (
-            <ul className="checks">
-              {checks.map((check) => (
-                <li key={check.label}>
-                  <StatusDot status={check.ok ? "ok" : "fail"} />
-                  <div>
-                    <strong>{check.label}</strong>
-                    <span className="muted">{check.detail}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+        <Section title={t.general.dataFolder} description={t.general.dataFolderHint}>
+          <div className="path-row">
+            <code className="mono">{system?.home ?? "—"}</code>
+            {system && <CopyButton text={system.home} />}
+          </div>
         </Section>
       </div>
     </>

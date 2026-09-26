@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import type { Page } from "../App";
 import type { Project, ServiceName } from "../api";
 import { useT } from "../i18n";
+import type { Runtimes } from "../runtimes";
 import { SERVICES, serviceUrl } from "../services";
 import { PageHeader, Section, StatusDot } from "../ui";
 
@@ -14,12 +15,14 @@ interface ActiveService {
 
 export function Dashboard({
   projects,
+  runtimes,
   busy,
   onStopAll,
   onNavigate,
   onOpenUrl,
 }: {
   projects: Project[];
+  runtimes: Runtimes;
   busy: boolean;
   onStopAll: () => void;
   onNavigate: (page: Page) => void;
@@ -33,7 +36,11 @@ export function Dashboard({
     const names = (list: Project[]) => list.map((project) => project.name).join(", ");
     const rows: ActiveService[] = [
       { id: "caddy", label: "Caddy", detail: t.dashboard.servesHttps(names(running)) },
-      { id: "php", label: "PHP 8.5", detail: t.dashboard.servesFastcgi(names(running)) },
+      {
+        id: "php",
+        label: `PHP ${[...new Set(running.map((project) => project.php))].sort().join(", ")}`,
+        detail: t.dashboard.servesFastcgi(names(running)),
+      },
     ];
     for (const service of Object.keys(SERVICES) as ServiceName[]) {
       const using = running.filter((project) => project.services.includes(service));
@@ -44,6 +51,8 @@ export function Dashboard({
     return rows;
   }, [running, t]);
 
+  const phpLines = runtimes.rows.filter((row) => row.product === "php" && row.installed);
+  const defaultPhp = phpLines.find((row) => row.is_default);
   const inboxes = running.map((project) => serviceUrl(project, "mailpit")).filter((url): url is string => url !== null);
   const link = (page: Page) => (
     <button key={page} type="button" className="link" onClick={() => onNavigate(page)}>
@@ -105,8 +114,22 @@ export function Dashboard({
           title={t.dashboard.phpVersion}
           description={t.dashboard.phpVersionHint(link("php"))}
           action={
-            <select className="select" value="8.5" disabled aria-label={t.dashboard.phpVersion}>
-              <option value="8.5">PHP 8.5</option>
+            <select
+              className="select"
+              value={defaultPhp?.line ?? ""}
+              disabled={phpLines.length === 0}
+              aria-label={t.dashboard.phpVersion}
+              onChange={(event) => {
+                const row = phpLines.find((candidate) => candidate.line === event.target.value);
+                if (row) runtimes.setDefault(row);
+              }}
+            >
+              {!defaultPhp && <option value="">{phpLines.length ? "—" : t.dashboard.noPhp}</option>}
+              {phpLines.map((row) => (
+                <option key={row.line} value={row.line}>
+                  PHP {row.line}
+                </option>
+              ))}
             </select>
           }
         />
