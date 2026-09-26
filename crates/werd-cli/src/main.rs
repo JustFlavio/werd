@@ -34,6 +34,8 @@ enum Command {
     /// List linked projects and their status.
     #[command(visible_alias = "status")]
     List,
+    /// Create a new Laravel project with the official installer and link it.
+    New(sites::NewArgs),
     /// Link a Laravel project folder.
     Add {
         /// Project folder (defaults to the current directory).
@@ -321,6 +323,7 @@ fn run(cli: Cli) -> Result<()> {
             )
         }
         Command::Domains { action } => return sites::domains(action.as_ref(), cli.json),
+        Command::New(arguments) => return sites::new_project(arguments),
         Command::Park { path } | Command::Unpark { path } => {
             let park = matches!(cli.command, Command::Park { .. });
             let absolute =
@@ -448,6 +451,7 @@ fn run(cli: Cli) -> Result<()> {
         | Command::Remove { .. }
         | Command::Path { .. }
         | Command::Domains { .. }
+        | Command::New(_)
         | Command::Park { .. }
         | Command::Unpark { .. }
         | Command::Parked => {}
