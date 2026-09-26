@@ -1,7 +1,8 @@
 //! Site lifecycle: link, configure, start, stop and inspect.
 //!
-//! A site runs its own PHP FastCGI and Caddy. Databases, caches, mail and
-//! storage come from shared service instances the site is linked to.
+//! A site runs its own PHP FastCGI behind the shared Caddy of `router`.
+//! Databases, caches, mail and storage come from shared service instances
+//! the site is linked to.
 
 use crate::instances::{self, database_name};
 use crate::manifest::Manifest;
@@ -11,6 +12,7 @@ use crate::platform;
 use crate::ports;
 use crate::process::append_log;
 use crate::proxy;
+use crate::router;
 use crate::runtimes::Installed;
 use crate::settings::Settings;
 use crate::state::State;
@@ -93,13 +95,16 @@ pub(crate) fn add(root: &Path, state: &mut State, path: &str) -> Result<Project>
         bail!("This project is already linked to Werd");
     }
     let manifest = Manifest::load(&canonical)?;
+    let name = canonical
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+    let domain = state.unique_domain(&name, None);
     state.projects.push(Project {
         id: Uuid::new_v4().to_string(),
-        name: canonical
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .to_string(),
+        name,
+        domain: Some(domain),
         path: display_path,
         php: initial_php(root, manifest.php),
         node: manifest.node,
@@ -122,14 +127,18 @@ pub(crate) fn add(root: &Path, state: &mut State, path: &str) -> Result<Project>
 /// Stops a site and forgets it. The project folder and linked services are untouched.
 pub(crate) fn remove(root: &Path, state: &mut State, id: &str) -> Result<()> {
     let index = state.index(id)?;
-    stop_processes(state, id);
+    let was_running = stop_processes(state, id);
     state.projects.remove(index);
+    if was_running {
+        state.sync_router(root)?;
+    }
     state.save(root)?;
     let _ = fs::remove_dir_all(project_dir(root, id));
     Ok(())
 }
 
-/// Starts linked services (and the site database in them), then PHP and Caddy.
+/// Starts linked services (and the site database in them), then PHP, then
+/// adds the site to the router.
 pub(crate) fn start(root: &Path, state: &mut State, id: &str) -> Result<Project> {
     let index = state.index(id)?;
     if state.projects[index].status == ProjectStatus::Running {
@@ -162,7 +171,7 @@ pub(crate) fn start(root: &Path, state: &mut State, id: &str) -> Result<Project>
     ports.retain(|role, _| role == "site" || role == "fastcgi");
     ports::ensure_available(&ports)?;
     let mut children = Vec::new();
-    let url = match proxy::start_site(
+    if let Err(error) = proxy::start_php(
         root,
         id,
         Path::new(&project.path),
@@ -170,21 +179,27 @@ pub(crate) fn start(root: &Path, state: &mut State, id: &str) -> Result<Project>
         &mut ports,
         &mut children,
     ) {
-        Ok(url) => url,
-        Err(error) => {
-            for child in children.iter_mut().rev() {
-                child.kill();
-            }
-            return Err(error);
+        for child in children.iter_mut().rev() {
+            child.kill();
         }
-    };
-
+        return Err(error);
+    }
+    let site_port = ports["site"];
     state.processes.insert(id.into(), children);
+    state.projects[index].ports = Some(ports);
+    let served = state
+        .sync_router(root)
+        .and_then(|()| state.router.wait_for(site_port));
+    if let Err(error) = served {
+        stop_processes(state, id);
+        let _ = state.sync_router(root);
+        return Err(error);
+    }
+
     let project = &mut state.projects[index];
     project.status = ProjectStatus::Running;
     project.error = None;
-    project.url = Some(url.clone());
-    project.ports = Some(ports);
+    let url = project.url.clone().unwrap_or_default();
     let updated = project.clone();
     append_log(root, id, &format!("Site started: {url}"))?;
     state.save(root)?;
@@ -201,18 +216,23 @@ pub(crate) fn mark_failed(root: &Path, state: &mut State, id: &str, error: &anyh
     let _ = state.save(root);
 }
 
-/// Stops PHP and Caddy of a site. Shared services keep running.
-pub(crate) fn stop_processes(state: &mut State, id: &str) {
-    if let Some(mut children) = state.processes.remove(id) {
-        for child in children.iter_mut().rev() {
-            child.kill();
-        }
+/// Stops PHP of a site; returns whether it was running. Callers then sync the
+/// router. Shared services keep running.
+pub(crate) fn stop_processes(state: &mut State, id: &str) -> bool {
+    let Some(mut children) = state.processes.remove(id) else {
+        return false;
+    };
+    for child in children.iter_mut().rev() {
+        child.kill();
     }
+    true
 }
 
 pub(crate) fn stop(root: &Path, state: &mut State, id: &str) -> Result<Project> {
     let index = state.index(id)?;
-    stop_processes(state, id);
+    if stop_processes(state, id) {
+        state.sync_router(root)?;
+    }
     let project = &mut state.projects[index];
     project.status = ProjectStatus::Stopped;
     project.url = None;
@@ -267,6 +287,51 @@ pub(crate) fn set_runtime(
     Ok(updated)
 }
 
+/// Changes the `.test` domain of a site; a running site is served on it at once.
+pub(crate) fn set_domain(root: &Path, state: &mut State, id: &str, input: &str) -> Result<Project> {
+    let index = state.index(id)?;
+    let domain = crate::domains::normalize(input)?;
+    if state
+        .projects
+        .iter()
+        .any(|project| project.id != id && project.domain.as_deref() == Some(domain.as_str()))
+    {
+        bail!("{domain} is already used by another site");
+    }
+    state.projects[index].domain = Some(domain);
+    if state.processes.contains_key(id) {
+        state.sync_router(root)?;
+    }
+    state.save(root)?;
+    Ok(state.projects[index].clone())
+}
+
+/// Every site domain, sorted; these belong in the hosts file.
+pub(crate) fn domains(state: &State) -> Vec<String> {
+    let mut domains: Vec<String> = state
+        .projects
+        .iter()
+        .filter_map(|project| project.domain.clone())
+        .collect();
+    domains.sort();
+    domains
+}
+
+/// The address a site has (or will have once started).
+fn site_url(root: &Path, project: &Project) -> Option<String> {
+    if let Some(url) = &project.url {
+        return Some(url.clone());
+    }
+    let settings = Settings::load(root).unwrap_or_default();
+    match (&project.domain, settings.domains) {
+        (Some(domain), true) if settings.https_port == 443 => Some(format!("https://{domain}")),
+        (Some(domain), true) => Some(format!("https://{domain}:{}", settings.https_port)),
+        _ => router::port(project, "site")
+            .ok()
+            .map(|port| format!("https://localhost:{port}")),
+    }
+}
+
 /// Links (or relinks) a category of a site to a service instance.
 pub(crate) fn link(
     root: &Path,
@@ -318,7 +383,10 @@ pub(crate) fn open(state: &State, id: &str) -> Result<String> {
 /// The `.env` block for a site: its URL plus every linked service.
 pub(crate) fn env(root: &Path, state: &State, id: &str) -> Result<String> {
     let project = state.project(id)?;
-    let mut lines: Vec<String> = project.url.iter().map(|url| format!("APP_URL={url}")).collect();
+    let mut lines: Vec<String> = site_url(root, project)
+        .iter()
+        .map(|url| format!("APP_URL={url}"))
+        .collect();
     for category in CATEGORIES {
         let Some(link) = project.links.get(category) else {
             continue;
@@ -442,6 +510,38 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("already linked"));
+    }
+
+    #[test]
+    fn sites_get_unique_test_domains() {
+        let root = tempfile::tempdir().unwrap();
+        let work = tempfile::tempdir().unwrap();
+        let mut state = State::default();
+        fs::create_dir_all(work.path().join("a")).unwrap();
+        let first = add(
+            root.path(),
+            &mut state,
+            &laravel_folder(work.path(), "My Shop", None),
+        )
+        .unwrap();
+        let second = add(
+            root.path(),
+            &mut state,
+            &laravel_folder(&work.path().join("a"), "My Shop", None),
+        )
+        .unwrap();
+        assert_eq!(first.domain.as_deref(), Some("my-shop.test"));
+        assert_eq!(second.domain.as_deref(), Some("my-shop-2.test"));
+
+        let error = set_domain(root.path(), &mut state, &second.id, "my-shop").unwrap_err();
+        assert!(error.to_string().contains("already used"), "{error}");
+        assert!(set_domain(root.path(), &mut state, &second.id, "my shop").is_err());
+        let renamed = set_domain(root.path(), &mut state, &second.id, "Store").unwrap();
+        assert_eq!(renamed.domain.as_deref(), Some("store.test"));
+        assert_eq!(domains(&state), ["my-shop.test", "store.test"]);
+        assert!(env(root.path(), &state, &first.id)
+            .unwrap()
+            .contains("APP_URL=https://my-shop.test"));
     }
 
     #[test]

@@ -24,6 +24,10 @@ pub struct Settings {
     pub catalog_url: Option<String>,
     /// Whether `<home>/bin` has been added to the user's PATH.
     pub path_enabled: bool,
+    /// Serve sites on `https://<name>.test` besides their localhost port.
+    pub domains: bool,
+    /// Port of `.test` domains; 443 keeps it out of the URL.
+    pub https_port: u16,
 }
 
 impl Default for Settings {
@@ -36,6 +40,8 @@ impl Default for Settings {
             memory_limit_mb: 512,
             catalog_url: None,
             path_enabled: false,
+            domains: true,
+            https_port: 443,
         }
     }
 }
@@ -62,6 +68,9 @@ impl Settings {
         }
         if self.memory_limit_mb != -1 && !(16..=65536).contains(&self.memory_limit_mb) {
             bail!("Memory limit must be -1 (unlimited) or between 16 and 65536 MB");
+        }
+        if self.https_port == 0 {
+            bail!("The HTTPS port must be between 1 and 65535");
         }
         Ok(())
     }

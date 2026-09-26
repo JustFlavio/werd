@@ -182,6 +182,10 @@ pub fn read_log(root: &Path, id: &str, source: &str) -> Result<Vec<String>> {
     if !LOG_SOURCES.contains(&source) {
         bail!("Unknown log: {source}");
     }
+    if source == "caddy" {
+        // One Caddy serves every site.
+        return tail_file(&crate::router::log_file(root));
+    }
     tail_file(&project_dir(root, id).join(format!("{source}.log")))
 }
 

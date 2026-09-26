@@ -4,6 +4,7 @@ use crate::instances::Instances;
 use crate::model::{Project, ProjectStatus};
 use crate::paths::state_file;
 use crate::process::ManagedChild;
+use crate::router::{self, Route, Router};
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::fs;
@@ -16,6 +17,8 @@ pub(crate) struct State {
     pub processes: HashMap<String, Vec<ManagedChild>>,
     /// Shared service instances (PostgreSQL, Redis, …).
     pub instances: Instances,
+    /// The Caddy that serves running sites.
+    pub router: Router,
 }
 
 impl State {
@@ -34,11 +37,79 @@ impl State {
             project.url = None;
             crate::migrations::upgrade_project(project);
         }
-        Ok(Self {
+        let mut state = Self {
             projects,
             processes: HashMap::new(),
             instances: Instances::load(root)?,
-        })
+            router: Router::default(),
+        };
+        for index in 0..state.projects.len() {
+            if state.projects[index].domain.is_none() {
+                let domain = state.unique_domain(&state.projects[index].name.clone(), Some(index));
+                state.projects[index].domain = Some(domain);
+            }
+        }
+        Ok(state)
+    }
+
+    /// `<name>.test`, with a number appended when another site already has it.
+    pub fn unique_domain(&self, name: &str, except: Option<usize>) -> String {
+        let label = crate::domains::label(name);
+        let taken = |domain: &str| {
+            self.projects
+                .iter()
+                .enumerate()
+                .any(|(index, project)| Some(index) != except && project.domain.as_deref() == Some(domain))
+        };
+        let mut domain = format!("{label}.test");
+        let mut suffix = 2;
+        while taken(&domain) {
+            domain = format!("{label}-{suffix}.test");
+            suffix += 1;
+        }
+        domain
+    }
+
+    /// Running sites as the router serves them.
+    pub fn routes(&self) -> Vec<Route> {
+        self.projects
+            .iter()
+            .filter(|project| self.processes.contains_key(&project.id))
+            .filter_map(|project| {
+                Some(Route {
+                    site_port: router::port(project, "site").ok()?,
+                    fastcgi_port: router::port(project, "fastcgi").ok()?,
+                    public_dir: std::path::Path::new(&project.path).join("public"),
+                    domain: project.domain.clone(),
+                })
+            })
+            .collect()
+    }
+
+    /// Updates the router to the running sites and refreshes their URLs.
+    pub fn sync_router(&mut self, root: &Path) -> Result<()> {
+        let routes = self.routes();
+        self.router.sync(root, &routes)?;
+        self.refresh_urls();
+        Ok(())
+    }
+
+    /// Restarts the router, e.g. after the domain settings changed.
+    pub fn restart_router(&mut self, root: &Path) -> Result<()> {
+        let routes = self.routes();
+        self.router.restart(root, &routes)?;
+        self.refresh_urls();
+        Ok(())
+    }
+
+    fn refresh_urls(&mut self) {
+        for project in &mut self.projects {
+            if self.processes.contains_key(&project.id) {
+                if let Ok(port) = router::port(project, "site") {
+                    project.url = Some(self.router.url(project, port));
+                }
+            }
+        }
     }
 
     /// Writes `state.json` through a temporary file so a crash never leaves it half-written.
@@ -74,6 +145,7 @@ mod tests {
         Project {
             id: "p1".into(),
             name: "shop".into(),
+            domain: None,
             path: "/work/shop".into(),
             php: "8.5".into(),
             node: None,

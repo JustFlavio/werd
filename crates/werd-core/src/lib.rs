@@ -11,13 +11,15 @@
 //! - `manifest`: `werd.yml`
 //! - `state`, `projects`: linked projects and their lifecycle
 //! - `instances`: shared service instances (PostgreSQL, MySQL, Redis, …)
-//! - `proxy`: PHP FastCGI + Caddy per site
+//! - `proxy`, `router`: PHP FastCGI per site behind one shared Caddy
+//! - [`domains`]: `.test` names and the hosts file
 //! - [`platform`]: OS integration (browser, certificates)
 //! - `rpc`, `daemon`: local API and the daemon process
 
 pub mod catalog;
 mod daemon;
 mod doctor;
+pub mod domains;
 mod instances;
 pub mod jobs;
 pub mod manifest;
@@ -29,6 +31,7 @@ mod ports;
 mod process;
 mod projects;
 mod proxy;
+mod router;
 mod rpc;
 pub mod runtimes;
 pub mod settings;

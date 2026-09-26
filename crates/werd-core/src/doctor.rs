@@ -3,6 +3,7 @@
 
 use crate::catalog::Catalog;
 use crate::model::DoctorResult;
+use crate::router::Router;
 use crate::runtimes::{line_dir, Installed};
 use crate::settings::Settings;
 use std::path::Path;
@@ -15,7 +16,34 @@ fn check(label: impl Into<String>, ok: bool, detail: impl Into<String>) -> Docto
     }
 }
 
-pub fn run(root: &Path, catalog: &Catalog) -> Vec<DoctorResult> {
+/// Whether `.test` domains work: enabled, served on the HTTPS port, in the hosts file.
+fn domains(settings: &Settings, router: &Router, domains: &[String]) -> DoctorResult {
+    if !settings.domains {
+        return check(".test domains", true, "Off; sites use https://localhost:<port>");
+    }
+    if let Some(warning) = &router.warning {
+        return check(".test domains", false, warning.clone());
+    }
+    let missing = crate::domains::missing_from_hosts(domains);
+    if missing.is_empty() {
+        check(
+            ".test domains",
+            true,
+            format!("{} site domain(s) in the hosts file", domains.len()),
+        )
+    } else {
+        check(
+            ".test domains",
+            false,
+            format!(
+                "Not in the hosts file: {}. Run `werd domains sync`",
+                missing.join(", ")
+            ),
+        )
+    }
+}
+
+pub fn run(root: &Path, catalog: &Catalog, router: &Router, site_domains: &[String]) -> Vec<DoctorResult> {
     let mut checks = vec![check(
         "Werd daemon",
         true,
@@ -76,6 +104,7 @@ pub fn run(root: &Path, catalog: &Catalog) -> Vec<DoctorResult> {
                 "Not on PATH; enable them from General"
             },
         ));
+        checks.push(domains(&settings, router, site_domains));
     }
     checks
 }
@@ -90,7 +119,7 @@ mod tests {
         let mut installed = Installed::default();
         installed.set("php", "8.5", "8.5.11");
         installed.save(root.path()).unwrap();
-        let checks = run(root.path(), &Catalog::embedded());
+        let checks = run(root.path(), &Catalog::embedded(), &Router::default(), &[]);
         let php = checks.iter().find(|check| check.label == "PHP 8.5").unwrap();
         assert!(!php.ok, "php-cgi.exe is missing on disk");
         assert!(checks[0].ok, "the daemon check is always first and ok");

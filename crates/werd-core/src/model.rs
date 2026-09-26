@@ -87,6 +87,9 @@ pub struct Project {
     pub path: String,
     /// PHP line the site runs on.
     pub php: String,
+    /// `.test` domain of the site.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub domain: Option<String>,
     /// Node.js major used by the shims inside the site folder, if set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub node: Option<String>,

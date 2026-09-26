@@ -214,8 +214,16 @@ fn set_default(root: &Path, params: &Value) -> Result<Value> {
     Ok(json!(settings))
 }
 
-fn update_settings(root: &Path, params: &Value) -> Result<Value> {
+fn update_settings(root: &Path, state: &mut State, params: &Value) -> Result<Value> {
     let mut settings = Settings::load(root)?;
+    let before = (settings.domains, settings.https_port);
+    if let Some(value) = params.get("domains") {
+        settings.domains = value.as_bool().context("domains must be true or false")?;
+    }
+    if let Some(value) = params.get("https_port") {
+        settings.https_port =
+            serde_json::from_value(value.clone()).context("https_port must be a port number")?;
+    }
     if let Some(value) = params.get("upload_max_mb") {
         settings.upload_max_mb =
             serde_json::from_value(value.clone()).context("upload_max_mb must be a number")?;
@@ -227,6 +235,10 @@ fn update_settings(root: &Path, params: &Value) -> Result<Value> {
     settings.validate()?;
     settings.save(root)?;
     runtimes::write_all_php_ini(root, &settings)?;
+    if before != (settings.domains, settings.https_port) {
+        state.restart_router(root)?;
+        state.save(root)?;
+    }
     Ok(json!(settings))
 }
 
@@ -285,6 +297,12 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
             text(params, "category")?
         )?),
         "resolve" => resolve_site(daemon, state, id(params)?)?,
+        "domain" => json!(projects::set_domain(
+            root,
+            state,
+            id(params)?,
+            text(params, "domain")?
+        )?),
         "reset-ports" => json!(projects::reset_ports(root, state, id(params)?)?),
         "open" => json!(projects::open(state, id(params)?)?),
         "logs" => {
@@ -297,7 +315,12 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
             )?)
         }
         "env" => json!(projects::env(root, state, id(params)?)?),
-        "doctor" => json!(doctor::run(root, &daemon.catalog())),
+        "doctor" => json!(doctor::run(
+            root,
+            &daemon.catalog(),
+            &state.router,
+            &projects::domains(state)
+        )),
         "trust-ca" => json!(projects::trust_local_ca(root)?),
 
         "system.info" => {
@@ -312,6 +335,18 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
                 "catalog_generated": catalog.generated,
                 "catalog_refreshable": settings.catalog_url.is_some(),
                 "path_enabled": settings.path_enabled,
+            })
+        }
+        "domains.status" => {
+            let settings = Settings::load(root)?;
+            let domains = projects::domains(state);
+            json!({
+                "enabled": settings.domains,
+                "https_port": settings.https_port,
+                "active": state.router.domains_active(),
+                "warning": state.router.warning,
+                "domains": domains,
+                "missing": if settings.domains { crate::domains::missing_from_hosts(&domains) } else { Vec::new() },
             })
         }
         "path.enable" => {
@@ -381,7 +416,7 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
         }
         "jobs.list" => json!(daemon.jobs.list()),
         "settings.get" => json!(Settings::load(root)?),
-        "settings.set" => update_settings(root, params)?,
+        "settings.set" => update_settings(root, state, params)?,
         other => bail!("Unknown method: {other}"),
     })
 }
@@ -389,6 +424,11 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
 /// Marks projects whose processes died as failed and stops their other processes.
 fn reap_exited(root: &Path, state: &mut State) {
     let mut failed = Vec::new();
+    if let Some(exit) = state.router.has_exited() {
+        for id in state.processes.keys() {
+            failed.push((id.clone(), "caddy".to_string(), exit.clone()));
+        }
+    }
     for (id, children) in &mut state.processes {
         if let Some((name, exit)) = children
             .iter_mut()
@@ -398,6 +438,7 @@ fn reap_exited(root: &Path, state: &mut State) {
         }
     }
     instances::reap_exited(root, &mut state.instances);
+    let restart_router = !failed.is_empty();
     for (id, name, exit) in failed {
         projects::stop_processes(state, &id);
         if let Ok(index) = state.index(&id) {
@@ -408,6 +449,9 @@ fn reap_exited(root: &Path, state: &mut State) {
         }
         let _ = append_log(root, &id, &format!("Error: {name} exited: {exit}"));
         let _ = state.save(root);
+    }
+    if restart_router {
+        let _ = state.sync_router(root);
     }
 }
 
