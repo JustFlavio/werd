@@ -4,7 +4,7 @@ All notable changes to Werd are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0-beta.6] - 2026-09-26
 
 ### Features
 - **desktop:** Add open_url command for local service UIs
@@ -51,6 +51,7 @@ All notable changes to Werd are documented here. The format follows
 - **core:** Set up Caddy, PHP and Composer on the first start
 - **ui:** Show the first-run setup on the Dashboard
 - **ui:** Show the progress of each service created for a site
+- **runtimes:** Install phpredis with PHP on Windows
 
 ### Bug fixes
 - **ui:** Resolve accessibility and hook dependency lint findings
@@ -114,6 +115,8 @@ All notable changes to Werd are documented here. The format follows
 - Bump version to 0.3.0-beta.2
 - Bump version to 0.3.0-beta.3
 - Bump version to 0.3.0-beta.4
+- Bump version to 0.3.0-beta.5
+- **runtimes:** Add phpredis to the runtime catalog
 
 ## [0.1.1] - 2026-09-25
 
