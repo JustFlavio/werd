@@ -386,6 +386,12 @@ pub(crate) fn link(
     project
         .requirements
         .retain(|requirement| requirement.category != category);
+    // A failed start (often: services missing) no longer applies once the
+    // site's services change; show it as stopped and ready to try again.
+    if project.status == ProjectStatus::Error {
+        project.status = ProjectStatus::Stopped;
+        project.error = None;
+    }
     let updated = project.clone();
     state.save(root)?;
     Ok(updated)
@@ -601,6 +607,17 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(error.contains("not set up yet: mail (mailpit)"), "{error}");
+        mark_failed(root.path(), &mut state, &project.id, &anyhow::anyhow!(error));
+        let mut mailpit = instance("mp", "mailpit", "1", &[]);
+        mailpit.port = 1025;
+        state.instances.list.push(mailpit);
+        let linked = link(root.path(), &mut state, &project.id, "mail", "mp", None).unwrap();
+        assert_eq!(
+            (linked.status, linked.error),
+            (ProjectStatus::Stopped, None),
+            "the stale error is cleared"
+        );
+        unlink(root.path(), &mut state, &project.id, "mail").unwrap();
 
         state.projects[0].requirements.clear();
         let error = start(root.path(), &mut state, &project.id)
