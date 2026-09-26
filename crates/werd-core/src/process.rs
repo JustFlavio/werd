@@ -57,6 +57,58 @@ pub(crate) fn stop_inheriting_std_handles() {
 #[cfg(not(windows))]
 pub(crate) fn stop_inheriting_std_handles() {}
 
+/// Puts the daemon in a Windows job object that kills every process in it when the
+/// daemon exits, even when it crashes or is killed. Children and their own children
+/// (php-cgi, Caddy, PostgreSQL, …) join the job automatically, so no orphan keeps a
+/// port busy after a crash.
+///
+/// The job handle is intentionally never closed: Windows closes it when the daemon
+/// exits, and that is what triggers the cleanup.
+#[cfg(windows)]
+#[allow(unsafe_code)]
+pub(crate) fn kill_children_on_exit() -> Result<()> {
+    use windows_sys::Win32::System::JobObjects::{
+        AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
+        SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    };
+    use windows_sys::Win32::System::Threading::GetCurrentProcess;
+    // SAFETY: CreateJobObjectW accepts null attributes and name. `limits` is a
+    // zero-initialised plain struct passed with its exact size. GetCurrentProcess
+    // returns a pseudo-handle that needs no closing.
+    unsafe {
+        let job = CreateJobObjectW(std::ptr::null(), std::ptr::null());
+        if job.is_null() {
+            bail!(
+                "Cannot create the process job: {}",
+                std::io::Error::last_os_error()
+            );
+        }
+        let mut limits: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
+        limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        if SetInformationJobObject(
+            job,
+            JobObjectExtendedLimitInformation,
+            std::ptr::from_ref(&limits).cast(),
+            std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+        ) == 0
+        {
+            bail!(
+                "Cannot configure the process job: {}",
+                std::io::Error::last_os_error()
+            );
+        }
+        if AssignProcessToJobObject(job, GetCurrentProcess()) == 0 {
+            bail!("Cannot join the process job: {}", std::io::Error::last_os_error());
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+pub(crate) fn kill_children_on_exit() -> Result<()> {
+    Ok(())
+}
+
 /// A supervised child, named after its log file (`postgres`, `php`, ...).
 pub(crate) struct ManagedChild {
     pub name: String,

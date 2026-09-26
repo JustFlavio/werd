@@ -10,8 +10,8 @@ repository = "https://github.com/JustFlavio/werd"
 authors = ["Werd contributors"]
 
 [workspace.lints.rust]
-# Denied everywhere. The only exceptions are two documented Win32 calls in werd-core
-# (process.rs: handle inheritance, platform.rs: environment change broadcast).
+# Denied everywhere. The only exceptions are documented Win32 calls in werd-core
+# (process.rs: handle inheritance and the process job, platform.rs: environment change broadcast).
 unsafe_code = "deny"
 
 [workspace.lints.clippy]

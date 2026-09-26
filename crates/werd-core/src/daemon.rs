@@ -416,6 +416,9 @@ pub fn run_daemon() -> Result<()> {
     if rpc::rpc("ping", json!({})).is_ok() {
         bail!("A Werd daemon is already running");
     }
+    if let Err(error) = process::kill_children_on_exit() {
+        eprintln!("Werd daemon: {error:#}; processes may outlive a crash");
+    }
     migrations::run(&root).context("Upgrading the Werd data folder failed")?;
     shims::refresh(&root);
     let state = Arc::new(Mutex::new(State::load(&root)?));
