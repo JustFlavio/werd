@@ -9,7 +9,7 @@ use crate::rpc::{self, PROTOCOL_VERSION};
 use crate::runtimes::{self, Fetcher, HttpFetcher, Installed};
 use crate::settings::Settings;
 use crate::state::State;
-use crate::{doctor, migrations, process, projects, VERSION};
+use crate::{doctor, migrations, process, projects, shims, VERSION};
 use anyhow::{anyhow, bail, Context, Result};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -152,6 +152,28 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
         "doctor" => json!(doctor::run(root, &daemon.catalog())),
         "trust-ca" => json!(projects::trust_local_ca(root)?),
 
+        "system.info" => {
+            let catalog = daemon.catalog();
+            let settings = Settings::load(root)?;
+            json!({
+                "version": VERSION,
+                "protocol": PROTOCOL_VERSION,
+                "home": root,
+                "bin": shims::bin_dir(root),
+                "platform": crate::catalog::PLATFORM,
+                "catalog_generated": catalog.generated,
+                "catalog_refreshable": settings.catalog_url.is_some(),
+                "path_enabled": settings.path_enabled,
+            })
+        }
+        "path.enable" => {
+            shims::enable(root)?;
+            json!(Settings::load(root)?)
+        }
+        "path.disable" => {
+            shims::disable(root)?;
+            json!(Settings::load(root)?)
+        }
         "catalog.get" => {
             let catalog = daemon.catalog();
             json!({ "generated": catalog.generated, "platform": crate::catalog::PLATFORM,
@@ -216,6 +238,7 @@ pub fn run_daemon() -> Result<()> {
         bail!("A Werd daemon is already running");
     }
     migrations::run(&root).context("Upgrading the Werd data folder failed")?;
+    shims::refresh(&root);
     let state = Arc::new(Mutex::new(State::load(&root)?));
     let daemon = Daemon {
         root: root.clone(),

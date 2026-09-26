@@ -18,7 +18,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 /// Bumped when requests or responses change incompatibly.
-pub const PROTOCOL_VERSION: u32 = 1;
+pub const PROTOCOL_VERSION: u32 = 2;
 
 /// Long enough for runtime downloads, which run inside a single call.
 const CALL_TIMEOUT: Duration = Duration::from_secs(650);

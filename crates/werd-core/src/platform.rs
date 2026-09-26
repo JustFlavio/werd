@@ -36,6 +36,30 @@ pub fn open_url(url: &str) -> Result<()> {
     Ok(())
 }
 
+/// Tells running programs (Explorer, new terminals) that the user environment changed,
+/// so a PATH update applies without signing out.
+#[cfg(windows)]
+#[allow(unsafe_code)]
+pub(crate) fn broadcast_environment_change() {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        SendMessageTimeoutW, HWND_BROADCAST, SMTO_ABORTIFHUNG, WM_SETTINGCHANGE,
+    };
+    let area: Vec<u16> = "Environment".encode_utf16().chain(std::iter::once(0)).collect();
+    // SAFETY: `area` is a NUL-terminated UTF-16 string that outlives the call; the
+    // result pointer may be null per the API contract. Hung windows are skipped.
+    unsafe {
+        SendMessageTimeoutW(
+            HWND_BROADCAST,
+            WM_SETTINGCHANGE,
+            0,
+            area.as_ptr() as isize,
+            SMTO_ABORTIFHUNG,
+            5000,
+            std::ptr::null_mut(),
+        );
+    }
+}
+
 /// Adds `certificate` to the current user's trusted roots.
 pub fn trust_certificate(certificate: &Path) -> Result<String> {
     if cfg!(windows) {

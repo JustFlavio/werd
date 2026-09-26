@@ -7,6 +7,7 @@
 //! - [`runtimes`]: installed lines, install/update/uninstall, `php.ini`
 //! - [`settings`], `migrations`: user settings and data-folder upgrades
 //! - `jobs`: background downloads with progress
+//! - `shims`: php/composer/node/npm/npx launchers and PATH integration
 //! - `manifest`: `werd.yml`
 //! - `state`, `projects`: linked projects and their lifecycle
 //! - `services`: PostgreSQL, Redis, Mailpit, RustFS
@@ -31,6 +32,7 @@ mod rpc;
 pub mod runtimes;
 mod services;
 pub mod settings;
+mod shims;
 mod state;
 
 pub use daemon::run_daemon;
