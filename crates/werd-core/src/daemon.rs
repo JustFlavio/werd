@@ -400,7 +400,13 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
         "create" => create_project(daemon, params)?,
         "start" => {
             let id = id(params)?;
-            if runtimes::resolve_line(root, "caddy", None, "Caddy").is_err() {
+            // Download Caddy only for a site that could otherwise start; anything
+            // else missing (PHP, services) is reported right away.
+            let project = state.project(id)?;
+            let ready = project.requirements.is_empty()
+                && project.status != ProjectStatus::Running
+                && runtimes::resolve_line(root, "php", Some(&project.php), "PHP").is_ok();
+            if ready && runtimes::resolve_line(root, "caddy", None, "Caddy").is_err() {
                 return start_after_caddy(daemon, state, id);
             }
             match projects::start(root, state, id) {
