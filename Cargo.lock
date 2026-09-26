@@ -4495,6 +4495,7 @@ dependencies = [
  "tempfile",
  "uuid",
  "windows-sys 0.61.2",
+ "winreg",
  "zip",
 ]
 
@@ -4506,6 +4507,14 @@ dependencies = [
  "tauri",
  "tauri-build",
  "werd-core",
+]
+
+[[package]]
+name = "werd-shim"
+version = "0.1.1"
+dependencies = [
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

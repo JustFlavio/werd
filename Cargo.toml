@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/werd-core", "crates/werd-cli", "src-tauri"]
+members = ["crates/werd-core", "crates/werd-cli", "crates/werd-shim", "src-tauri"]
 resolver = "2"
 
 [workspace.package]
@@ -10,7 +10,8 @@ repository = "https://github.com/JustFlavio/werd"
 authors = ["Werd contributors"]
 
 [workspace.lints.rust]
-# Denied everywhere; the only exception is a documented Win32 call in werd-core/src/process.rs.
+# Denied everywhere. The only exceptions are two documented Win32 calls in werd-core
+# (process.rs: handle inheritance, platform.rs: environment change broadcast).
 unsafe_code = "deny"
 
 [workspace.lints.clippy]
