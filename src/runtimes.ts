@@ -19,6 +19,8 @@ export interface Runtimes {
   update: (row: RuntimeLine) => void;
   uninstall: (row: RuntimeLine) => void;
   setDefault: (row: RuntimeLine) => void;
+  /** Follows a job started elsewhere (e.g. by creating a service). */
+  track: (job: Job) => void;
   refresh: () => Promise<void>;
 }
 
@@ -68,18 +70,21 @@ export function useRuntimes(fail: (cause: unknown) => void): Runtimes {
     };
   }, [refresh, pollJobs]);
 
+  const track = useCallback(
+    (job: Job) => {
+      running.current.add(job.id);
+      setJobs((current) => [...current, job]);
+      // Switch to fast polling right away.
+      void pollJobs();
+    },
+    [pollJobs],
+  );
+
   const startJob = useCallback(
     (action: typeof installRuntime) => (row: RuntimeLine) => {
-      void action(row.product, row.line)
-        .then((job) => {
-          running.current.add(job.id);
-          setJobs((current) => [...current, job]);
-          // Switch to fast polling right away.
-          void pollJobs();
-        })
-        .catch(fail);
+      void action(row.product, row.line).then(track).catch(fail);
     },
-    [fail, pollJobs],
+    [fail, track],
   );
 
   const jobFor = useCallback(
@@ -96,6 +101,7 @@ export function useRuntimes(fail: (cause: unknown) => void): Runtimes {
     update: startJob(updateRuntime),
     uninstall: (row) => void uninstallRuntime(row.product, row.line).then(refresh).catch(fail),
     setDefault: (row) => void setDefaultRuntime(row.product, row.line).then(refresh).catch(fail),
+    track,
     refresh,
   };
 }

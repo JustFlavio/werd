@@ -1,7 +1,7 @@
 import { Info } from "lucide-react";
 import { useMemo } from "react";
 import type { Page } from "../App";
-import type { Project, ServiceName } from "../api";
+import type { Project, ServiceInstance, ServiceName } from "../api";
 import { useT } from "../i18n";
 import type { Runtimes } from "../runtimes";
 import { SERVICES, serviceUrl } from "../services";
@@ -15,6 +15,7 @@ interface ActiveService {
 
 export function Dashboard({
   projects,
+  instances,
   runtimes,
   busy,
   onStopAll,
@@ -22,6 +23,7 @@ export function Dashboard({
   onOpenUrl,
 }: {
   projects: Project[];
+  instances: ServiceInstance[];
   runtimes: Runtimes;
   busy: boolean;
   onStopAll: () => void;
@@ -31,29 +33,43 @@ export function Dashboard({
   const t = useT();
   const running = useMemo(() => projects.filter((project) => project.status === "running"), [projects]);
 
+  const runningInstances = useMemo(() => instances.filter((instance) => instance.status === "running"), [instances]);
+
   const active = useMemo<ActiveService[]>(() => {
-    if (running.length === 0) return [];
+    const rows: ActiveService[] = runningInstances.map((instance) => ({
+      id: `instance:${instance.id}`,
+      label: instance.name,
+      detail: `${instance.product} ${instance.line} · 127.0.0.1:${instance.port}`,
+    }));
+    if (running.length === 0) return rows;
     const names = (list: Project[]) => list.map((project) => project.name).join(", ");
-    const rows: ActiveService[] = [
-      { id: "caddy", label: "Caddy", detail: t.dashboard.servesHttps(names(running)) },
+    rows.push(
+      { id: "site:caddy", label: "Caddy", detail: t.dashboard.servesHttps(names(running)) },
       {
-        id: "php",
+        id: "site:php",
         label: `PHP ${[...new Set(running.map((project) => project.php))].sort().join(", ")}`,
         detail: t.dashboard.servesFastcgi(names(running)),
       },
-    ];
+    );
     for (const service of Object.keys(SERVICES) as ServiceName[]) {
       const using = running.filter((project) => project.services.includes(service));
       if (using.length) {
-        rows.push({ id: service, label: SERVICES[service].label, detail: t.dashboard.instancesFor(names(using)) });
+        rows.push({
+          id: `site:${service}`,
+          label: SERVICES[service].label,
+          detail: t.dashboard.instancesFor(names(using)),
+        });
       }
     }
     return rows;
-  }, [running, t]);
+  }, [running, runningInstances, t]);
 
   const phpLines = runtimes.rows.filter((row) => row.product === "php" && row.installed);
   const defaultPhp = phpLines.find((row) => row.is_default);
-  const inboxes = running.map((project) => serviceUrl(project, "mailpit")).filter((url): url is string => url !== null);
+  const inboxes = [
+    ...runningInstances.filter((instance) => instance.product === "mailpit").map((instance) => instance.web_ui),
+    ...running.map((project) => serviceUrl(project, "mailpit")),
+  ].filter((url): url is string => Boolean(url));
   const link = (page: Page) => (
     <button key={page} type="button" className="link" onClick={() => onNavigate(page)}>
       {t.nav[page]}
@@ -68,7 +84,12 @@ export function Dashboard({
           <Section
             title={t.dashboard.activeServices}
             action={
-              <button type="button" className="button" disabled={running.length === 0 || busy} onClick={onStopAll}>
+              <button
+                type="button"
+                className="button"
+                disabled={(running.length === 0 && runningInstances.length === 0) || busy}
+                onClick={onStopAll}
+              >
                 {t.dashboard.stopAll}
               </button>
             }

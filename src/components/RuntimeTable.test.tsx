@@ -28,6 +28,7 @@ function fakeRuntimes(jobs: Job[] = []): Runtimes {
     update: vi.fn(),
     uninstall: vi.fn(),
     setDefault: vi.fn(),
+    track: vi.fn(),
     refresh: vi.fn(async () => {}),
   };
 }

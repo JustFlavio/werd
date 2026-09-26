@@ -117,6 +117,60 @@ export const getSettings = () => rpc<Settings>("settings.get");
 export const updateSettings = (changes: Partial<Pick<Settings, "upload_max_mb" | "memory_limit_mb">>) =>
   rpc<Settings>("settings.set", changes);
 
+// ---- Service instances ---------------------------------------------------------
+
+export interface ServiceInstance {
+  id: string;
+  name: string;
+  product: string;
+  line: string;
+  port: number;
+  extra_ports?: Record<string, number>;
+  autostart: boolean;
+  extensions?: string[];
+  status: ProjectStatus;
+  error?: string | null;
+  web_ui?: string | null;
+}
+
+export interface ServiceOffering {
+  product: string;
+  label: string;
+  categories: string[];
+  default_port: number | null;
+  extensions: string[];
+  lines: { line: string; latest: string; lts: boolean; eol: string | null; installed: string | null }[];
+}
+
+export interface ServiceDetails {
+  instance: ServiceInstance;
+  credentials: { username: string; password: string } | null;
+  web_ui: string | null;
+  env: string;
+}
+
+export interface NewService {
+  product: string;
+  line: string;
+  name?: string;
+  port?: number;
+  autostart: boolean;
+  extensions: string[];
+}
+
+export const listServices = () => rpc<ServiceInstance[]>("services.list");
+export const serviceCatalog = () => rpc<ServiceOffering[]>("services.catalog");
+export const createService = (service: NewService) =>
+  rpc<{ instance: ServiceInstance; job: Job | null }>("services.create", { ...service });
+export const startService = (id: string) => rpc<ServiceInstance>("services.start", { id });
+export const stopService = (id: string) => rpc<ServiceInstance>("services.stop", { id });
+export const deleteService = (id: string, keepData: boolean) =>
+  rpc<null>("services.delete", { id, keep_data: keepData });
+export const setServiceAutostart = (id: string, autostart: boolean) =>
+  rpc<ServiceInstance>("services.autostart", { id, autostart });
+export const serviceDetails = (id: string) => rpc<ServiceDetails>("services.details", { id });
+export const serviceLogs = (id: string) => rpc<string[]>("services.logs", { id });
+
 // ---- System ------------------------------------------------------------------
 
 export const systemInfo = () => rpc<SystemInfo>("system.info");

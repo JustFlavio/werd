@@ -16,15 +16,18 @@ import {
   enablePath,
   getSettings,
   listProjects,
+  listServices,
   openSite,
   openUrl,
   type Project,
   refreshCatalog,
   resetPorts,
+  type ServiceInstance,
   type Settings,
   type SystemInfo,
   startProject,
   stopProject,
+  stopService,
   systemInfo,
   trustCa,
   updateSettings,
@@ -62,6 +65,7 @@ export default function App() {
   const t = useT();
   const [page, setPage] = useState<Page>("dashboard");
   const [projects, setProjects] = useState<Project[]>([]);
+  const [instances, setInstances] = useState<ServiceInstance[]>([]);
   const [daemonVersion, setDaemonVersion] = useState("—");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -75,8 +79,9 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     try {
-      const snapshot = await listProjects();
+      const [snapshot, services] = await Promise.all([listProjects(), listServices()]);
       setProjects(snapshot.projects);
+      setInstances(services);
       setDaemonVersion(snapshot.daemon_version);
       setOffline(null);
     } catch (cause) {
@@ -113,6 +118,7 @@ export default function App() {
   const stopAll = () =>
     void run("stop-all", async () => {
       for (const project of projects.filter((item) => item.status === "running")) await stopProject(project.id);
+      for (const instance of instances.filter((item) => item.status === "running")) await stopService(instance.id);
     });
 
   async function add(path: string): Promise<boolean> {
@@ -175,6 +181,7 @@ export default function App() {
         {page === "dashboard" && (
           <Dashboard
             projects={projects}
+            instances={instances}
             runtimes={runtimes}
             busy={busy === "stop-all"}
             onStopAll={stopAll}
@@ -219,7 +226,9 @@ export default function App() {
           />
         )}
         {page === "node" && <Node runtimes={runtimes} />}
-        {page === "services" && <Services projects={projects} runtimes={runtimes} onOpenUrl={open} />}
+        {page === "services" && (
+          <Services instances={instances} runtimes={runtimes} onChanged={refresh} onOpenUrl={open} onError={fail} />
+        )}
         {page === "logs" && <Logs projects={projects} projectId={selectedId} onProjectChange={setSelectedId} />}
         {page === "general" && (
           <General

@@ -1,7 +1,17 @@
 // In-memory stand-in for the daemon, used by `?demo` in the browser.
 // It keeps state for the session so installs, updates and defaults behave like the real app.
 
-import type { DoctorResult, Job, Project, RuntimeLine, Settings, Snapshot, SystemInfo } from "./api";
+import type {
+  DoctorResult,
+  Job,
+  Project,
+  RuntimeLine,
+  ServiceInstance,
+  ServiceOffering,
+  Settings,
+  Snapshot,
+  SystemInfo,
+} from "./api";
 
 const projects: Project[] = [
   {
@@ -111,6 +121,58 @@ const settings: Settings = {
 };
 
 const jobs: Job[] = [];
+
+const offerings: ServiceOffering[] = [
+  ["mariadb", "MariaDB", "database", 3306, ["12.3:12.3.3", "11.8:11.8.9", "11.4:11.4.13"]],
+  ["mongodb", "MongoDB", "database", 27017, ["8.2:8.2.12", "8.0:8.0.32", "7.0:7.0.43"]],
+  ["mysql", "MySQL", "database", 3306, ["9.7:9.7.2", "8.4:8.4.11", "8.0:8.0.46"]],
+  ["postgresql", "PostgreSQL", "database", 5432, ["18:18.6", "17:17.11", "16:16.15", "15:15.19", "14:14.24"]],
+  ["redis", "Redis", "cache", 6379, ["8.10:8.10.2", "8.8:8.8.3", "7.4:7.4.11", "7.2:7.2.16"]],
+  ["meilisearch", "Meilisearch", "search", 7700, ["1:1.54.0"]],
+  ["rustfs", "RustFS", "storage", 9000, ["1:1.0.0"]],
+  ["mailpit", "Mailpit", "mail", 1025, ["1:1.31.2"]],
+].map(([product, label, category, port, lines]) => ({
+  product: product as string,
+  label: label as string,
+  categories: category === "cache" ? ["cache", "queue"] : [category as string],
+  default_port: port as number,
+  extensions: product === "postgresql" ? ["pgvector"] : [],
+  lines: (lines as string[]).map((entry) => {
+    const [line, latest] = entry.split(":");
+    return { line, latest, lts: false, eol: null, installed: installed.get(`${product}/${line}`) ?? null };
+  }),
+}));
+
+const instances: ServiceInstance[] = [
+  {
+    id: "pg",
+    name: "PostgreSQL 18",
+    product: "postgresql",
+    line: "18",
+    port: 5432,
+    autostart: true,
+    extensions: ["pgvector"],
+    status: "running",
+  },
+  { id: "redis", name: "Redis 7.2", product: "redis", line: "7.2", port: 6379, autostart: true, status: "running" },
+  {
+    id: "mail",
+    name: "Mailpit",
+    product: "mailpit",
+    line: "1",
+    port: 1025,
+    extra_ports: { ui: 8025 },
+    autostart: false,
+    status: "stopped",
+    web_ui: "http://127.0.0.1:8025",
+  },
+];
+
+function findInstance(id: unknown) {
+  const instance = instances.find((candidate) => candidate.id === id);
+  if (!instance) throw new Error("Service not found");
+  return instance;
+}
 
 function compare(a: string, b: string) {
   const left = a.split(".").map(Number);
@@ -233,6 +295,68 @@ export async function demoRpc(method: string, params: Record<string, unknown>): 
       return { ...settings };
     case "catalog.refresh":
       throw new Error("Online catalog updates are not available yet; update Werd to get newer runtimes");
+    case "services.list":
+      return instances.map((instance) => ({ ...instance }));
+    case "services.catalog":
+      return offerings;
+    case "services.create": {
+      const offering = offerings.find((candidate) => candidate.product === product);
+      if (!offering) throw new Error(`Werd cannot run ${product} as a service yet`);
+      const taken = instances.flatMap((instance) => [instance.port, ...Object.values(instance.extra_ports ?? {})]);
+      let port = Number(params.port) || offering.default_port || 10000;
+      if (params.port && taken.includes(port)) throw new Error(`Port ${port} is already used by another Werd service`);
+      while (taken.includes(port)) port++;
+      const instance: ServiceInstance = {
+        id: crypto.randomUUID(),
+        name: String(params.name || `${offering.label} ${line}`),
+        product,
+        line,
+        port,
+        autostart: Boolean(params.autostart),
+        extensions: (params.extensions as string[]) ?? [],
+        status: "stopped",
+        web_ui: product === "mailpit" ? "http://127.0.0.1:8026" : null,
+      };
+      instances.push(instance);
+      if (installed.has(`${product}/${line}`)) {
+        instance.status = "running";
+        return { instance, job: null };
+      }
+      const job = startJob(product, line, "install");
+      const timer = window.setInterval(() => {
+        if (installed.has(`${product}/${line}`)) {
+          window.clearInterval(timer);
+          instance.status = "running";
+        }
+      }, 200);
+      return { instance, job };
+    }
+    case "services.start":
+      findInstance(params.id).status = "running";
+      return findInstance(params.id);
+    case "services.stop":
+      findInstance(params.id).status = "stopped";
+      return findInstance(params.id);
+    case "services.autostart":
+      findInstance(params.id).autostart = Boolean(params.autostart);
+      return findInstance(params.id);
+    case "services.delete":
+      instances.splice(instances.indexOf(findInstance(params.id)), 1);
+      return null;
+    case "services.details": {
+      const instance = findInstance(params.id);
+      const isDatabase = ["postgresql", "mysql", "mariadb"].includes(instance.product);
+      return {
+        instance,
+        credentials: isDatabase ? { username: "werd", password: "4f1c9a7e2b8d4c6fa0e3b5d7c9e1f2a4" } : null,
+        web_ui: instance.web_ui ?? null,
+        env: isDatabase
+          ? `DB_CONNECTION=${instance.product === "postgresql" ? "pgsql" : instance.product}\nDB_HOST=127.0.0.1\nDB_PORT=${instance.port}\nDB_DATABASE=laravel\nDB_USERNAME=werd\nDB_PASSWORD=4f1c9a7e2b8d4c6fa0e3b5d7c9e1f2a4`
+          : `REDIS_HOST=127.0.0.1\nREDIS_PORT=${instance.port}`,
+      };
+    }
+    case "services.logs":
+      return [`[12:00:01] ${findInstance(params.id).name} ready to accept connections`];
     case "doctor":
       return [
         { label: "Werd daemon", ok: true, detail: "Running, data folder C:\\Users\\dev\\AppData\\Local\\Werd" },
