@@ -66,28 +66,59 @@ impl Manifest {
         Ok(manifest)
     }
 
-    /// Rejects configurations the current runtime catalog cannot serve.
+    /// Checks the shape of the file. Whether a version is installed is checked when the site starts.
     pub fn validate(&self) -> Result<()> {
+        let is_line = |value: &str| {
+            let parts: Vec<&str> = value.split('.').collect();
+            (1..=2).contains(&parts.len())
+                && parts
+                    .iter()
+                    .all(|part| !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit()))
+        };
         if self.version != 1 {
             bail!("Unsupported werd.yml version: {}", self.version);
         }
-        if self.php != "8.5" {
+        if !is_line(&self.php) {
             bail!(
-                "Only PHP 8.5 is supported for now (werd.yml asks for {})",
+                "werd.yml: php must be a version line such as \"8.4\" (got \"{}\")",
                 self.php
             );
         }
         if let Some(postgres) = &self.services.postgres {
-            if postgres.major != 18 || postgres.extensions != ["pgvector"] {
-                bail!("Only PostgreSQL 18 with pgvector is supported for now");
+            if let Some(unknown) = postgres
+                .extensions
+                .iter()
+                .find(|name| name.as_str() != "pgvector")
+            {
+                bail!("werd.yml: unknown PostgreSQL extension \"{unknown}\" (supported: pgvector)");
             }
         }
         if let Some(redis) = &self.services.redis {
-            if redis != "7.2" {
-                bail!("Only Redis 7.2 is supported for now (werd.yml asks for {redis})");
+            if !is_line(redis) {
+                bail!("werd.yml: redis must be a version line such as \"7.2\" (got \"{redis}\")");
             }
         }
         Ok(())
+    }
+
+    /// Requested line per catalog product.
+    pub fn versions(&self) -> std::collections::BTreeMap<String, String> {
+        let mut versions = std::collections::BTreeMap::new();
+        if let Some(postgres) = &self.services.postgres {
+            versions.insert("postgresql".into(), postgres.major.to_string());
+        }
+        if let Some(redis) = &self.services.redis {
+            versions.insert("redis".into(), redis.clone());
+        }
+        versions
+    }
+
+    pub fn extensions(&self) -> Vec<String> {
+        self.services
+            .postgres
+            .as_ref()
+            .map(|postgres| postgres.extensions.clone())
+            .unwrap_or_default()
     }
 
     pub fn services(&self) -> Vec<ServiceName> {
@@ -139,22 +170,34 @@ mod tests {
     }
 
     #[test]
-    fn unsupported_versions_are_rejected() {
-        let manifest = Manifest {
-            php: "8.3".into(),
-            ..Manifest::default()
-        };
-        assert!(manifest.validate().unwrap_err().to_string().contains("PHP 8.5"));
+    fn any_version_line_is_accepted_but_malformed_values_are_not() {
+        let manifest = Manifest::parse(
+            "version: 1\nphp: '8.3'\nservices:\n  postgres: { major: 16, extensions: [] }\n  redis: '8.2'\n  mailpit: false\n  rustfs: false\n",
+        )
+        .unwrap();
+        assert_eq!(manifest.php, "8.3");
+        assert_eq!(manifest.versions()["postgresql"], "16");
+        assert_eq!(manifest.versions()["redis"], "8.2");
+        assert!(manifest.extensions().is_empty(), "pgvector is optional");
 
-        let manifest = Manifest {
+        assert!(Manifest {
+            php: "latest".into(),
+            ..Manifest::default()
+        }
+        .validate()
+        .is_err());
+        assert!(Manifest {
             version: 2,
             ..Manifest::default()
-        };
-        assert!(manifest.validate().is_err());
-
+        }
+        .validate()
+        .is_err());
         let mut manifest = Manifest::default();
-        manifest.services.redis = Some("6".into());
+        manifest.services.redis = Some("7.x".into());
         assert!(manifest.validate().is_err());
+        let mut manifest = Manifest::default();
+        manifest.services.postgres.as_mut().unwrap().extensions = vec!["postgis".into()];
+        assert!(manifest.validate().unwrap_err().to_string().contains("postgis"));
     }
 
     #[test]

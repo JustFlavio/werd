@@ -29,6 +29,7 @@ impl State {
         for project in &mut projects {
             project.status = ProjectStatus::Stopped;
             project.url = None;
+            crate::migrations::upgrade_project(project);
         }
         Ok(Self {
             projects,
@@ -76,6 +77,8 @@ mod tests {
             url: Some("https://localhost:1234".into()),
             error: None,
             ports: Some(Ports::from([("site".to_string(), 1234)])),
+            versions: [("postgresql".to_string(), "17".to_string())].into(),
+            extensions: vec![],
         }
     }
 
@@ -114,6 +117,10 @@ mod tests {
             [ServiceName::Postgres, ServiceName::Redis]
         );
         assert_eq!(loaded.projects[0].status, ProjectStatus::Stopped);
+        // 0.1 always meant PostgreSQL 18 with pgvector and Redis 7.2.
+        assert_eq!(loaded.projects[0].versions["postgresql"], "18");
+        assert_eq!(loaded.projects[0].versions["redis"], "7.2");
+        assert_eq!(loaded.projects[0].extensions, ["pgvector"]);
     }
 
     #[test]

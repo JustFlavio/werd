@@ -3,18 +3,23 @@
 //!
 //! Module map:
 //! - [`model`]: types exchanged with clients
+//! - [`catalog`]: what can be installed (generated data, see `scripts/catalog`)
+//! - [`runtimes`]: installed lines, install/update/uninstall, `php.ini`
+//! - [`settings`], `migrations`: user settings and data-folder upgrades
+//! - `jobs`: background downloads with progress
 //! - `manifest`: `werd.yml`
 //! - `state`, `projects`: linked projects and their lifecycle
 //! - `services`: PostgreSQL, Redis, Mailpit, RustFS
 //! - `proxy`: PHP FastCGI + Caddy per site
-//! - [`runtimes`]: download catalog
 //! - [`platform`]: OS integration (browser, certificates)
 //! - `rpc`, `daemon`: local API and the daemon process
 
 pub mod catalog;
 mod daemon;
 mod doctor;
+pub mod jobs;
 pub mod manifest;
+mod migrations;
 pub mod model;
 mod paths;
 pub mod platform;
@@ -25,6 +30,7 @@ mod proxy;
 mod rpc;
 pub mod runtimes;
 mod services;
+pub mod settings;
 mod state;
 
 pub use daemon::run_daemon;

@@ -1,6 +1,5 @@
 use super::{Service, ServiceContext};
 use crate::model::Ports;
-use crate::paths::runtime_binary;
 use crate::ports;
 use crate::process::{hidden_command, spawn_ready, ManagedChild};
 use anyhow::Result;
@@ -15,7 +14,7 @@ impl Service for Redis {
         ports: &mut Ports,
         children: &mut Vec<ManagedChild>,
     ) -> Result<()> {
-        let binary = context.binary("redis-server", "Redis 7.2")?;
+        let binary = context.binary("redis", "redis-server", "Redis")?;
         let data = context.data_dir().join("redis");
         fs::create_dir_all(&data)?;
         let port = ports::assign(ports, "redis")?;
@@ -36,8 +35,8 @@ impl Service for Redis {
     }
 
     fn shutdown(&self, context: &ServiceContext, ports: &Ports) {
-        if let Some(port) = ports.get("redis") {
-            let _ = hidden_command(runtime_binary(context.root, "redis-cli"))
+        if let (Some(port), Ok(cli)) = (ports.get("redis"), context.binary("redis", "redis-cli", "Redis")) {
+            let _ = hidden_command(cli)
                 .args(["-h", "127.0.0.1", "-p", &port.to_string(), "SHUTDOWN"])
                 .status();
         }

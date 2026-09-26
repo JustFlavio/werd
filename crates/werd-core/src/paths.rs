@@ -40,22 +40,3 @@ pub(crate) fn project_dir(root: &Path, id: &str) -> PathBuf {
 pub(crate) fn caddy_data(root: &Path) -> PathBuf {
     root.join("caddy-data")
 }
-
-/// Path of a runtime executable, whether or not it is installed.
-pub(crate) fn runtime_binary(root: &Path, name: &str) -> PathBuf {
-    let executable = if cfg!(windows) {
-        format!("{name}.exe")
-    } else {
-        name.into()
-    };
-    let family = match name {
-        "php-cgi" => "php/8.5",
-        "caddy" => "caddy/2.11.4",
-        "postgres" | "initdb" | "psql" | "pg_ctl" => "postgres/18/bin",
-        "redis-server" | "redis-cli" => "redis/7.2",
-        "mailpit" => "mailpit/1.31.2",
-        "rustfs" => "rustfs/1.0.0",
-        _ => "unknown",
-    };
-    root.join("runtimes").join(family).join(executable)
-}

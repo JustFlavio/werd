@@ -13,7 +13,7 @@ impl Service for Mailpit {
         ports: &mut Ports,
         children: &mut Vec<ManagedChild>,
     ) -> Result<()> {
-        let binary = context.binary("mailpit", "Mailpit")?;
+        let binary = context.binary("mailpit", "mailpit", "Mailpit")?;
         let smtp = ports::assign(ports, "mailpit_smtp")?;
         let ui = ports::assign(ports, "mailpit_ui")?;
         let mut command = hidden_command(binary);

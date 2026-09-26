@@ -8,28 +8,49 @@ mod postgres;
 mod redis;
 mod rustfs;
 
-use crate::model::{Ports, ServiceName};
-use crate::paths::{project_dir, runtime_binary};
+use crate::model::{Ports, Project, ServiceName};
+use crate::paths::project_dir;
 use crate::process::ManagedChild;
+use crate::runtimes;
 use anyhow::{bail, Result};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-/// Where a service instance of one project lives.
+/// Where the service instances of one project live and which runtime lines they use.
 pub(crate) struct ServiceContext<'a> {
     pub root: &'a Path,
     pub project_id: &'a str,
+    /// Requested line per product (`postgresql` → `18`); newest installed otherwise.
+    pub versions: &'a BTreeMap<String, String>,
+    pub extensions: &'a [String],
 }
 
-impl ServiceContext<'_> {
+impl<'a> ServiceContext<'a> {
+    pub fn new(root: &'a Path, project: &'a Project) -> Self {
+        Self {
+            root,
+            project_id: &project.id,
+            versions: &project.versions,
+            extensions: &project.extensions,
+        }
+    }
+
     pub fn data_dir(&self) -> PathBuf {
         project_dir(self.root, self.project_id)
     }
 
-    /// An installed runtime binary, or an error naming what to install.
-    pub fn binary(&self, name: &str, label: &str) -> Result<PathBuf> {
-        let path = runtime_binary(self.root, name);
+    /// Install folder of the line this project uses for `product`.
+    pub fn runtime_dir(&self, product: &str, label: &str) -> Result<PathBuf> {
+        let preferred = self.versions.get(product).map(String::as_str);
+        let line = runtimes::resolve_line(self.root, product, preferred, label)?;
+        Ok(runtimes::line_dir(self.root, product, &line))
+    }
+
+    /// An installed executable (`relative` without `.exe`), or an error naming what to install.
+    pub fn binary(&self, product: &str, relative: &str, label: &str) -> Result<PathBuf> {
+        let path = self.runtime_dir(product, label)?.join(runtimes::exe(relative));
         if !path.is_file() {
-            bail!("{label} runtime is not installed ({})", path.display());
+            bail!("{label} is incomplete: {} is missing", path.display());
         }
         Ok(path)
     }
@@ -114,9 +135,12 @@ mod tests {
     #[test]
     fn env_lines_follow_assigned_ports() {
         let root = tempfile::tempdir().unwrap();
+        let versions = BTreeMap::new();
         let context = ServiceContext {
             root: root.path(),
             project_id: "p1",
+            versions: &versions,
+            extensions: &[],
         };
         std::fs::create_dir_all(context.data_dir()).unwrap();
         let ports = Ports::from([
@@ -147,9 +171,12 @@ mod tests {
     #[test]
     fn env_lines_skip_services_without_ports() {
         let root = tempfile::tempdir().unwrap();
+        let versions = BTreeMap::new();
         let context = ServiceContext {
             root: root.path(),
             project_id: "p1",
+            versions: &versions,
+            extensions: &[],
         };
         assert!(env_lines(&context, &ServiceName::ALL, &Ports::new())
             .unwrap()
@@ -159,9 +186,12 @@ mod tests {
     #[test]
     fn credentials_are_generated_once() {
         let root = tempfile::tempdir().unwrap();
+        let versions = BTreeMap::new();
         let context = ServiceContext {
             root: root.path(),
             project_id: "p1",
+            versions: &versions,
+            extensions: &[],
         };
         std::fs::create_dir_all(context.data_dir()).unwrap();
         let ports = Ports::from([("postgres".to_string(), 1), ("rustfs_api".to_string(), 2)]);

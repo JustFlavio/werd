@@ -45,6 +45,8 @@ pub(crate) fn add(root: &Path, state: &mut State, path: &str) -> Result<Project>
         url: None,
         error: None,
         ports: None,
+        versions: manifest.versions(),
+        extensions: manifest.extensions(),
     };
     state.projects.push(project.clone());
     state.save(root)?;
@@ -62,10 +64,18 @@ pub(crate) fn start(root: &Path, state: &mut State, id: &str) -> Result<Project>
     let mut ports = project.ports.clone().unwrap_or_default();
     ports::ensure_available(&ports)?;
 
-    let context = ServiceContext { root, project_id: id };
+    let context = ServiceContext::new(root, &project);
     let mut children = Vec::new();
-    let started = services::start_all(&context, &project.services, &mut ports, &mut children)
-        .and_then(|()| proxy::start_site(&context, Path::new(&project.path), &mut ports, &mut children));
+    let started =
+        services::start_all(&context, &project.services, &mut ports, &mut children).and_then(|()| {
+            proxy::start_site(
+                &context,
+                Path::new(&project.path),
+                &project.php,
+                &mut ports,
+                &mut children,
+            )
+        });
     let url = match started {
         Ok(url) => url,
         Err(error) => {
@@ -99,12 +109,9 @@ pub(crate) fn mark_failed(root: &Path, state: &mut State, id: &str, error: &anyh
 /// Stops the processes of a project without touching its data.
 pub(crate) fn stop_processes(root: &Path, state: &mut State, id: &str) {
     if let Some(mut children) = state.processes.remove(id) {
-        let ports = state
-            .project(id)
-            .ok()
-            .and_then(|project| project.ports.clone())
-            .unwrap_or_default();
-        services::stop_all(&ServiceContext { root, project_id: id }, &mut children, &ports);
+        let Ok(project) = state.project(id) else { return };
+        let ports = project.ports.clone().unwrap_or_default();
+        services::stop_all(&ServiceContext::new(root, project), &mut children, &ports);
     }
 }
 
@@ -156,8 +163,30 @@ pub(crate) fn env(root: &Path, state: &State, id: &str) -> Result<String> {
         .ports
         .as_ref()
         .context("Start the project first to know its ports")?;
-    let lines = services::env_lines(&ServiceContext { root, project_id: id }, &project.services, ports)?;
+    let lines = services::env_lines(&ServiceContext::new(root, project), &project.services, ports)?;
     Ok(lines.join("\n"))
+}
+
+/// Names of running projects that use `product` at `line`; such lines cannot be updated or removed.
+pub(crate) fn using_runtime(state: &State, product: &str, line: &str) -> Vec<String> {
+    state
+        .projects
+        .iter()
+        .filter(|project| state.processes.contains_key(&project.id))
+        .filter(|project| match product {
+            "php" => project.php == line,
+            // One Caddy/pgvector serves every running site.
+            "caddy" | "pgvector" | "cacert" => true,
+            _ => {
+                project
+                    .services
+                    .iter()
+                    .any(|service| service.product() == product)
+                    && project.versions.get(product).is_none_or(|wanted| wanted == line)
+            }
+        })
+        .map(|project| project.name.clone())
+        .collect()
 }
 
 pub(crate) fn trust_local_ca(root: &Path) -> Result<String> {
@@ -227,7 +256,7 @@ mod tests {
         let error = start(root.path(), &mut state, &project.id)
             .unwrap_err()
             .to_string();
-        assert!(error.contains("PHP 8.5 runtime is not installed"), "{error}");
+        assert!(error.contains("PHP 8.5 is not installed"), "{error}");
         assert!(state.processes.is_empty());
         assert_eq!(state.project(&project.id).unwrap().status, ProjectStatus::Stopped);
     }

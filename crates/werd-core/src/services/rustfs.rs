@@ -38,7 +38,7 @@ impl Service for Rustfs {
         ports: &mut Ports,
         children: &mut Vec<ManagedChild>,
     ) -> Result<()> {
-        let binary = context.binary("rustfs", "RustFS")?;
+        let binary = context.binary("rustfs", "rustfs", "RustFS")?;
         let data = context.data_dir().join("rustfs");
         fs::create_dir_all(&data)?;
         let credentials = credentials(&context.data_dir())?;

@@ -4,6 +4,7 @@ use crate::model::Ports;
 use crate::paths::{caddy_data, project_dir};
 use crate::ports;
 use crate::process::{hidden_command, spawn_logged, spawn_ready, ManagedChild};
+use crate::runtimes;
 use crate::services::ServiceContext;
 use anyhow::{bail, Result};
 use std::fs;
@@ -23,15 +24,21 @@ pub(crate) fn caddyfile(public_dir: &Path, site_port: u16, fastcgi_port: u16) ->
     )
 }
 
-/// Starts php-cgi and Caddy for a project, returning the site URL.
+/// Starts php-cgi (from the project's PHP line) and Caddy, returning the site URL.
 pub(crate) fn start_site(
     context: &ServiceContext,
     project_path: &Path,
+    php_line: &str,
     ports: &mut Ports,
     children: &mut Vec<ManagedChild>,
 ) -> Result<String> {
-    let php = context.binary("php-cgi", "PHP 8.5")?;
-    let caddy = context.binary("caddy", "Caddy")?;
+    let php_dir = runtimes::line_dir(
+        context.root,
+        "php",
+        &runtimes::resolve_line(context.root, "php", Some(php_line), "PHP")?,
+    );
+    let php = php_dir.join(runtimes::exe("php-cgi"));
+    let caddy = context.binary("caddy", "caddy", "Caddy")?;
     let public_dir = project_path.join("public");
     if !public_dir.join("index.php").is_file() {
         bail!("public/index.php not found in {}", project_path.display());
@@ -46,6 +53,8 @@ pub(crate) fn start_site(
 
     let mut php_command = hidden_command(php);
     php_command
+        .arg("-c")
+        .arg(php_dir.join("php.ini"))
         .arg("-b")
         .arg(format!("127.0.0.1:{fastcgi_port}"))
         .current_dir(project_path);

@@ -1,71 +1,82 @@
-//! Environment checks shown in the Diagnostics page and by `werd doctor`.
+//! Environment checks for `werd doctor`. They cover what the user actually
+//! installed and configured, not a fixed stack.
 
+use crate::catalog::Catalog;
 use crate::model::DoctorResult;
-use crate::paths::runtime_binary;
-use std::net::TcpListener;
+use crate::runtimes::{line_dir, Installed};
+use crate::settings::Settings;
 use std::path::Path;
 
-const RUNTIMES: [(&str, &str); 6] = [
-    ("php-cgi", "PHP 8.5"),
-    ("caddy", "Caddy"),
-    ("postgres", "PostgreSQL 18"),
-    ("redis-server", "Redis 7.2"),
-    ("mailpit", "Mailpit"),
-    ("rustfs", "RustFS"),
-];
+fn check(label: impl Into<String>, ok: bool, detail: impl Into<String>) -> DoctorResult {
+    DoctorResult {
+        label: label.into(),
+        ok,
+        detail: detail.into(),
+    }
+}
 
-pub fn run(root: &Path) -> Vec<DoctorResult> {
-    let mut checks = vec![DoctorResult {
-        label: "Werd daemon".into(),
-        ok: true,
-        detail: "The local daemon is responding".into(),
-    }];
+pub fn run(root: &Path, catalog: &Catalog) -> Vec<DoctorResult> {
+    let mut checks = vec![check(
+        "Werd daemon",
+        true,
+        format!("Running, data folder {}", root.display()),
+    )];
 
-    for port in [80u16, 443] {
-        let free = TcpListener::bind(("127.0.0.1", port)).is_ok();
-        checks.push(DoctorResult {
-            label: format!("Web port {port}"),
-            ok: true,
-            detail: if free {
-                "Free; Werd still uses a dedicated HTTPS port per site".into()
+    checks.push(check(
+        "Runtime catalog",
+        true,
+        format!(
+            "{} ({})",
+            catalog.generated.as_deref().unwrap_or("unknown date"),
+            crate::catalog::PLATFORM
+        ),
+    ));
+
+    match Installed::load(root) {
+        Ok(installed) => {
+            if installed.0.is_empty() {
+                checks.push(check("Runtimes", true, "Nothing installed yet"));
+            }
+            for (product, lines) in &installed.0 {
+                for (line, entry) in lines {
+                    let label = catalog
+                        .products
+                        .get(product)
+                        .map_or(product.as_str(), |p| p.label.as_str());
+                    let marker = catalog
+                        .products
+                        .get(product)
+                        .and_then(|p| p.lines.get(line))
+                        .and_then(|l| l.builds.values().next())
+                        .map(|build| build.marker.clone());
+                    let present =
+                        marker.is_none_or(|marker| line_dir(root, product, line).join(marker).is_file());
+                    checks.push(check(
+                        format!("{label} {line}"),
+                        present,
+                        if present {
+                            format!("{} installed", entry.version)
+                        } else {
+                            format!("{} recorded but files are missing; reinstall it", entry.version)
+                        },
+                    ));
+                }
+            }
+        }
+        Err(error) => checks.push(check("Runtimes", false, format!("{error:#}"))),
+    }
+
+    if let Ok(settings) = Settings::load(root) {
+        checks.push(check(
+            "Command line tools",
+            true,
+            if settings.path_enabled {
+                "php, composer and node shims are on your PATH"
             } else {
-                "In use by another process; Werd uses a dedicated HTTPS port per site and leaves it alone"
-                    .into()
+                "Not on PATH; enable them from General"
             },
-        });
+        ));
     }
-
-    for (binary, label) in RUNTIMES {
-        let path = runtime_binary(root, binary);
-        let ok = path.is_file();
-        checks.push(DoctorResult {
-            label: label.into(),
-            ok,
-            detail: format!(
-                "{}: {}",
-                if ok { "Installed" } else { "Not installed" },
-                path.display()
-            ),
-        });
-    }
-
-    let postgres = root.join("runtimes/postgres/18");
-    let library = if cfg!(windows) {
-        "lib/vector.dll"
-    } else {
-        "lib/vector.so"
-    };
-    let vector =
-        postgres.join("share/extension/vector.control").is_file() && postgres.join(library).is_file();
-    checks.push(DoctorResult {
-        label: "pgvector".into(),
-        ok: vector,
-        detail: if vector {
-            "Extension available for PostgreSQL 18".into()
-        } else {
-            "Install pgvector after PostgreSQL 18".into()
-        },
-    });
     checks
 }
 
@@ -74,12 +85,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn reports_missing_runtimes_in_an_empty_home() {
+    fn reports_installed_lines_and_missing_files() {
         let root = tempfile::tempdir().unwrap();
-        let checks = run(root.path());
+        let mut installed = Installed::default();
+        installed.set("php", "8.5", "8.5.11");
+        installed.save(root.path()).unwrap();
+        let checks = run(root.path(), &Catalog::embedded());
         let php = checks.iter().find(|check| check.label == "PHP 8.5").unwrap();
-        assert!(!php.ok);
-        assert!(checks.iter().any(|check| check.label == "pgvector" && !check.ok));
+        assert!(!php.ok, "php-cgi.exe is missing on disk");
         assert!(checks[0].ok, "the daemon check is always first and ok");
     }
 }

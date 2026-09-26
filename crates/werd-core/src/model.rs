@@ -29,6 +29,16 @@ pub enum ServiceName {
 impl ServiceName {
     pub const ALL: [ServiceName; 4] = [Self::Postgres, Self::Redis, Self::Mailpit, Self::Rustfs];
 
+    /// Catalog product that provides this service.
+    pub fn product(self) -> &'static str {
+        match self {
+            Self::Postgres => "postgresql",
+            Self::Redis => "redis",
+            Self::Mailpit => "mailpit",
+            Self::Rustfs => "rustfs",
+        }
+    }
+
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Postgres => "postgres",
@@ -60,6 +70,12 @@ pub struct Project {
     pub error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ports: Option<Ports>,
+    /// Requested line per runtime product, e.g. `postgresql` → `18`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub versions: BTreeMap<String, String>,
+    /// Optional extensions, e.g. `pgvector`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub extensions: Vec<String>,
 }
 
 impl Project {

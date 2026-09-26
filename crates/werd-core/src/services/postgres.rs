@@ -1,11 +1,11 @@
 use super::{Service, ServiceContext};
 use crate::model::Ports;
-use crate::paths::runtime_binary;
 use crate::ports;
 use crate::process::{hidden_command, spawn_ready, ManagedChild};
+use crate::runtimes;
 use anyhow::{bail, Context, Result};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use uuid::Uuid;
 
 pub(super) struct Postgres;
@@ -48,19 +48,6 @@ fn psql(binary: &Path, port: u16, password: &str, database: &str, args: &[&str])
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
-fn pgvector_files(postgres: &Path) -> Result<(PathBuf, PathBuf)> {
-    // bin/postgres -> <install root>
-    let install = postgres
-        .parent()
-        .and_then(Path::parent)
-        .context("Invalid PostgreSQL path")?;
-    let library = if cfg!(windows) { "vector.dll" } else { "vector.so" };
-    Ok((
-        install.join("share/extension/vector.control"),
-        install.join("lib").join(library),
-    ))
-}
-
 impl Service for Postgres {
     fn start(
         &self,
@@ -68,12 +55,28 @@ impl Service for Postgres {
         ports: &mut Ports,
         children: &mut Vec<ManagedChild>,
     ) -> Result<()> {
-        let postgres = context.binary("postgres", "PostgreSQL 18")?;
-        let initdb = context.binary("initdb", "PostgreSQL initdb")?;
-        let psql_binary = context.binary("psql", "PostgreSQL psql")?;
+        let install = context.runtime_dir("postgresql", "PostgreSQL")?;
+        let postgres = context.binary("postgresql", "bin/postgres", "PostgreSQL")?;
+        let initdb = context.binary("postgresql", "bin/initdb", "PostgreSQL")?;
+        let psql_binary = context.binary("postgresql", "bin/psql", "PostgreSQL")?;
         let directory = context.data_dir();
         let cluster = directory.join("postgres");
         let password = password(&directory)?;
+
+        // A data directory only works with the major version that created it.
+        let line = install
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        if let Ok(existing) = fs::read_to_string(cluster.join("PG_VERSION")) {
+            if existing.trim() != line {
+                bail!(
+                    "This project's database was created with PostgreSQL {}; install that version or reset the database",
+                    existing.trim()
+                );
+            }
+        }
+        let vector = context.extensions.iter().any(|extension| extension == "pgvector");
 
         if !cluster.join("PG_VERSION").exists() {
             let output = hidden_command(initdb)
@@ -94,9 +97,8 @@ impl Service for Postgres {
             }
         }
 
-        let (control, library) = pgvector_files(&postgres)?;
-        if !control.is_file() || !library.is_file() {
-            bail!("pgvector is not installed in the PostgreSQL 18 runtime");
+        if vector && !runtimes::has_pgvector(&install) {
+            bail!("pgvector is not installed for PostgreSQL {line}; install pgvector first");
         }
 
         let port = ports::assign(ports, "postgres")?;
@@ -135,19 +137,24 @@ impl Service for Postgres {
             )
             .context("Creating the app database failed")?;
         }
-        psql(
-            &psql_binary,
-            port,
-            &password,
-            DATABASE,
-            &["-c", "CREATE EXTENSION IF NOT EXISTS vector"],
-        )
-        .context("Enabling pgvector failed")?;
+        if vector {
+            psql(
+                &psql_binary,
+                port,
+                &password,
+                DATABASE,
+                &["-c", "CREATE EXTENSION IF NOT EXISTS vector"],
+            )
+            .context("Enabling pgvector failed")?;
+        }
         Ok(())
     }
 
     fn shutdown(&self, context: &ServiceContext, _ports: &Ports) {
-        let _ = hidden_command(runtime_binary(context.root, "pg_ctl"))
+        let Ok(pg_ctl) = context.binary("postgresql", "bin/pg_ctl", "PostgreSQL") else {
+            return;
+        };
+        let _ = hidden_command(pg_ctl)
             .arg("-D")
             .arg(context.data_dir().join("postgres"))
             .args(["stop", "-m", "fast", "-w"])
