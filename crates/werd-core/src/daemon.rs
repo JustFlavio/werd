@@ -204,6 +204,7 @@ fn create_instance(
 /// yet: a background job downloads it and then starts the site. The site is
 /// reported as starting meanwhile, and as failed if either step fails.
 fn start_after_caddy(daemon: &Daemon, state: &mut State, id: &str) -> Result<Value> {
+    let jobs = daemon.jobs.clone();
     let catalog = daemon.catalog();
     let line = catalog
         .product("caddy")?
@@ -221,7 +222,12 @@ fn start_after_caddy(daemon: &Daemon, state: &mut State, id: &str) -> Result<Val
     daemon
         .jobs
         .start("caddy", &line.clone(), "install", move |progress| {
-            let installed = runtimes::install(&root, &catalog, fetcher.as_ref(), "caddy", &line, progress);
+            wait_for_setup(&jobs);
+            let installed = if runtimes::resolve_line(&root, "caddy", None, "Caddy").is_ok() {
+                Ok(Default::default())
+            } else {
+                runtimes::install(&root, &catalog, fetcher.as_ref(), "caddy", &line, progress)
+            };
             progress.step("Starting the site");
             let mut state = shared.lock().map_err(|_| anyhow!("Daemon state unavailable"))?;
             match installed.and_then(|_| projects::start(&root, &mut state, &site)) {
@@ -236,6 +242,84 @@ fn start_after_caddy(daemon: &Daemon, state: &mut State, id: &str) -> Result<Val
     project.status = ProjectStatus::Starting;
     project.error = None;
     Ok(json!(project.clone()))
+}
+
+/// Product of the first-run setup job, as shown in `jobs.list`.
+const SETUP: &str = "setup";
+
+/// What a fresh Werd needs before the first site: Caddy, the newest PHP line
+/// (made the global version) and Composer. Returns the missing ones.
+fn setup_missing(root: &Path, catalog: &Catalog) -> Vec<(String, String)> {
+    let installed = Installed::load(root).unwrap_or_default();
+    ["caddy", "php", "composer"]
+        .iter()
+        .filter(|product| installed.lines(product).is_empty())
+        .filter_map(|product| {
+            let line = catalog
+                .product(product)
+                .ok()?
+                .available_lines()
+                .first()?
+                .0
+                .clone();
+            Some((product.to_string(), line))
+        })
+        .collect()
+}
+
+/// Starts the first-run setup in the background. Without `force` it runs only
+/// until it has succeeded once, so removing PHP later does not bring it back.
+fn start_setup(daemon: &Daemon, force: bool) -> Result<Option<crate::jobs::Job>> {
+    let root = daemon.root.clone();
+    let mut settings = Settings::load(&root)?;
+    if settings.setup_done && !force {
+        return Ok(None);
+    }
+    let catalog = daemon.catalog();
+    let missing = setup_missing(&root, &catalog);
+    if missing.is_empty() {
+        settings.setup_done = true;
+        settings.save(&root)?;
+        return Ok(None);
+    }
+    let fetcher = Arc::clone(&daemon.fetcher);
+    let job = daemon.jobs.start(SETUP, "werd", SETUP, move |progress| {
+        for (product, line) in missing {
+            // A site start may have installed Caddy meanwhile.
+            if Installed::load(&root)?.version(&product, &line).is_some() {
+                continue;
+            }
+            let label = catalog
+                .product(&product)
+                .map(|p| p.label.clone())
+                .unwrap_or_else(|_| product.clone());
+            progress.step(&format!("Downloading {label} {line}"));
+            progress.bytes(0, None);
+            runtimes::install(&root, &catalog, fetcher.as_ref(), &product, &line, progress)?;
+            if product == "php" {
+                let mut settings = Settings::load(&root)?;
+                if settings.default_php.is_none() {
+                    settings.default_php = Some(line.clone());
+                    settings.save(&root)?;
+                }
+            }
+        }
+        let mut settings = Settings::load(&root)?;
+        settings.setup_done = true;
+        settings.save(&root)
+    })?;
+    Ok(Some(job))
+}
+
+/// Waits for a running first-run setup, so two jobs never install Caddy at once.
+fn wait_for_setup(jobs: &Jobs) {
+    let running = jobs
+        .list()
+        .into_iter()
+        .find(|job| job.product == SETUP && job.state == crate::jobs::JobState::Running);
+    if let Some(job) = running {
+        jobs.wait(&job.id);
+    }
 }
 
 /// PHP lines available on this platform, newest first.
@@ -578,6 +662,7 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
             )?)
         }
         "jobs.list" => json!(daemon.jobs.list()),
+        "setup.run" => json!(start_setup(daemon, true)?),
         "settings.get" => json!(Settings::load(root)?),
         "settings.set" => update_settings(root, state, params)?,
         other => bail!("Unknown method: {other}"),
@@ -637,6 +722,9 @@ pub fn run_daemon() -> Result<()> {
         state: Arc::clone(&state),
     };
     let (listener, endpoint) = rpc::listen(&root)?;
+
+    // Prepare a fresh install (Caddy, PHP, Composer) without blocking startup.
+    let _ = start_setup(&daemon, false);
 
     // Start autostart services after the API is up, so clients never wait for them.
     let autostart = Arc::clone(&state);

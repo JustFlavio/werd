@@ -30,6 +30,8 @@ pub struct Settings {
     pub https_port: u16,
     /// Folders whose Laravel subfolders are sites.
     pub parked: Vec<String>,
+    /// Whether the first-run setup (Caddy, PHP, Composer) has completed once.
+    pub setup_done: bool,
 }
 
 impl Default for Settings {
@@ -45,6 +47,7 @@ impl Default for Settings {
             domains: true,
             https_port: 443,
             parked: Vec::new(),
+            setup_done: false,
         }
     }
 }
