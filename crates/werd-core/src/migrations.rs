@@ -1,7 +1,7 @@
 //! One-way upgrades of the data folder, run when the daemon starts.
 
 use crate::instances::{instance_dir, Credentials, Instances, ServiceInstance};
-use crate::model::{Link, Ports, Project, ProjectStatus, ServiceName};
+use crate::model::{Link, Ports, Project, ProjectStatus, Requirement, ServiceName};
 use crate::paths::{project_dir, state_file};
 use crate::runtimes::{self, Installed};
 use crate::settings::{Settings, LAYOUT_VERSION};
@@ -113,6 +113,27 @@ fn layout_v3(root: &Path) -> Result<()> {
                         "1".into()
                     }
                 });
+            // Without data there is nothing to keep: ask for the service instead of
+            // creating an empty one named after the site.
+            let (old_data, category) = match service {
+                ServiceName::Postgres => (old_dir.join("postgres"), "database"),
+                ServiceName::Redis => (old_dir.join("redis"), "cache"),
+                ServiceName::Mailpit => (old_dir.join("mailpit.db"), "mail"),
+                ServiceName::Rustfs => (old_dir.join("rustfs"), "storage"),
+            };
+            if !old_data.exists() {
+                project.requirements.push(Requirement {
+                    category: category.into(),
+                    product: product.into(),
+                    line: project.versions.get(product).cloned(),
+                    extensions: if service == ServiceName::Postgres {
+                        project.extensions.clone()
+                    } else {
+                        Vec::new()
+                    },
+                });
+                continue;
+            }
             let id = uuid::Uuid::new_v4().to_string();
             let dir = instance_dir(root, &id);
             let data = dir.join("data");
@@ -361,6 +382,42 @@ mod tests {
             "only the site ports stay on the site"
         );
         assert_eq!(Settings::load(home).unwrap().layout_version, LAYOUT_VERSION);
+    }
+
+    #[test]
+    fn services_without_data_become_pending_requirements() {
+        let root = tempfile::tempdir().unwrap();
+        let home = root.path();
+        Settings {
+            layout_version: 2,
+            ..Settings::default()
+        }
+        .save(home)
+        .unwrap();
+        fs::write(
+            state_file(home),
+            r#"[{"id":"p1","name":"cloudino-ai","path":"/work/cloudino-ai","php":"8.5",
+                "services":["postgres","redis","mailpit"]}]"#,
+        )
+        .unwrap();
+        touch(&home.join("projects/p1/redis/dump.rdb"));
+
+        run(home).unwrap();
+
+        let instances = Instances::load(home).unwrap();
+        assert_eq!(instances.list.len(), 1, "only Redis had data");
+        assert_eq!(instances.list[0].name, "cloudino-ai Redis");
+        let projects: Vec<Project> = serde_json::from_slice(&fs::read(state_file(home)).unwrap()).unwrap();
+        let pending: Vec<(&str, &str, Option<&str>)> = projects[0]
+            .requirements
+            .iter()
+            .map(|r| (r.category.as_str(), r.product.as_str(), r.line.as_deref()))
+            .collect();
+        assert_eq!(
+            pending,
+            [("database", "postgresql", Some("18")), ("mail", "mailpit", None)]
+        );
+        assert_eq!(projects[0].requirements[0].extensions, ["pgvector"]);
     }
 
     #[test]
