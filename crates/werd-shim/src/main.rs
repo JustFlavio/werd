@@ -121,6 +121,23 @@ fn requested(start: &Path, tool: Tool) -> Option<String> {
     None
 }
 
+/// The version chosen in Werd for the site whose folder contains `cwd`.
+fn site_version(home: &Path, product: &str, cwd: &Path) -> Option<String> {
+    let normalize = |path: &str| path.replace('\\', "/").trim_end_matches('/').to_ascii_lowercase();
+    let cwd = normalize(&cwd.to_string_lossy());
+    let state = read_json(&home.join("state.json"));
+    state
+        .as_array()?
+        .iter()
+        .filter(|site| {
+            let path = normalize(site["path"].as_str().unwrap_or_default());
+            !path.is_empty() && (cwd == path || cwd.starts_with(&format!("{path}/")))
+        })
+        // The deepest matching site wins when folders are nested.
+        .max_by_key(|site| site["path"].as_str().map_or(0, str::len))
+        .and_then(|site| site[product].as_str().map(str::to_string))
+}
+
 /// Picks the line to run: requested if installed, then the default, then the newest.
 fn resolve(home: &Path, tool: Tool, cwd: &Path) -> Result<String, String> {
     let product = tool.runtime();
@@ -134,6 +151,9 @@ fn resolve(home: &Path, tool: Tool, cwd: &Path) -> Result<String, String> {
             return Ok(wanted);
         }
         return Err(format!("werd: this project asks for {label} {wanted}, which is not installed. Run `werd {product} install {wanted}`."));
+    }
+    if let Some(line) = site_version(home, product, cwd).filter(|line| installed.contains(line)) {
+        return Ok(line);
     }
     let settings = read_json(&home.join("config.json"));
     let default = settings[format!("default_{product}")]
@@ -249,6 +269,20 @@ mod tests {
         let home = home_with(INSTALLED, r#"{"default_php":"8.4","default_node":"22"}"#);
         assert_eq!(resolve(home.path(), Tool::Composer, &nested).unwrap(), "8.5");
         assert_eq!(resolve(home.path(), Tool::Npm, &nested).unwrap(), "20");
+    }
+
+    #[test]
+    fn the_site_version_chosen_in_werd_applies_inside_its_folder() {
+        let project = tempfile::tempdir().unwrap();
+        let nested = project.path().join("resources");
+        fs::create_dir_all(&nested).unwrap();
+        let home = home_with(INSTALLED, r#"{"default_php":"8.5","default_node":"22"}"#);
+        let state = serde_json::json!([{ "path": project.path(), "php": "8.4", "node": "20" }]);
+        fs::write(home.path().join("state.json"), state.to_string()).unwrap();
+        assert_eq!(resolve(home.path(), Tool::Php, &nested).unwrap(), "8.4");
+        assert_eq!(resolve(home.path(), Tool::Npx, &nested).unwrap(), "20");
+        let elsewhere = tempfile::tempdir().unwrap();
+        assert_eq!(resolve(home.path(), Tool::Php, elsewhere.path()).unwrap(), "8.5");
     }
 
     #[test]
