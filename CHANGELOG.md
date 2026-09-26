@@ -45,6 +45,8 @@ All notable changes to Werd are documented here. The format follows
 - **core:** Read php artisan about and run boost:update for a site
 - **ui:** Show php artisan about on the Information tab and a success screen
 - **services:** Rename service instances
+- **desktop:** Switch the global PHP version from the tray
+- **ui:** Call the default PHP the global PHP version and explain the PATH
 
 ### Bug fixes
 - **ui:** Resolve accessibility and hook dependency lint findings
@@ -57,6 +59,7 @@ All notable changes to Werd are documented here. The format follows
 - **desktop:** Give the Werd mark SVGs a title
 - **core:** Migrate 0.1 services without data as pending requirements
 - **release:** Install Werd outside its data folder
+- **core:** Put Werd first on the user PATH
 
 ### Refactoring
 - **core:** Split the daemon into focused modules
@@ -97,6 +100,8 @@ All notable changes to Werd are documented here. The format follows
 - Bump version to 0.2.0
 - **release:** Ship werd-helper with the Windows installer
 - Bump version to 0.3.0
+- Bump version to 0.3.0-beta.1
+- Format the JSON files the version script rewrites
 
 ## [0.1.1] - 2026-09-25
 
