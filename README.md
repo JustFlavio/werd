@@ -5,25 +5,25 @@
 
 Werd is an open-source local development environment for Laravel and PHP, in the spirit of [Laravel Herd](https://herd.laravel.com), [Lerd](https://github.com/lerd-env/lerd) and [Yerd](https://yerd.app). It targets **Windows, macOS and Linux** and runs native processes, with no Docker or WSL. Everything is free, including the parts that other tools keep behind a paid tier: databases, mail capture and dumps.
 
-A desktop app and a `werd` CLI share one Rust daemon. Each site gets its own PHP FastCGI, a Caddy HTTPS endpoint, and the services it declares in `werd.yml`: PostgreSQL with pgvector, Redis, Mailpit and RustFS (S3-compatible).
+A desktop app and a `werd` CLI share one Rust daemon. Sites run their own PHP FastCGI behind Caddy HTTPS and link to shared services you create once: PostgreSQL (with optional pgvector), MySQL, MariaDB, MongoDB, Redis, Mailpit, RustFS (S3) and Meilisearch.
 
-> **Status: pre-beta.** The Windows prototype works end to end. Shared service instances, `.test` domains and the macOS and Linux catalogs are next. See the [roadmap](#roadmap).
+> **Status: pre-beta.** The Windows prototype works end to end. `.test` domains and the macOS and Linux catalogs are next. See the [roadmap](#roadmap).
 
 ## What works today (Windows x64)
 
 - Install, update and remove versions from a runtime catalog generated weekly from official sources, with SHA-256 checks:
   - PHP 7.4–8.5;
   - Node.js 16–26;
-  - PostgreSQL 14–18 (pgvector optional);
-  - Redis 7.2–8.x;
+  - PostgreSQL 14–18 (pgvector optional), MySQL 8.0/8.4/9.x, MariaDB 10.11–13, MongoDB 7–8, Redis 7.2–8.x, Meilisearch;
   - Composer, Mailpit, RustFS and Caddy.
 - When a newer patch ships, **Update** replaces the installed one (e.g. PHP 8.4.25 → 8.4.26).
-- Each site runs the PHP line from its `werd.yml`. `php`, `composer`, `node`, `npm` and `npx` on your PATH pick the version of the folder you are in (`werd.yml`, `.nvmrc`, `.node-version`), or your default.
-- Link a Laravel folder. Werd creates a `werd.yml` with the default stack if the folder has none.
+- **Services** like Herd's: add PostgreSQL 17, MySQL 8.4 or Redis once, choose name, port and autostart, and share them between sites. Each site gets its own database inside them.
+- **Sites** choose their PHP line and Node version and link a database, cache, queue, mail, storage and search service. An optional [`werd.yml`](docs/werd-yml.md) declares all of this for your team; missing services are created with one click.
+- `php`, `composer`, `node`, `npm` and `npx` on your PATH pick the version of the folder you are in (`werd.yml`, `.nvmrc`, the site settings), or your default.
 - Start a site with one action: `https://localhost:<port>` with a local CA you can trust from the app.
 - See the `.env` values to paste into your project. Werd never edits your files.
-- Read per-service logs, open the Mailpit inbox and the RustFS console, reassign ports after a conflict.
-- Data survives restarts. Ports stay stable per project, so your `.env` keeps working.
+- Read site and service logs, open the Mailpit inbox, the RustFS console and Meilisearch, see service credentials.
+- Data survives restarts; ports stay stable, so your `.env` keeps working. Sites and services from Werd 0.1 are migrated automatically.
 
 ## Getting started (development)
 
@@ -44,9 +44,9 @@ Werd keeps its data in `%LOCALAPPDATA%\Werd` on Windows and the equivalent local
 
 ## First project
 
-1. Add the folder in **Sites → Add site**, or run `werd add` from the project folder.
-2. Install PHP from the **PHP** page (or `werd php install 8.4`) and the services your site uses from **Services** (or `werd install postgresql@18`). Building pgvector currently needs Visual Studio Build Tools.
-3. Start the site. Copy the `.env` values from the site page, then run your migrations.
+1. Install PHP from the **PHP** page (or `werd php install 8.4`).
+2. Add the services you need in **Services → Add service** (or `werd service add postgresql@18 --with pgvector`). Building pgvector currently needs Visual Studio Build Tools.
+3. Add the folder in **Sites → Add site** (or `werd add`), link its services, start it, copy the `.env` values from the site page and run your migrations.
 4. To avoid browser warnings, trust the local CA in **General → HTTPS certificate** (or `werd trust-ca`).
 
 Some Laravel packages you will need:
@@ -62,8 +62,15 @@ werd up <project>               start (alias: start)
 werd down <project>             stop (alias: stop)
 werd open <project>             open in the browser
 werd env <project>              print .env values
-werd logs <project> [source]    werd | php | caddy | postgres | redis | mailpit | rustfs
+werd logs <project> [source]    werd | php | caddy
 werd reset-ports <project>      pick new ports on next start
+werd info <project>             versions, linked services, what is missing
+werd set <project> --php 8.4 --node 22
+werd link <project> <category> <service>   e.g. werd link shop database "PostgreSQL 18"
+werd unlink <project> <category>
+werd resolve <project>          create the services werd.yml asks for
+werd remove <project>           forget a site (folder untouched)
+werd service [list|available|add|start|stop|info|logs|db|rm]
 werd php [list|install|update|uninstall|use|limits]
 werd node [list|install|update|uninstall|use]
 werd runtimes                   everything installable on this platform
@@ -89,14 +96,13 @@ Closing the window does not stop your sites: the daemon owns the processes. More
 
 ## Roadmap
 
-1. **Runtime catalogs for macOS and Linux**, several PHP versions, and a prebuilt pgvector so no compiler is needed.
-2. **Sites and domains:** `https://name.test` through a shared proxy, per-site PHP version, parked folders. A small privileged helper manages the hosts file.
-3. **Shared services** with one database per site, plus MySQL/MariaDB, Meilisearch and Typesense. Database backup and restore.
-4. **Developer tools:** Composer, Laravel installer, Node versions, and per-folder `php`/`composer`/`node` shims.
+1. **Sites and domains:** `https://name.test` through a shared proxy and parked folders. A small privileged helper manages the hosts file.
+2. **macOS and Linux:** runtime catalogs, tar archives, CA trust and PATH integration on each OS.
+3. **Public repository:** online catalog updates, prebuilt pgvector (no compiler needed), signed releases.
+4. **Services:** database backup and restore, Typesense and Reverb, separate Redis connections for cache and queue.
 5. **Debugging:** `dump()` viewer, built-in mail viewer, Laravel log viewer, Xdebug toggle.
-6. **Desktop polish:** tray, launch at login, auto-update, light theme, onboarding.
+6. **Desktop polish:** tray, launch at login, auto-update, light theme, onboarding, Laravel installer.
 7. **Sharing:** public URLs and LAN access.
-8. **Signed releases** for all three platforms.
 
 ## Contributing
 

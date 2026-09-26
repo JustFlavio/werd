@@ -19,15 +19,24 @@ All notable changes to Werd are documented here. The format follows
 - **core:** Add opt-in PATH integration for the command line shims
 - **ui:** Manage PHP and Node versions from the app
 - **cli:** Add werd path enable and disable
+- **services:** Add shared service instances
+- **cli:** Add werd service commands
+- **ui:** Manage service instances from the Services page
+- **core:** Link sites to shared service instances
+- **cli:** Let the shims use the versions chosen for a site
+- **cli:** Add site info, set, link, unlink, resolve and remove
+- **ui:** Configure site versions and linked services
 
 ### Bug fixes
 - **ui:** Resolve accessibility and hook dependency lint findings
 - **runtimes:** Correct PostgreSQL 18.6 archive checksum
 - **core:** Keep the daemon from holding the CLI's pipes on Windows
+- **core:** Allow the Windows-only PATH helpers on other platforms
 
 ### Refactoring
 - **core:** Split the daemon into focused modules
 - **desktop:** Delegate open_url to the core allow-list
+- **core:** Write process logs to any folder
 
 ### Documentation
 - Add contributing guide, code of conduct and security policy
@@ -35,9 +44,11 @@ All notable changes to Werd are documented here. The format follows
 - Translate README and design docs to English
 - Update changelog
 - List the deps-dev commit scope
+- Describe version management and the new CLI commands
 
 ### Tests
 - **ui:** Add vitest setup with first component and helper tests
+- **cli:** Build shim test paths for the current platform
 
 ### Build and CI
 - Configure rust toolchain, workspace metadata and lints
@@ -53,6 +64,7 @@ All notable changes to Werd are documented here. The format follows
 - **runtimes:** Add generated runtime catalog
 - Refresh the runtime catalog weekly
 - Ship werd-shim with the installers and track its size
+- **runtimes:** Add MySQL, MariaDB, MongoDB and Meilisearch to the catalog
 
 ## [0.1.1] - 2026-09-25
 
