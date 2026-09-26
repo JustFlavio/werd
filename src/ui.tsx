@@ -93,7 +93,17 @@ export function CopyButton({ text }: { text: string }) {
   );
 }
 
-export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Modal({
+  title,
+  onClose,
+  children,
+  wide = false,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+  wide?: boolean;
+}) {
   const t = useT();
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -112,7 +122,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="modal" role="dialog" aria-modal aria-label={title}>
+      <div className={`modal ${wide ? "modal-wide" : ""}`} role="dialog" aria-modal aria-label={title}>
         <div className="modal-head">
           <h2>{title}</h2>
           <button type="button" className="icon-button" aria-label={t.common.close} onClick={onClose}>

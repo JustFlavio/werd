@@ -76,6 +76,12 @@ export interface Job {
   step: string;
   error: string | null;
   started_at: number;
+  /** Output of the commands the job runs (last lines). */
+  log?: string[];
+  /** Lines dropped before `log[0]`. */
+  log_dropped?: number;
+  /** What the job produced, e.g. the id of a created site. */
+  result?: string | null;
 }
 
 export interface Settings {
@@ -129,7 +135,48 @@ export async function rpc<T>(method: string, params: Record<string, unknown> = {
 // ---- Sites -------------------------------------------------------------------
 
 export const listProjects = () => rpc<Snapshot>("sites.list");
-export const addProject = (path: string) => rpc<Project>("sites.add", { path });
+export const addProject = (path: string, name?: string, php?: string) => rpc<Project>("sites.add", { path, name, php });
+
+export interface Package {
+  name: string;
+  label: string;
+  version: string | null;
+}
+
+/** What Werd reads from a project folder (composer.json, package.json, …). */
+export interface ProjectInfo {
+  path: string;
+  name: string;
+  laravel: boolean;
+  php_constraint: string | null;
+  suggested_php: string | null;
+  suggested_php_installed: boolean;
+  php_packages: Package[];
+  js_packages: Package[];
+  node: string | null;
+  werd_yml: boolean;
+  env_file: boolean;
+}
+
+export type StarterKit = "react" | "vue" | "svelte" | "livewire" | "custom";
+
+export interface NewProject {
+  name: string;
+  directory: string;
+  kit: StarterKit | null;
+  using?: string;
+  auth: "laravel" | "workos" | "none";
+  teams: boolean;
+  testing: "pest" | "phpunit";
+  boost: boolean;
+  git: boolean;
+  npm: boolean;
+  php: string;
+}
+
+export const inspectFolder = (path: string) => rpc<ProjectInfo>("sites.inspect", { path });
+export const siteInfo = (id: string) => rpc<ProjectInfo>("sites.info", { id });
+export const createProject = (project: NewProject) => rpc<Job>("sites.create", { ...project });
 export const startProject = (id: string) => rpc<Project>("sites.start", { id });
 export const stopProject = (id: string) => rpc<Project>("sites.stop", { id });
 export const resetPorts = (id: string) => rpc<Project>("sites.reset-ports", { id });
@@ -238,6 +285,23 @@ export async function syncHosts(): Promise<void> {
 // ---- Desktop shell ----------------------------------------------------------
 
 let demoLaunchAtLogin = false;
+
+export interface Editor {
+  id: string;
+  label: string;
+}
+
+/** Code editors installed on this computer. */
+export async function listEditors(): Promise<Editor[]> {
+  if (!desktop) return demo ? [{ id: "vscode", label: "VS Code" }] : [];
+  return invoke<Editor[]>("editors");
+}
+
+/** `folder`, `terminal`, `tinker` or `editor:<id>` for a site. */
+export async function siteAction(id: string, action: string): Promise<void> {
+  if (!desktop) return;
+  return invoke<void>("site_action", { id, action });
+}
 
 /** Opens the system folder picker; null when cancelled. */
 export async function pickFolder(title: string): Promise<string | null> {

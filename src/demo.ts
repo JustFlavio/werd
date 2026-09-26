@@ -5,6 +5,7 @@ import type {
   DoctorResult,
   Job,
   Project,
+  ProjectInfo,
   RuntimeLine,
   ServiceInstance,
   ServiceOffering,
@@ -242,6 +243,103 @@ function startJob(product: string, line: string, action: string): Job {
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const folderName = (path: string) => path.split(/[\\/]/).filter(Boolean).pop() ?? "site";
+const label = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || "site";
+
+function describe(path: string): ProjectInfo {
+  const name = folderName(path);
+  return {
+    path,
+    name,
+    laravel: !name.startsWith("notes"),
+    php_constraint: "^8.2",
+    suggested_php: "8.4",
+    suggested_php_installed: true,
+    php_packages: [
+      { name: "laravel/framework", label: "Laravel", version: "v12.30.1" },
+      { name: "filament/filament", label: "Filament", version: "v4.1.0" },
+      { name: "pestphp/pest", label: "Pest", version: "v4.1.2" },
+    ],
+    js_packages: [
+      { name: "tailwindcss", label: "Tailwind CSS", version: "4.1.13" },
+      { name: "vite", label: "Vite", version: "7.1.5" },
+    ],
+    node: "22",
+    werd_yml: false,
+    env_file: true,
+  };
+}
+
+function addDemoProject(path: string, name?: string, php?: string): Project {
+  const siteName = name?.trim() || folderName(path);
+  const project: Project = {
+    id: crypto.randomUUID(),
+    name: siteName,
+    domain: `${label(siteName)}.test`,
+    path,
+    php: php ?? settings.default_php ?? "8.5",
+    status: "stopped",
+    ports: { site: 52100 + projects.length, fastcgi: 52200 + projects.length },
+  };
+  projects.push(project);
+  return project;
+}
+
+/** Simulates `laravel new`: a few seconds of installer output, then the site appears. */
+function createDemoProject(params: Record<string, unknown>): Job {
+  const name = String(params.name);
+  const directory = String(params.directory);
+  const output = [
+    `Creating a "laravel/laravel" project at "./${name}"`,
+    "Installing laravel/laravel (v12.4.0)",
+    "  - Installing laravel/laravel (v12.4.0): Extracting archive",
+    `Created project in ${directory}\\${name}`,
+    "Loading composer repositories with package information",
+    "Updating dependencies",
+    "Lock file operations: 112 installs, 0 updates, 0 removals",
+    "Generating optimized autoload files",
+    "> @php artisan key:generate --ansi",
+    "   INFO  Application key set successfully.",
+    "> @php artisan migrate --graceful --ansi",
+    "   INFO  Running migrations.",
+    `Application ready in [${name}]. You can start your local development using:`,
+  ];
+  const job: Job = {
+    id: crypto.randomUUID(),
+    product: "laravel",
+    line: name,
+    action: "create",
+    state: "running",
+    downloaded: 0,
+    total: null,
+    step: "Creating the project",
+    error: null,
+    started_at: Date.now() / 1000,
+    log: [],
+    log_dropped: 0,
+    result: null,
+  };
+  jobs.push(job);
+  let index = 0;
+  const timer = window.setInterval(() => {
+    if (index < output.length) {
+      job.log = [...(job.log ?? []), output[index]];
+      index += 1;
+      return;
+    }
+    window.clearInterval(timer);
+    const project = addDemoProject(`${directory}\\${name}`, name, String(params.php));
+    job.result = project.id;
+    job.step = "Done";
+    job.state = "done";
+  }, 300);
+  return { ...job };
+}
+
 export async function demoRpc(method: string, params: Record<string, unknown>): Promise<unknown> {
   await delay(60);
   const product = String(params.product ?? "");
@@ -349,6 +447,14 @@ export async function demoRpc(method: string, params: Record<string, unknown>): 
     case "hosts.sync":
       for (const project of projects) if (project.domain) hosts.add(project.domain);
       return null;
+    case "sites.add":
+      return addDemoProject(String(params.path), params.name as string | undefined, params.php as string | undefined);
+    case "sites.inspect":
+      return describe(String(params.path));
+    case "sites.info":
+      return describe(findProject(params.id).path);
+    case "sites.create":
+      return createDemoProject(params);
     case "sites.remove":
       projects.splice(projects.indexOf(findProject(params.id)), 1);
       return null;
