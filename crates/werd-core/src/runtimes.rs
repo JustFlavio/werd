@@ -287,6 +287,9 @@ pub fn install(
     if product == "pgvector" && Installed::load(root)?.lines("postgresql").is_empty() {
         bail!("Install PostgreSQL before pgvector");
     }
+    if product == "phpredis" && Installed::load(root)?.version("php", line).is_none() {
+        bail!("Install PHP {line} before phpredis");
+    }
     let archive = download(root, fetcher, build, progress)?;
     let destination = line_dir(root, product, line);
     progress.step("Installing");
@@ -306,9 +309,14 @@ pub fn install(
             if installed.lines("cacert").is_empty() && catalog.products.contains_key("cacert") {
                 install(root, catalog, fetcher, "cacert", "mozilla", progress)?;
             }
+            // PECL provides a separate DLL for each PHP line on Windows.
+            if catalog.build("phpredis", line).is_ok() {
+                install(root, catalog, fetcher, "phpredis", line, progress)?;
+            }
             write_php_ini(root, line, &Settings::load(root)?)?;
         }
         "cacert" => write_all_php_ini(root, &Settings::load(root)?)?,
+        "phpredis" => write_php_ini(root, line, &Settings::load(root)?)?,
         "pgvector" => {
             progress.step("Building pgvector");
             for postgres in installed.lines("postgresql") {
@@ -332,6 +340,10 @@ pub fn uninstall(root: &Path, product: &str, line: &str) -> Result<()> {
     if installed.version(product, line).is_none() {
         bail!("{product} {line} is not installed");
     }
+    if product == "php" && installed.version("phpredis", line).is_some() {
+        uninstall(root, "phpredis", line)?;
+        installed = Installed::load(root)?;
+    }
     let directory = line_dir(root, product, line);
     if directory.exists() {
         fs::remove_dir_all(&directory).with_context(|| {
@@ -343,6 +355,9 @@ pub fn uninstall(root: &Path, product: &str, line: &str) -> Result<()> {
     }
     installed.remove(product, line);
     installed.save(root)?;
+    if product == "phpredis" {
+        write_php_ini(root, line, &Settings::load(root)?)?;
+    }
     let mut settings = Settings::load(root)?;
     let default = match product {
         "php" => &mut settings.default_php,
@@ -371,6 +386,15 @@ pub fn write_php_ini(root: &Path, line: &str, settings: &Settings) -> Result<()>
         };
         if directory.join("ext").join(library).is_file() {
             ini.push_str(&format!("extension={extension}\n"));
+        }
+    }
+    if cfg!(windows) && Installed::load(root)?.version("phpredis", line).is_some() {
+        let redis = line_dir(root, "phpredis", line).join("php_redis.dll");
+        if redis.is_file() {
+            ini.push_str(&format!(
+                "extension=\"{}\"\n",
+                redis.to_string_lossy().replace('\\', "/")
+            ));
         }
     }
     let memory = if settings.memory_limit_mb < 0 {
@@ -642,6 +666,34 @@ pub(crate) mod tests {
         format!("{:x}", Sha256::digest(fs::read(path).unwrap()))
     }
 
+    pub fn php_redis_fixture(dir: &Path) -> (Catalog, LocalFetcher) {
+        let php = dir.join("php.zip");
+        zip_with(&php, &[("php-cgi.exe", "php"), ("ext/php_intl.dll", "intl")]);
+        let redis = dir.join("redis.zip");
+        zip_with(&redis, &[("php_redis.dll", "redis"), ("README", "pecl")]);
+        let catalog = serde_json::json!({ "schema": 1, "products": {
+            "php": { "label": "PHP", "kind": "runtime", "lines": { "8.5": {
+                "latest": "8.5.11", "builds": { crate::catalog::PLATFORM: {
+                    "url": "https://example.test/php.zip", "sha256": sha(&php),
+                    "format": "zip", "marker": "php-cgi.exe"
+                }}
+            }}},
+            "phpredis": { "label": "phpredis", "kind": "extension", "extends": "php",
+                "lines": { "8.5": { "latest": "6.3.0", "builds": { crate::catalog::PLATFORM: {
+                    "url": "https://example.test/redis.zip", "sha256": sha(&redis),
+                    "format": "zip", "marker": "php_redis.dll"
+                }}}}
+            }
+        }});
+        (
+            Catalog::parse(&catalog.to_string()).unwrap(),
+            LocalFetcher(HashMap::from([
+                ("https://example.test/php.zip".into(), php),
+                ("https://example.test/redis.zip".into(), redis),
+            ])),
+        )
+    }
+
     /// A catalog with one "tool" product whose lines point at local zip fixtures.
     pub fn fixture(dir: &Path, versions: &[(&str, &str)]) -> (Catalog, LocalFetcher) {
         let mut fetcher = HashMap::new();
@@ -793,6 +845,58 @@ pub(crate) mod tests {
         assert!(!ini.contains("extension=curl"), "missing DLLs are not enabled");
         assert!(ini.contains("memory_limit=-1"));
         assert!(ini.contains("upload_max_filesize=64M") && ini.contains("post_max_size=64M"));
+    }
+
+    #[test]
+    fn php_installs_redis_and_removes_it_with_the_parent() {
+        let root = tempfile::tempdir().unwrap();
+        let (catalog, fetcher) = php_redis_fixture(root.path());
+        assert!(install(
+            root.path(),
+            &catalog,
+            &fetcher,
+            "phpredis",
+            "8.5",
+            &Progress::detached()
+        )
+        .is_err());
+        install(
+            root.path(),
+            &catalog,
+            &fetcher,
+            "php",
+            "8.5",
+            &Progress::detached(),
+        )
+        .unwrap();
+        let redis = line_dir(root.path(), "phpredis", "8.5").join("php_redis.dll");
+        assert!(redis.is_file());
+        assert_eq!(
+            Installed::load(root.path()).unwrap().version("phpredis", "8.5"),
+            Some("6.3.0")
+        );
+        let ini = fs::read_to_string(line_dir(root.path(), "php", "8.5").join("php.ini")).unwrap();
+        if cfg!(windows) {
+            assert!(ini.contains(&format!(
+                "extension=\"{}\"",
+                redis.to_string_lossy().replace('\\', "/")
+            )));
+        }
+        uninstall(root.path(), "phpredis", "8.5").unwrap();
+        let ini = fs::read_to_string(line_dir(root.path(), "php", "8.5").join("php.ini")).unwrap();
+        assert!(!ini.contains("php_redis.dll"));
+        install(
+            root.path(),
+            &catalog,
+            &fetcher,
+            "phpredis",
+            "8.5",
+            &Progress::detached(),
+        )
+        .unwrap();
+        uninstall(root.path(), "php", "8.5").unwrap();
+        assert!(!redis.exists());
+        assert!(Installed::load(root.path()).unwrap().lines("phpredis").is_empty());
     }
 
     #[test]

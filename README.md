@@ -12,7 +12,7 @@ A desktop app and a `werd` CLI share one Rust daemon. Sites run their own PHP Fa
 ## What works today (Windows x64)
 
 - Install, update and remove versions from a runtime catalog generated weekly from official sources, with SHA-256 checks:
-  - PHP 7.4–8.5;
+  - PHP 7.4–8.5 with the matching phpredis extension on Windows;
   - Node.js 16–26;
   - PostgreSQL 14–18 (pgvector optional), MySQL 8.0/8.4/9.x, MariaDB 10.11–13, MongoDB 7–8, Redis 7.2–8.x, Meilisearch;
   - Composer, Mailpit, RustFS and Caddy.
@@ -49,13 +49,14 @@ Werd keeps its data in `%LOCALAPPDATA%\Werd` on Windows and the equivalent local
 
 On its first start Werd downloads Caddy, the newest PHP (made the global version) and Composer in the background; the Dashboard shows the progress. Internet is needed only to download versions and to create new projects; sites and services run offline.
 
+On Windows, Werd installs phpredis with each PHP version and enables it in `php.ini`, so Laravel can use `REDIS_CLIENT=phpredis`. PHP versions installed before this feature receive the extension in the background when the daemon next starts.
+
 1. Install other PHP versions from the **PHP** page if you need them (or `werd php install 8.4`).
 2. Add the services you need in **Services → Add service** (or `werd service add postgresql@18 --with pgvector`). Building pgvector currently needs Visual Studio Build Tools.
 3. Add the folder in **Sites → Add site** (or `werd add`), link its services, start it, copy the `.env` values from the site page and run your migrations.
 4. To avoid browser warnings, trust the local CA in **General → HTTPS certificate** (or `werd trust-ca`).
 
 Some Laravel packages you will need:
-- **Redis:** install `predis/predis` and set `REDIS_CLIENT=predis`. The bundled PHP has no phpredis extension yet.
 - **S3:** install `league/flysystem-aws-s3-v3` and create the `AWS_BUCKET` bucket once.
 
 ## CLI

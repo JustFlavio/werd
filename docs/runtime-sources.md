@@ -1,10 +1,11 @@
 # Windows runtimes: provenance and release blockers
 
-Runtimes are downloaded on demand and never bundled with the Werd installer. The catalog lives in `crates/werd-core/src/runtimes.rs`. Every download is verified with SHA-256 before extraction, and a unit test checks that every pinned checksum is well formed.
+Runtimes are downloaded on demand and never bundled with the Werd installer. The catalog lives in `catalog/catalog.json`. Every download is verified with SHA-256 before extraction, and a unit test checks that every pinned checksum is well formed.
 
 | Runtime | Version and source | Archive SHA-256 | Main license |
 | --- | --- | --- | --- |
 | PHP NTS x64 | [windows.php.net](https://windows.php.net/downloads/releases/php-8.5.11-nts-Win32-vs17-x64.zip), 8.5.11 | `0ea96e0d2b9b737a6036f05cf4e95c49313faa6d0f27bd97edb2742503f0c043` | PHP License 3.01 |
+| phpredis for PHP 8.5 NTS x64 | [PECL Windows build](https://downloads.php.net/~windows/pecl/releases/redis/6.3.0/php_redis-6.3.0-8.5-nts-vs17-x64.zip), 6.3.0 | `481d6d1af45060ab41af6abe250faa270276fc47a493badc2e178024cdf6e255` | PHP License 3.01 |
 | Caddy x64 | [GitHub release](https://github.com/caddyserver/caddy/releases/download/v2.11.4/caddy_2.11.4_windows_amd64.zip), 2.11.4 | `1708333f79e274c7697285afe6d592ab39314e0b131e9ec6bea08ad27df62ebf` | Apache-2.0 |
 | PostgreSQL x64 | [EnterpriseDB binaries](https://get.enterprisedb.com/postgresql/postgresql-18.6-1-windows-x64-binaries.zip), 18.6-1 | `fbe23da234ee31547bf8a36d29dfd81e82b849df2d2b78d2eecb43d360252f8c` | PostgreSQL License; check the notices bundled in the EDB distribution |
 | Redis port x64 MSYS2 | [redis-windows release](https://github.com/redis-windows/redis-windows/releases/download/7.2.8/Redis-7.2.8-Windows-x64-msys2.zip), 7.2.8 | `aa6d4206a08d1189dd7a57c78201540a53b12350e1ad09ee7caca04120600656` | Redis 7.2 BSD-3-Clause; MSYS2 dependencies to be reviewed |

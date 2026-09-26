@@ -90,7 +90,8 @@ fn start_install(daemon: &Daemon, state: &State, params: &Value, update: bool) -
 
 /// Running sites and service instances that use a runtime line.
 fn runtime_users(state: &State, product: &str, line: &str) -> Vec<String> {
-    let mut users = projects::using_runtime(state, product, line);
+    let parent = if product == "phpredis" { "php" } else { product };
+    let mut users = projects::using_runtime(state, parent, line);
     users.extend(instances::using_runtime(&state.instances, product, line));
     users
 }
@@ -320,6 +321,39 @@ fn wait_for_setup(jobs: &Jobs) {
     if let Some(job) = running {
         jobs.wait(&job.id);
     }
+}
+
+/// Adds phpredis to PHP lines installed before Werd shipped the extension.
+fn start_phpredis_backfill(daemon: &Daemon) -> Result<Option<crate::jobs::Job>> {
+    let root = daemon.root.clone();
+    let catalog = daemon.catalog();
+    let installed = Installed::load(&root)?;
+    let missing: Vec<String> = installed
+        .lines("php")
+        .into_iter()
+        .filter(|line| catalog.build("phpredis", line).is_ok())
+        .filter(|line| {
+            installed.version("phpredis", line).is_none()
+                || !runtimes::line_dir(&root, "phpredis", line)
+                    .join("php_redis.dll")
+                    .is_file()
+        })
+        .collect();
+    if missing.is_empty() {
+        return Ok(None);
+    }
+    let fetcher = Arc::clone(&daemon.fetcher);
+    let job = daemon
+        .jobs
+        .start("phpredis", "installed", "install", move |progress| {
+            for line in missing {
+                progress.step(&format!("Installing phpredis for PHP {line}"));
+                progress.bytes(0, None);
+                runtimes::install(&root, &catalog, fetcher.as_ref(), "phpredis", &line, progress)?;
+            }
+            Ok(())
+        })?;
+    Ok(Some(job))
 }
 
 /// PHP lines available on this platform, newest first.
@@ -726,6 +760,16 @@ pub fn run_daemon() -> Result<()> {
     // Prepare a fresh install (Caddy, PHP, Composer) without blocking startup.
     let _ = start_setup(&daemon, false);
 
+    // Setup installs phpredis with new PHP lines. Backfill older installations
+    // after it finishes, without delaying the API or service startup.
+    let backfill = daemon.clone();
+    thread::spawn(move || {
+        wait_for_setup(&backfill.jobs);
+        if let Err(error) = start_phpredis_backfill(&backfill) {
+            eprintln!("Werd phpredis setup: {error:#}");
+        }
+    });
+
     // Start autostart services after the API is up, so clients never wait for them.
     let autostart = Arc::clone(&state);
     let autostart_root = root.clone();
@@ -788,7 +832,7 @@ pub fn run_daemon() -> Result<()> {
 mod tests {
     use super::*;
     use crate::jobs::JobState;
-    use crate::runtimes::tests::{fixture, LocalFetcher};
+    use crate::runtimes::tests::{fixture, php_redis_fixture, LocalFetcher};
 
     fn daemon(root: &Path, catalog: Option<(Catalog, LocalFetcher)>) -> Daemon {
         let (catalog, fetcher): (Option<Arc<Catalog>>, Arc<dyn Fetcher>) = match catalog {
@@ -862,6 +906,31 @@ mod tests {
         dispatch(&daemon, &mut state, "runtimes.uninstall", &params).unwrap();
         let rows = dispatch(&daemon, &mut state, "runtimes.list", &json!({})).unwrap();
         assert!(rows[0]["installed"].is_null());
+    }
+
+    #[test]
+    fn startup_backfills_redis_for_existing_php() {
+        let root = tempfile::tempdir().unwrap();
+        let (catalog, fetcher) = php_redis_fixture(root.path());
+        let php = runtimes::line_dir(root.path(), "php", "8.5");
+        std::fs::create_dir_all(&php).unwrap();
+        std::fs::write(php.join("php-cgi.exe"), "php").unwrap();
+        let mut installed = Installed::default();
+        installed.set("php", "8.5", "8.5.11");
+        installed.save(root.path()).unwrap();
+        let daemon = daemon(root.path(), Some((catalog, fetcher)));
+        let job = start_phpredis_backfill(&daemon).unwrap().unwrap();
+        let finished = daemon.jobs.wait(&job.id);
+        assert_eq!(finished.state, JobState::Done, "{:?}", finished.error);
+        assert!(runtimes::line_dir(root.path(), "phpredis", "8.5")
+            .join("php_redis.dll")
+            .is_file());
+        if cfg!(windows) {
+            assert!(std::fs::read_to_string(php.join("php.ini"))
+                .unwrap()
+                .contains("php_redis.dll"));
+        }
+        assert!(start_phpredis_backfill(&daemon).unwrap().is_none());
     }
 
     #[test]
