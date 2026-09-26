@@ -12,10 +12,18 @@ All notable changes to Werd are documented here. The format follows
 - **cli:** Rewrite the CLI with clap
 - **i18n:** Add typed translation dictionaries with English and Italian
 - **ui:** Translate the interface and add a language setting
+- **runtimes:** Load the runtime catalog in the daemon
+- **runtimes:** Manage runtimes per version line from the catalog
+- **cli:** Add php, node, install, update and uninstall commands
+- **cli:** Add php, composer, node, npm and npx shims
+- **core:** Add opt-in PATH integration for the command line shims
+- **ui:** Manage PHP and Node versions from the app
+- **cli:** Add werd path enable and disable
 
 ### Bug fixes
 - **ui:** Resolve accessibility and hook dependency lint findings
 - **runtimes:** Correct PostgreSQL 18.6 archive checksum
+- **core:** Keep the daemon from holding the CLI's pipes on Windows
 
 ### Refactoring
 - **core:** Split the daemon into focused modules
@@ -25,6 +33,8 @@ All notable changes to Werd are documented here. The format follows
 - Add contributing guide, code of conduct and security policy
 - Generate changelog from conventional commits with git-cliff
 - Translate README and design docs to English
+- Update changelog
+- List the deps-dev commit scope
 
 ### Tests
 - **ui:** Add vitest setup with first component and helper tests
@@ -37,6 +47,12 @@ All notable changes to Werd are documented here. The format follows
 - Add script to bump the version in every manifest
 - Add metrics script for coverage, sizes and daemon footprint
 - Add workflow for lint, tests, audit and metrics on three platforms
+- Allow the deps-dev scope used by Dependabot
+- Scale the platform matrix with the event to save minutes
+- **runtimes:** Add runtime catalog generator
+- **runtimes:** Add generated runtime catalog
+- Refresh the runtime catalog weekly
+- Ship werd-shim with the installers and track its size
 
 ## [0.1.1] - 2026-09-25
 

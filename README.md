@@ -7,13 +7,19 @@ Werd is an open-source local development environment for Laravel and PHP, in the
 
 A desktop app and a `werd` CLI share one Rust daemon. Each site gets its own PHP FastCGI, a Caddy HTTPS endpoint, and the services it declares in `werd.yml`: PostgreSQL with pgvector, Redis, Mailpit and RustFS (S3-compatible).
 
-> **Status: pre-beta.** The Windows prototype works end to end. macOS and Linux runtime catalogs, `.test` domains, multiple PHP versions and shared services are next. See the [roadmap](#roadmap).
+> **Status: pre-beta.** The Windows prototype works end to end. Shared service instances, `.test` domains and the macOS and Linux catalogs are next. See the [roadmap](#roadmap).
 
 ## What works today (Windows x64)
 
+- Install, update and remove versions from a runtime catalog generated weekly from official sources, with SHA-256 checks:
+  - PHP 7.4–8.5;
+  - Node.js 16–26;
+  - PostgreSQL 14–18 (pgvector optional);
+  - Redis 7.2–8.x;
+  - Composer, Mailpit, RustFS and Caddy.
+- When a newer patch ships, **Update** replaces the installed one (e.g. PHP 8.4.25 → 8.4.26).
+- Each site runs the PHP line from its `werd.yml`. `php`, `composer`, `node`, `npm` and `npx` on your PATH pick the version of the folder you are in (`werd.yml`, `.nvmrc`, `.node-version`), or your default.
 - Link a Laravel folder. Werd creates a `werd.yml` with the default stack if the folder has none.
-- Download runtimes on demand. Versions are pinned and every archive is verified with SHA-256 before extraction.
-  - PHP 8.5, Caddy, PostgreSQL 18 + pgvector, Redis 7.2, Mailpit, RustFS.
 - Start a site with one action: `https://localhost:<port>` with a local CA you can trust from the app.
 - See the `.env` values to paste into your project. Werd never edits your files.
 - Read per-service logs, open the Mailpit inbox and the RustFS console, reassign ports after a conflict.
@@ -39,7 +45,7 @@ Werd keeps its data in `%LOCALAPPDATA%\Werd` on Windows and the equivalent local
 ## First project
 
 1. Add the folder in **Sites → Add site**, or run `werd add` from the project folder.
-2. Install the runtimes from the **PHP** page, or with `werd install <runtime>`. Building pgvector currently needs Visual Studio Build Tools; `scripts/build-pgvector-windows.ps1` does the same build by hand.
+2. Install PHP from the **PHP** page (or `werd php install 8.4`) and the services your site uses from **Services** (or `werd install postgresql@18`). Building pgvector currently needs Visual Studio Build Tools.
 3. Start the site. Copy the `.env` values from the site page, then run your migrations.
 4. To avoid browser warnings, trust the local CA in **General → HTTPS certificate** (or `werd trust-ca`).
 
@@ -58,7 +64,12 @@ werd open <project>             open in the browser
 werd env <project>              print .env values
 werd logs <project> [source]    werd | php | caddy | postgres | redis | mailpit | rustfs
 werd reset-ports <project>      pick new ports on next start
-werd runtimes | install <id>    runtime catalog
+werd php [list|install|update|uninstall|use|limits]
+werd node [list|install|update|uninstall|use]
+werd runtimes                   everything installable on this platform
+werd install|uninstall <product>@<line>   e.g. postgresql@17, redis@8.2
+werd update [<product>@<line>]  update one line, or everything outdated
+werd path enable|disable        put php, composer, node, npm, npx on PATH
 werd trust-ca | doctor          certificate and diagnostics
 werd completions <shell>        shell completion script
 ```
