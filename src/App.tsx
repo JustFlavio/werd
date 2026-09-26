@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
-  addProject,
   type DomainsStatus,
   disablePath,
   domainsStatus,
@@ -157,22 +156,6 @@ export default function App() {
       for (const instance of instances.filter((item) => item.status === "running")) await stopService(instance.id);
     });
 
-  async function add(path: string): Promise<boolean> {
-    setBusy("add");
-    try {
-      const project = await addProject(path);
-      setSelectedId(project.id);
-      await refresh();
-      await syncNewDomains();
-      return true;
-    } catch (cause) {
-      fail(cause);
-      return false;
-    } finally {
-      setBusy(null);
-    }
-  }
-
   const open = (url: string) => void openUrl(url).catch(fail);
 
   return (
@@ -250,7 +233,10 @@ export default function App() {
             busy={busy}
             selectedId={selectedId}
             onSelect={setSelectedId}
-            onAdd={add}
+            onAdded={async (id) => {
+              setSelectedId(id);
+              await refresh();
+            }}
             onToggle={toggle}
             onOpenSite={(project) => void openSite(project.id).catch(fail)}
             onResetPorts={(project) =>

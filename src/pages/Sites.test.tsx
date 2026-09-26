@@ -1,9 +1,38 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { Project, RuntimeLine, ServiceInstance } from "../api";
+import type { Project, ProjectInfo, RuntimeLine, ServiceInstance } from "../api";
 import { I18nProvider, type Locale } from "../i18n";
 import type { Runtimes } from "../runtimes";
 import { Sites, type SitesProps } from "./Sites";
+
+const info: ProjectInfo = {
+  path: "/work/fleet-desk",
+  name: "fleet-desk",
+  laravel: true,
+  php_constraint: "^8.2",
+  suggested_php: "8.4",
+  suggested_php_installed: true,
+  php_packages: [
+    { name: "laravel/framework", label: "Laravel", version: "v12.30.1" },
+    { name: "filament/filament", label: "Filament", version: "v4.1.0" },
+  ],
+  js_packages: [],
+  node: null,
+  werd_yml: false,
+  env_file: true,
+};
+
+const api = vi.hoisted(() => ({
+  addProject: vi.fn(),
+  inspectFolder: vi.fn(),
+  siteInfo: vi.fn(),
+  domainsStatus: vi.fn(),
+}));
+
+vi.mock("../api", async (original) => ({
+  ...(await original<typeof import("../api")>()),
+  ...api,
+}));
 
 const noop = () => {};
 
@@ -52,7 +81,7 @@ function renderSites(projects: Project[], overrides: Partial<SitesProps> = {}, l
         busy={null}
         selectedId={null}
         onSelect={noop}
-        onAdd={async () => true}
+        onAdded={async () => {}}
         onToggle={noop}
         onOpenSite={noop}
         onResetPorts={noop}
@@ -92,6 +121,7 @@ describe("Sites", () => {
     const onToggle = vi.fn();
     renderSites([blog], { selectedId: "blog", onToggle });
     expect(screen.getByRole("combobox", { name: "PHP" })).toHaveValue("8.5");
+    fireEvent.click(screen.getByRole("tab", { name: "Services" }));
     expect(screen.getByRole("combobox", { name: "Database" })).toHaveValue("pg");
     expect(screen.getByRole("combobox", { name: "Cache" })).toHaveValue("");
     expect(screen.getByText("blog", { selector: "td" })).toBeInTheDocument();
@@ -107,14 +137,43 @@ describe("Sites", () => {
     expect(screen.getByRole("button", { name: /Start/ })).toBeDisabled();
   });
 
-  it("submits the trimmed folder path from the add dialog", () => {
-    const onAdd = vi.fn(async () => true);
-    renderSites([], { onAdd });
+  it("links an existing project with the name and PHP read from it", async () => {
+    api.inspectFolder.mockResolvedValue(info);
+    api.addProject.mockResolvedValue({ ...blog, id: "fleet", name: "fleet-desk", domain: "fleet-desk.test" });
+    api.domainsStatus.mockResolvedValue({ missing: [] });
+    const onAdded = vi.fn(async () => {});
+    renderSites([], { onAdded });
     fireEvent.click(screen.getByRole("button", { name: /Add site/ }));
-    const dialog = screen.getByRole("dialog", { name: "Add site" });
-    fireEvent.change(within(dialog).getByRole("textbox"), { target: { value: "  /work/shop  " } });
-    fireEvent.click(screen.getByRole("button", { name: "Add" }));
-    expect(onAdd).toHaveBeenCalledWith("/work/shop");
+    fireEvent.click(screen.getByRole("button", { name: /Link existing project/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Link existing project" });
+    const path = within(dialog).getByRole("textbox", { name: "Project path" });
+    fireEvent.change(path, { target: { value: "/work/fleet-desk" } });
+    fireEvent.blur(path);
+    await waitFor(() => expect(within(dialog).getByRole("textbox", { name: "Site name" })).toHaveValue("fleet-desk"));
+    expect(within(dialog).getByRole("combobox", { name: "PHP" })).toHaveValue("8.4");
+    expect(within(dialog).getByText("composer.json requires PHP ^8.2")).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add site" }));
+    await waitFor(() => expect(onAdded).toHaveBeenCalledWith("fleet"));
+    expect(api.addProject).toHaveBeenCalledWith("/work/fleet-desk", "fleet-desk", "8.4");
+  });
+
+  it("offers the starter kits for a new project", () => {
+    renderSites([]);
+    fireEvent.click(screen.getByRole("button", { name: /Add site/ }));
+    fireEvent.click(screen.getByRole("button", { name: /New Laravel project/ }));
+    for (const kit of ["No starter kit", "React", "Vue", "Svelte", "Livewire", "Custom starter kit"]) {
+      expect(screen.getByRole("button", { name: kit })).toBeInTheDocument();
+    }
+  });
+
+  it("shows the project stack on the Information tab", async () => {
+    api.siteInfo.mockResolvedValue(info);
+    renderSites([blog], { selectedId: "blog" });
+    fireEvent.click(screen.getByRole("tab", { name: "Information" }));
+    expect(await screen.findByText("v12.30.1")).toBeInTheDocument();
+    expect(screen.getByText("Filament")).toBeInTheDocument();
   });
 
   it("closes the add dialog with Escape", () => {

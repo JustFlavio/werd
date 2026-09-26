@@ -1,11 +1,24 @@
-import { ExternalLink, FolderPlus, Play, Square, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import {
+  Code2,
+  ExternalLink,
+  FlaskConical,
+  FolderOpen,
+  Play,
+  Plus,
+  Search,
+  Square,
+  SquareTerminal,
+  Trash2,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import {
   type Category,
+  type Editor,
   type Job,
   linkProject,
+  listEditors,
   type Project,
-  pickFolder,
+  type ProjectInfo,
   projectEnv,
   removeProject,
   resolveProject,
@@ -13,9 +26,12 @@ import {
   setProjectDomain,
   setProjectNode,
   setProjectPhp,
+  siteAction,
+  siteInfo,
   unlinkProject,
 } from "../api";
 import { CATEGORIES, instancesFor } from "../categories";
+import { AddSiteWizard } from "../components/AddSiteWizard";
 import { useT } from "../i18n";
 import type { Runtimes } from "../runtimes";
 import { CopyButton, EmptyState, Modal, PageHeader, Section, StatusDot } from "../ui";
@@ -27,7 +43,8 @@ export interface SitesProps {
   busy: string | null;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
-  onAdd: (path: string) => Promise<boolean>;
+  /** A site was added or created: select it and refresh. */
+  onAdded: (id: string) => Promise<void>;
   onToggle: (project: Project) => void;
   onOpenSite: (project: Project) => void;
   onResetPorts: (project: Project) => void;
@@ -36,14 +53,32 @@ export interface SitesProps {
   onError: (cause: unknown) => void;
 }
 
+type Tab = "general" | "services" | "information";
+
 export function Sites(props: SitesProps) {
-  const { projects, selectedId, onSelect, onAdd, busy } = props;
+  const { projects, selectedId, onSelect, onAdded, runtimes } = props;
   const t = useT();
   const [adding, setAdding] = useState(false);
+  const [query, setQuery] = useState("");
+  const [editors, setEditors] = useState<Editor[]>([]);
+  useEffect(() => {
+    void listEditors()
+      .then(setEditors)
+      .catch(() => setEditors([]));
+  }, []);
+
   const selected = projects.find((project) => project.id === selectedId) ?? null;
+  const visible = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return projects;
+    return projects.filter((project) =>
+      [project.name, project.domain ?? "", project.path].some((text) => text.toLowerCase().includes(needle)),
+    );
+  }, [projects, query]);
+
   const addButton = (
     <button type="button" className="button button-primary" onClick={() => setAdding(true)}>
-      <FolderPlus size={15} /> {t.sites.add}
+      <Plus size={15} /> {t.sites.add}
     </button>
   );
 
@@ -57,27 +92,40 @@ export function Sites(props: SitesProps) {
         </EmptyState>
       ) : (
         <div className="split">
-          <ul className="site-list">
-            {projects.map((project) => (
-              <li key={project.id}>
-                <button
-                  type="button"
-                  aria-current={project.id === selectedId ? "true" : undefined}
-                  className={`site-row ${project.id === selectedId ? "selected" : ""}`}
-                  onClick={() => onSelect(project.id)}
-                >
-                  <StatusDot status={project.status} />
-                  <span className="site-row-text">
-                    <strong>{project.name}</strong>
-                    <small>{project.domain ?? project.path}</small>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          <div className="site-list-pane">
+            <label className="search">
+              <Search size={14} aria-hidden />
+              <input
+                type="search"
+                value={query}
+                placeholder={t.sites.search}
+                aria-label={t.sites.search}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </label>
+            <ul className="site-list">
+              {visible.map((project) => (
+                <li key={project.id}>
+                  <button
+                    type="button"
+                    aria-current={project.id === selectedId ? "true" : undefined}
+                    className={`site-row ${project.id === selectedId ? "selected" : ""}`}
+                    onClick={() => onSelect(project.id)}
+                  >
+                    <StatusDot status={project.status} />
+                    <span className="site-row-text">
+                      <strong>{project.name}</strong>
+                      <small>{project.domain ?? project.path}</small>
+                    </span>
+                  </button>
+                </li>
+              ))}
+              {visible.length === 0 && <li className="muted site-list-empty">{t.sites.noMatch}</li>}
+            </ul>
+          </div>
           <div className="split-detail">
             {selected ? (
-              <SiteDetail key={selected.id} project={selected} {...props} />
+              <SiteDetail key={selected.id} project={selected} editors={editors} {...props} />
             ) : (
               <p className="muted split-placeholder">{t.sites.selectHint}</p>
             )}
@@ -86,11 +134,12 @@ export function Sites(props: SitesProps) {
       )}
 
       {adding && (
-        <AddSiteModal
-          busy={busy === "add"}
+        <AddSiteWizard
+          runtimes={runtimes}
           onClose={() => setAdding(false)}
-          onSubmit={async (path) => {
-            if (await onAdd(path)) setAdding(false);
+          onDone={async (id) => {
+            await onAdded(id);
+            onSelect(id);
           }}
         />
       )}
@@ -100,6 +149,7 @@ export function Sites(props: SitesProps) {
 
 function SiteDetail({
   project,
+  editors,
   instances,
   runtimes,
   busy,
@@ -110,28 +160,13 @@ function SiteDetail({
   onChanged,
   onError,
   onSelect,
-}: SitesProps & { project: Project }) {
+}: SitesProps & { project: Project; editors: Editor[] }) {
   const t = useT();
-  const [env, setEnv] = useState("");
+  const [tab, setTab] = useState<Tab>("general");
   const [removing, setRemoving] = useState(false);
-  const [domain, setDomain] = useState(project.domain ?? "");
-  useEffect(() => setDomain(project.domain ?? ""), [project.domain]);
   const running = project.status === "running";
-  const links = project.links ?? {};
   const pending = project.requirements ?? [];
-  const phpLines = runtimes.rows.filter((row) => row.product === "php" && row.installed);
-  const nodeLines = runtimes.rows.filter((row) => row.product === "node" && row.installed);
-
-  // The .env block changes when the site URL or its links change.
-  const envKey = `${project.url ?? ""}|${JSON.stringify(project.links ?? {})}`;
-  useEffect(() => {
-    if (!envKey) return;
-    void projectEnv(project.id)
-      .then(setEnv)
-      .catch(() => setEnv(""));
-  }, [project.id, envKey]);
-
-  const change = (action: () => Promise<unknown>) => void action().then(onChanged).catch(onError);
+  const action = (name: string) => void siteAction(project.id, name).catch(onError);
 
   return (
     <div className="page-body">
@@ -166,6 +201,23 @@ function SiteDetail({
         </div>
       </div>
 
+      <div className="quick-actions">
+        <button type="button" className="button" onClick={() => action("terminal")}>
+          <SquareTerminal size={14} /> {t.sites.terminal}
+        </button>
+        <button type="button" className="button" onClick={() => action("tinker")}>
+          <FlaskConical size={14} /> Tinker
+        </button>
+        {editors.map((editor) => (
+          <button key={editor.id} type="button" className="button" onClick={() => action(`editor:${editor.id}`)}>
+            <Code2 size={14} /> {editor.label}
+          </button>
+        ))}
+        <button type="button" className="button" onClick={() => action("folder")}>
+          <FolderOpen size={14} /> {t.sites.folderAction}
+        </button>
+      </div>
+
       {project.error && <div className="callout callout-error">{project.error}</div>}
 
       {pending.length > 0 && (
@@ -197,16 +249,94 @@ function SiteDetail({
         </div>
       )}
 
+      <div className="tabs" role="tablist">
+        {(["general", "services", "information"] as const).map((id) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            className={`tab ${tab === id ? "active" : ""}`}
+            onClick={() => setTab(id)}
+          >
+            {t.sites.tabs[id]}
+          </button>
+        ))}
+      </div>
+
+      {tab === "general" && (
+        <GeneralTab
+          project={project}
+          runtimes={runtimes}
+          busy={busy}
+          onChanged={onChanged}
+          onError={onError}
+          onShowLogs={onShowLogs}
+          onResetPorts={onResetPorts}
+          onRemove={() => setRemoving(true)}
+        />
+      )}
+      {tab === "services" && (
+        <ServicesTab project={project} instances={instances} onChanged={onChanged} onError={onError} />
+      )}
+      {tab === "information" && <InformationTab project={project} />}
+
+      {removing && (
+        <Modal title={t.sites.removeTitle(project.name)} onClose={() => setRemoving(false)}>
+          <p className="muted">{t.sites.removeHint}</p>
+          <div className="modal-actions">
+            <button type="button" className="button" onClick={() => setRemoving(false)}>
+              {t.common.cancel}
+            </button>
+            <button
+              type="button"
+              className="button button-danger"
+              onClick={() => {
+                setRemoving(false);
+                onSelect(null);
+                void removeProject(project.id).then(onChanged).catch(onError);
+              }}
+            >
+              {t.sites.remove}
+            </button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function GeneralTab({
+  project,
+  runtimes,
+  busy,
+  onChanged,
+  onError,
+  onShowLogs,
+  onResetPorts,
+  onRemove,
+}: {
+  project: Project;
+  runtimes: Runtimes;
+  busy: string | null;
+  onChanged: () => Promise<void>;
+  onError: (cause: unknown) => void;
+  onShowLogs: (project: Project) => void;
+  onResetPorts: (project: Project) => void;
+  onRemove: () => void;
+}) {
+  const t = useT();
+  const [domain, setDomain] = useState(project.domain ?? "");
+  useEffect(() => setDomain(project.domain ?? ""), [project.domain]);
+  const running = project.status === "running";
+  const phpLines = runtimes.rows.filter((row) => row.product === "php" && row.installed);
+  const nodeLines = runtimes.rows.filter((row) => row.product === "node" && row.installed);
+  const change = (action: () => Promise<unknown>) => void action().then(onChanged).catch(onError);
+
+  return (
+    <>
       <Section title={t.sites.general}>
         <dl className="fields">
-          <dt>{t.sites.path}</dt>
-          <dd className="mono">{project.path}</dd>
-          {project.parked && (
-            <>
-              <dt>{t.sites.parkedIn}</dt>
-              <dd className="mono">{project.parked}</dd>
-            </>
-          )}
           <dt>{t.sites.domain}</dt>
           <dd>
             <form
@@ -268,9 +398,73 @@ function SiteDetail({
               ))}
             </select>
           </dd>
+          <dt>{t.sites.path}</dt>
+          <dd className="mono">{project.path}</dd>
+          {project.parked && (
+            <>
+              <dt>{t.sites.parkedIn}</dt>
+              <dd className="mono">{project.parked}</dd>
+            </>
+          )}
         </dl>
       </Section>
 
+      <Section title={t.sites.maintenance}>
+        <div className="button-row">
+          <button type="button" className="button" onClick={() => onShowLogs(project)}>
+            {t.sites.viewLogs}
+          </button>
+          <button
+            type="button"
+            className="button"
+            disabled={running || busy === project.id}
+            title={running ? t.sites.stopFirst : undefined}
+            onClick={() => onResetPorts(project)}
+          >
+            {t.sites.resetPorts}
+          </button>
+          <button
+            type="button"
+            className="button"
+            disabled={Boolean(project.parked)}
+            title={project.parked ? t.sites.removeParked : undefined}
+            onClick={onRemove}
+          >
+            <Trash2 size={14} /> {t.sites.remove}
+          </button>
+        </div>
+      </Section>
+    </>
+  );
+}
+
+function ServicesTab({
+  project,
+  instances,
+  onChanged,
+  onError,
+}: {
+  project: Project;
+  instances: ServiceInstance[];
+  onChanged: () => Promise<void>;
+  onError: (cause: unknown) => void;
+}) {
+  const t = useT();
+  const [env, setEnv] = useState("");
+  const links = project.links ?? {};
+  const change = (action: () => Promise<unknown>) => void action().then(onChanged).catch(onError);
+
+  // The .env block changes when the site URL or its links change.
+  const envKey = `${project.url ?? ""}|${project.domain ?? ""}|${JSON.stringify(links)}`;
+  useEffect(() => {
+    if (!envKey) return;
+    void projectEnv(project.id)
+      .then(setEnv)
+      .catch(() => setEnv(""));
+  }, [project.id, envKey]);
+
+  return (
+    <>
       <Section title={t.sites.services} description={t.sites.servicesHint}>
         <table className="table">
           <thead>
@@ -323,113 +517,65 @@ function SiteDetail({
       <Section title={t.sites.envTitle} description={t.sites.envHint} action={env && <CopyButton text={env} />}>
         {env ? <pre className="code">{env}</pre> : <p className="muted">{t.sites.envPending}</p>}
       </Section>
-
-      <Section title={t.sites.maintenance}>
-        <div className="button-row">
-          <button type="button" className="button" onClick={() => onShowLogs(project)}>
-            {t.sites.viewLogs}
-          </button>
-          <button
-            type="button"
-            className="button"
-            disabled={running || busy === project.id}
-            title={running ? t.sites.stopFirst : undefined}
-            onClick={() => onResetPorts(project)}
-          >
-            {t.sites.resetPorts}
-          </button>
-          <button
-            type="button"
-            className="button"
-            disabled={Boolean(project.parked)}
-            title={project.parked ? t.sites.removeParked : undefined}
-            onClick={() => setRemoving(true)}
-          >
-            <Trash2 size={14} /> {t.sites.remove}
-          </button>
-        </div>
-      </Section>
-
-      {removing && (
-        <Modal title={t.sites.removeTitle(project.name)} onClose={() => setRemoving(false)}>
-          <p className="muted">{t.sites.removeHint}</p>
-          <div className="modal-actions">
-            <button type="button" className="button" onClick={() => setRemoving(false)}>
-              {t.common.cancel}
-            </button>
-            <button
-              type="button"
-              className="button button-danger"
-              onClick={() => {
-                setRemoving(false);
-                onSelect(null);
-                change(() => removeProject(project.id));
-              }}
-            >
-              {t.sites.remove}
-            </button>
-          </div>
-        </Modal>
-      )}
-    </div>
+    </>
   );
 }
 
-function AddSiteModal({
-  busy,
-  onClose,
-  onSubmit,
-}: {
-  busy: boolean;
-  onClose: () => void;
-  onSubmit: (path: string) => void;
-}) {
+function InformationTab({ project }: { project: Project }) {
   const t = useT();
-  const [path, setPath] = useState("");
-  const input = useRef<HTMLInputElement>(null);
-  useEffect(() => input.current?.focus(), []);
+  const [info, setInfo] = useState<ProjectInfo | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    void siteInfo(project.id)
+      .then(setInfo)
+      .catch(() => setFailed(true));
+  }, [project.id]);
+
+  if (failed) return <p className="muted">{t.sites.infoUnavailable}</p>;
+  if (!info) return <p className="muted">{t.common.loading}</p>;
+  const laravel = info.php_packages.find((item) => item.name === "laravel/framework");
+  const others = info.php_packages.filter((item) => item.name !== "laravel/framework");
+  const yes = (value: boolean) => (value ? t.sites.yes : t.sites.no);
 
   return (
-    <Modal title={t.sites.add} onClose={onClose}>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSubmit(path.trim());
-        }}
-      >
-        <p className="muted">{t.sites.addDialogHint(<code key="file">werd.yml</code>)}</p>
-        <label className="field">
-          <span>{t.sites.folder}</span>
-          <span className="inline-form">
-            <input
-              ref={input}
-              className="input mono"
-              value={path}
-              onChange={(event) => setPath(event.target.value)}
-              placeholder={t.sites.folderPlaceholder}
-            />
-            <button
-              type="button"
-              className="button"
-              onClick={() =>
-                void pickFolder(t.sites.folderPick).then((picked) => {
-                  if (picked) setPath(picked);
-                })
-              }
-            >
-              {t.sites.browse}
-            </button>
-          </span>
-        </label>
-        <div className="modal-actions">
-          <button type="button" className="button" onClick={onClose}>
-            {t.common.cancel}
-          </button>
-          <button type="submit" className="button button-primary" disabled={busy || !path.trim()}>
-            {busy ? t.sites.linking : t.sites.addConfirm}
-          </button>
-        </div>
-      </form>
-    </Modal>
+    <>
+      <Section title={t.sites.stack}>
+        <dl className="fields">
+          <dt>Laravel</dt>
+          <dd>{laravel?.version ?? "—"}</dd>
+          <dt>{t.sites.phpRequired}</dt>
+          <dd className="mono">{info.php_constraint ?? "—"}</dd>
+          <dt>Node.js</dt>
+          <dd className="mono">{info.node ?? "—"}</dd>
+          <dt>werd.yml</dt>
+          <dd>{yes(info.werd_yml)}</dd>
+          <dt>.env</dt>
+          <dd>{yes(info.env_file)}</dd>
+        </dl>
+      </Section>
+      <Section title={t.sites.phpPackages}>
+        {others.length ? <PackageList packages={others} /> : <p className="muted">{t.sites.noPackages}</p>}
+      </Section>
+      <Section title={t.sites.frontend}>
+        {info.js_packages.length ? (
+          <PackageList packages={info.js_packages} />
+        ) : (
+          <p className="muted">{t.sites.noPackages}</p>
+        )}
+      </Section>
+    </>
+  );
+}
+
+function PackageList({ packages }: { packages: ProjectInfo["php_packages"] }) {
+  return (
+    <ul className="chips">
+      {packages.map((item) => (
+        <li key={item.name} className="chip" title={item.name}>
+          <strong>{item.label}</strong>
+          {item.version && <span className="mono">{item.version}</span>}
+        </li>
+      ))}
+    </ul>
   );
 }
