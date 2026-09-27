@@ -4,6 +4,12 @@ All notable changes to Werd are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0-beta.7] - 2026-09-27
+
+### Features
+- **runtimes:** Install and enable the MongoDB PHP driver with new PHP versions on Windows
+- **runtimes:** Enable the bundled FFI, GMP, shmop, SOAP and sockets extensions, matching Herd's PHP configuration
+
 ## [0.3.0-beta.6] - 2026-09-26
 
 ### Features
