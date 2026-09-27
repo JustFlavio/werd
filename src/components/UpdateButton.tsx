@@ -19,25 +19,27 @@ export function UpdateButton({ onError, onUpToDate }: { onError: (cause: unknown
   const [phase, setPhase] = useState<Phase>("idle");
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
   const [progress, setProgress] = useState(0);
+  // True from the download until Restart: checking then would add nothing.
   const busy = useRef(false);
+  // The callbacks change on every render of App; keep the latest without
+  // re-running the effect, which would check for updates every few seconds.
+  const callbacks = useRef({ onError, onUpToDate });
+  callbacks.current = { onError, onUpToDate };
 
-  const check = useCallback(
-    async (manual: boolean) => {
-      if (busy.current) return;
-      try {
-        const found = await checkUpdate();
-        if (found) {
-          setUpdate(found);
-          setPhase((current) => (current === "idle" ? "available" : current));
-        } else if (manual) {
-          onUpToDate();
-        }
-      } catch (cause) {
-        if (manual) onError(cause);
+  const check = useCallback(async (manual: boolean) => {
+    if (busy.current) return;
+    try {
+      const found = await checkUpdate();
+      if (found) {
+        setUpdate(found);
+        setPhase((current) => (current === "idle" ? "available" : current));
+      } else if (manual) {
+        callbacks.current.onUpToDate();
       }
-    },
-    [onError, onUpToDate],
-  );
+    } catch (cause) {
+      if (manual) callbacks.current.onError(cause);
+    }
+  }, []);
 
   useEffect(() => {
     void check(false);
@@ -58,10 +60,9 @@ export function UpdateButton({ onError, onUpToDate }: { onError: (cause: unknown
       setProgress(1);
       setPhase("ready");
     } catch (cause) {
+      busy.current = false;
       setPhase("available");
       onError(cause);
-    } finally {
-      busy.current = false;
     }
   }
 

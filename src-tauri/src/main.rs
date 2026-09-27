@@ -148,7 +148,14 @@ async fn check_update(app: AppHandle) -> Result<Option<UpdateInfo>, String> {
         date: update.date.map(|date| date.to_string()),
     };
     if let Ok(mut pending) = app.state::<PendingUpdate>().0.lock() {
-        *pending = Some((update, None));
+        // Keep a package already downloaded for this version, so a later check
+        // never throws it away before Restart.
+        let downloaded = pending
+            .as_ref()
+            .is_some_and(|(known, bytes)| known.version == update.version && bytes.is_some());
+        if !downloaded {
+            *pending = Some((update, None));
+        }
     }
     Ok(Some(info))
 }
