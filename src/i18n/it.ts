@@ -31,6 +31,7 @@ export const it: Messages = {
     error: "Errore",
   },
   shell: {
+    starting: "Avvio di Werd…",
     hostsMissing: (domains: string[]) =>
       `Non ancora nel file hosts: ${domains.length <= 3 ? domains.join(", ") : `${domains.slice(0, 3).join(", ")} +${domains.length - 3}`}. Windows chiede l’autorizzazione di amministratore per aggiungerli.`,
     updateHosts: "Aggiorna file hosts",

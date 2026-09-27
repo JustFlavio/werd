@@ -35,6 +35,7 @@ export const en = {
     error: "Error",
   },
   shell: {
+    starting: "Starting Werd…",
     daemonOffline: "Daemon unreachable",
     daemonOfflineBanner: (error: string) => `Cannot reach the Werd daemon: ${error}`,
     portsReset: "Ports will be reassigned on the next start. Remember to update your .env.",

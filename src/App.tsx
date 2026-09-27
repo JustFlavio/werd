@@ -5,6 +5,7 @@ import {
   Hexagon,
   Info,
   LayoutDashboard,
+  Loader2,
   ScrollText,
   Settings as SettingsIcon,
   X,
@@ -83,6 +84,8 @@ export default function App() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [system, setSystem] = useState<SystemInfo | null>(null);
   const [domains, setDomains] = useState<DomainsStatus | null>(null);
+  /** False until the daemon answered once, so pages never flash empty at start. */
+  const [loaded, setLoaded] = useState(false);
   const [atLogin, setAtLogin] = useState<boolean | null>(null);
   const [certificate, setCertificate] = useState<{ exists: boolean; trusted: boolean } | null>(null);
 
@@ -99,6 +102,8 @@ export default function App() {
       setOffline(null);
     } catch (cause) {
       setOffline(message(cause));
+    } finally {
+      setLoaded(true);
     }
   }, []);
 
@@ -230,126 +235,135 @@ export default function App() {
           </div>
         )}
 
-        {page === "dashboard" && (
-          <Dashboard
-            projects={projects}
-            instances={instances}
-            runtimes={runtimes}
-            busy={busy === "stop-all"}
-            onStopAll={stopAll}
-            onNavigate={setPage}
-            onOpenUrl={open}
-          />
-        )}
-        {page === "sites" && (
-          <Sites
-            projects={projects}
-            instances={instances}
-            runtimes={runtimes}
-            onChanged={refresh}
-            onError={fail}
-            busy={busy}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            onAdded={async (id) => {
-              setSelectedId(id);
-              await refresh();
-            }}
-            onToggle={toggle}
-            onOpenSite={(project) => void openSite(project.id).catch(fail)}
-            onResetPorts={(project) =>
-              void run(project.id, async () => {
-                await resetPorts(project.id);
-                setToast({ tone: "info", text: t.shell.portsReset });
-              })
-            }
-            onShowLogs={(project) => {
-              setSelectedId(project.id);
-              setPage("logs");
-            }}
-          />
-        )}
-        {page === "php" && (
-          <Php
-            runtimes={runtimes}
-            settings={settings}
-            onSaveLimits={async (limits) => {
-              try {
-                setSettings(await updateSettings(limits));
-                setToast({ tone: "info", text: t.php.limitsSaved });
-              } catch (cause) {
-                fail(cause);
-              }
-            }}
-          />
-        )}
-        {page === "node" && <Node runtimes={runtimes} />}
-        {page === "services" && (
-          <Services instances={instances} runtimes={runtimes} onChanged={refresh} onOpenUrl={open} onError={fail} />
-        )}
-        {page === "logs" && (
-          <Logs projects={projects} instances={instances} projectId={selectedId} onProjectChange={setSelectedId} />
-        )}
-        {page === "general" && (
-          <General
-            system={system}
-            settings={settings}
-            domains={domains}
-            busy={busy}
-            onSaveDomains={(changes) =>
-              void run("domains", async () => {
-                setSettings(await updateSettings(changes));
-                if (changes.domains) {
-                  const hosts = await domainsStatus();
-                  if (hosts.missing.length > 0) await syncHosts();
+        {!loaded ? (
+          <div className="app-loading" role="status">
+            <Loader2 size={22} className="spin" />
+            <span>{t.shell.starting}</span>
+          </div>
+        ) : (
+          <>
+            {page === "dashboard" && (
+              <Dashboard
+                projects={projects}
+                instances={instances}
+                runtimes={runtimes}
+                busy={busy === "stop-all"}
+                onStopAll={stopAll}
+                onNavigate={setPage}
+                onOpenUrl={open}
+              />
+            )}
+            {page === "sites" && (
+              <Sites
+                projects={projects}
+                instances={instances}
+                runtimes={runtimes}
+                onChanged={refresh}
+                onError={fail}
+                busy={busy}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                onAdded={async (id) => {
+                  setSelectedId(id);
+                  await refresh();
+                }}
+                onToggle={toggle}
+                onOpenSite={(project) => void openSite(project.id).catch(fail)}
+                onResetPorts={(project) =>
+                  void run(project.id, async () => {
+                    await resetPorts(project.id);
+                    setToast({ tone: "info", text: t.shell.portsReset });
+                  })
                 }
-              })
-            }
-            onUpdateHosts={() => void updateHosts()}
-            onPark={(path) =>
-              void run("parks", async () => {
-                const parked = await parkFolder(path);
-                setSettings((current) => (current ? { ...current, parked } : current));
-                await refresh();
-                await syncNewDomains();
-              })
-            }
-            onUnpark={(path) =>
-              void run("parks", async () => {
-                const parked = await unparkFolder(path);
-                setSettings((current) => (current ? { ...current, parked } : current));
-              })
-            }
-            launchAtLogin={atLogin}
-            onToggleLaunchAtLogin={(enabled) =>
-              void run("login", async () => setAtLogin(await setLaunchAtLogin(enabled)))
-            }
-            onTogglePath={(enable) =>
-              void run("path", async () => {
-                await (enable ? enablePath() : disablePath());
-                setSystem(await systemInfo());
-                setToast({ tone: "info", text: enable ? t.general.cliEnabledToast : t.general.cliDisabledToast });
-              })
-            }
-            onRefreshCatalog={() =>
-              void run("catalog", async () => {
-                await refreshCatalog();
-                setSystem(await systemInfo());
-                await runtimes.refresh();
-              })
-            }
-            certificate={certificate}
-            onTrustCa={() =>
-              void trustCa()
-                .then(async (text) => {
-                  setToast({ tone: "info", text });
-                  setCertificate(await certificateStatus());
-                })
-                .catch(fail)
-            }
-          />
+                onShowLogs={(project) => {
+                  setSelectedId(project.id);
+                  setPage("logs");
+                }}
+              />
+            )}
+            {page === "php" && (
+              <Php
+                runtimes={runtimes}
+                settings={settings}
+                onSaveLimits={async (limits) => {
+                  try {
+                    setSettings(await updateSettings(limits));
+                    setToast({ tone: "info", text: t.php.limitsSaved });
+                  } catch (cause) {
+                    fail(cause);
+                  }
+                }}
+              />
+            )}
+            {page === "node" && <Node runtimes={runtimes} />}
+            {page === "services" && (
+              <Services instances={instances} runtimes={runtimes} onChanged={refresh} onOpenUrl={open} onError={fail} />
+            )}
+            {page === "logs" && (
+              <Logs projects={projects} instances={instances} projectId={selectedId} onProjectChange={setSelectedId} />
+            )}
+            {page === "general" && (
+              <General
+                system={system}
+                settings={settings}
+                domains={domains}
+                busy={busy}
+                onSaveDomains={(changes) =>
+                  void run("domains", async () => {
+                    setSettings(await updateSettings(changes));
+                    if (changes.domains) {
+                      const hosts = await domainsStatus();
+                      if (hosts.missing.length > 0) await syncHosts();
+                    }
+                  })
+                }
+                onUpdateHosts={() => void updateHosts()}
+                onPark={(path) =>
+                  void run("parks", async () => {
+                    const parked = await parkFolder(path);
+                    setSettings((current) => (current ? { ...current, parked } : current));
+                    await refresh();
+                    await syncNewDomains();
+                  })
+                }
+                onUnpark={(path) =>
+                  void run("parks", async () => {
+                    const parked = await unparkFolder(path);
+                    setSettings((current) => (current ? { ...current, parked } : current));
+                  })
+                }
+                launchAtLogin={atLogin}
+                onToggleLaunchAtLogin={(enabled) =>
+                  void run("login", async () => setAtLogin(await setLaunchAtLogin(enabled)))
+                }
+                onTogglePath={(enable) =>
+                  void run("path", async () => {
+                    await (enable ? enablePath() : disablePath());
+                    setSystem(await systemInfo());
+                    setToast({ tone: "info", text: enable ? t.general.cliEnabledToast : t.general.cliDisabledToast });
+                  })
+                }
+                onRefreshCatalog={() =>
+                  void run("catalog", async () => {
+                    await refreshCatalog();
+                    setSystem(await systemInfo());
+                    await runtimes.refresh();
+                  })
+                }
+                certificate={certificate}
+                onTrustCa={() =>
+                  void trustCa()
+                    .then(async (text) => {
+                      setToast({ tone: "info", text });
+                      setCertificate(await certificateStatus());
+                    })
+                    .catch(fail)
+                }
+              />
+            )}
+            {page === "about" && <About daemonVersion={daemonVersion} onOpenUrl={open} onError={fail} />}
+          </>
         )}
-        {page === "about" && <About daemonVersion={daemonVersion} onOpenUrl={open} onError={fail} />}
       </main>
 
       {toast && (
