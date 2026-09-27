@@ -2,11 +2,13 @@
 
 use serde_json::{json, Value};
 use std::sync::Mutex;
+use tauri::ipc::Channel;
 use tauri::menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, WindowEvent};
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_updater::{Update, UpdaterExt};
 use werd_core::{daemon_executable, ensure_daemon, rpc as daemon_rpc};
 
 /// Passed by the login item so Werd starts in the tray without a window.
@@ -110,6 +112,93 @@ fn set_launch_at_login(app: AppHandle, enabled: bool) -> Result<bool, String> {
     launcher.is_enabled().map_err(|error| error.to_string())
 }
 
+/// An update found by `check_update`, and its package once downloaded.
+#[derive(Default)]
+struct PendingUpdate(Mutex<Option<(Update, Option<Vec<u8>>)>>);
+
+#[derive(serde::Serialize)]
+struct UpdateInfo {
+    version: String,
+    /// Release notes (markdown) from the release.
+    notes: Option<String>,
+    date: Option<String>,
+}
+
+#[derive(Clone, serde::Serialize)]
+struct DownloadProgress {
+    downloaded: u64,
+    total: Option<u64>,
+}
+
+/// Asks werd-releases whether a newer version exists; remembers it for download.
+#[tauri::command]
+async fn check_update(app: AppHandle) -> Result<Option<UpdateInfo>, String> {
+    let update = app
+        .updater()
+        .map_err(|error| error.to_string())?
+        .check()
+        .await
+        .map_err(|error| error.to_string())?;
+    let Some(update) = update else {
+        return Ok(None);
+    };
+    let info = UpdateInfo {
+        version: update.version.clone(),
+        notes: update.body.clone(),
+        date: update.date.map(|date| date.to_string()),
+    };
+    if let Ok(mut pending) = app.state::<PendingUpdate>().0.lock() {
+        *pending = Some((update, None));
+    }
+    Ok(Some(info))
+}
+
+/// Downloads the pending update, reporting progress; installing waits for Restart.
+#[tauri::command]
+async fn download_update(app: AppHandle, on_progress: Channel<DownloadProgress>) -> Result<(), String> {
+    let update = app
+        .state::<PendingUpdate>()
+        .0
+        .lock()
+        .map_err(|error| error.to_string())?
+        .as_ref()
+        .map(|(update, _)| update.clone())
+        .ok_or("No update to download")?;
+    let mut downloaded: u64 = 0;
+    let bytes = update
+        .download(
+            |chunk, total| {
+                downloaded += chunk as u64;
+                let _ = on_progress.send(DownloadProgress { downloaded, total });
+            },
+            || {},
+        )
+        .await
+        .map_err(|error| error.to_string())?;
+    if let Ok(mut pending) = app.state::<PendingUpdate>().0.lock() {
+        if let Some((_, package)) = pending.as_mut() {
+            *package = Some(bytes);
+        }
+    }
+    Ok(())
+}
+
+/// Installs the downloaded update and restarts Werd. On Windows the installer
+/// closes the app, updates it in passive mode and starts it again.
+#[tauri::command]
+fn install_update(app: AppHandle) -> Result<(), String> {
+    let (update, bytes) = app
+        .state::<PendingUpdate>()
+        .0
+        .lock()
+        .map_err(|error| error.to_string())?
+        .take()
+        .ok_or("No update to install")?;
+    let bytes = bytes.ok_or("Download the update first")?;
+    update.install(bytes).map_err(|error| error.to_string())?;
+    app.restart();
+}
+
 /// Tray menu labels in the interface language.
 #[derive(Clone, serde::Deserialize)]
 struct TrayLabels {
@@ -118,6 +207,7 @@ struct TrayLabels {
     quit: String,
     /// Prefix of the PHP entries, e.g. "Use PHP".
     use_php: String,
+    check_updates: String,
 }
 
 impl Default for TrayLabels {
@@ -127,6 +217,7 @@ impl Default for TrayLabels {
             stop_all: "Stop all sites and services".into(),
             quit: "Quit".into(),
             use_php: "Use PHP".into(),
+            check_updates: "Check for updates".into(),
         }
     }
 }
@@ -179,6 +270,13 @@ fn tray_menu(
         app,
         "stop-all",
         &labels.stop_all,
+        true,
+        None::<&str>,
+    )?));
+    items.push(Box::new(MenuItem::with_id(
+        app,
+        "check-updates",
+        &labels.check_updates,
         true,
         None::<&str>,
     )?));
@@ -262,6 +360,8 @@ fn main() {
             show_window(app)
         }))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(PendingUpdate::default())
         // The name is fixed because the Windows uninstaller removes this login item by name.
         .plugin(
             tauri_plugin_autostart::Builder::new()
@@ -278,7 +378,10 @@ fn main() {
             site_action,
             launch_at_login,
             set_launch_at_login,
-            set_tray_labels
+            set_tray_labels,
+            check_update,
+            download_update,
+            install_update
         ])
         .setup(|app| {
             app.manage(TrayState(Mutex::new(TrayLabels::default())));
@@ -295,6 +398,10 @@ fn main() {
                         });
                     }
                     "quit" => app.exit(0),
+                    "check-updates" => {
+                        show_window(app);
+                        let _ = app.emit("werd://check-update", ());
+                    }
                     id => {
                         if let Some(line) = id.strip_prefix("php:") {
                             use_php(app.clone(), line.to_string());
