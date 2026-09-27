@@ -4,12 +4,14 @@ All notable changes to Werd are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0-rc.1] - 2026-09-27
 
 ### Features
 - **core:** Report whether the local CA is trusted
 - **core:** Start sites with Werd and expose the Caddy log
 - **ui:** Add Start with Werd to sites and logs to Dashboard services
+- **desktop:** Update Werd from werd-releases with signed packages
+- **ui:** Add the update button and What's new
 
 ### Bug fixes
 - **release:** Keep PATH, .test domains and launch at login across updates
@@ -17,6 +19,12 @@ All notable changes to Werd are documented here. The format follows
 - **ui:** Show the HTTPS certificate as trusted when it already is
 - **cli:** Let other installs run when Werd has no version of a tool
 - **ui:** Show Starting Werd until the daemon answers
+- **release:** Rename the Linux bundle config so Tauri does not merge it
+
+### Build and CI
+- Bump version to 0.3.0-beta.8
+- **release:** Package every platform with one script
+- Publish releases to werd-releases from version tags
 
 ## [0.3.0-beta.7] - 2026-09-27
 
