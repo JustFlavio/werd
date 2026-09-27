@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated": "2026-09-26T16:38:04.525Z",
+  "generated": "2026-09-27T12:02:55.712Z",
   "products": {
     "cacert": {
       "kind": "tool",
@@ -505,6 +505,90 @@
             }
           },
           "latest": "8.5.11"
+        }
+      }
+    },
+    "phpmongodb": {
+      "extends": "php",
+      "kind": "extension",
+      "label": "phpmongodb",
+      "lines": {
+        "7.4": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "php_mongodb.dll",
+              "sha256": "15dd8bf4fa476963973d48a1ce71ac60287d74d2160598cfb1cc41af2a70b742",
+              "url": "https://downloads.php.net/~windows/pecl/releases/mongodb/1.20.1/php_mongodb-1.20.1-7.4-nts-vc15-x64.zip"
+            }
+          },
+          "latest": "1.20.1"
+        },
+        "8.0": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "php_mongodb.dll",
+              "sha256": "18dc66e776d3a2d0b6a33ea3bac26ddd32abf5e2ac9125d87730d57028806a38",
+              "url": "https://downloads.php.net/~windows/pecl/releases/mongodb/1.20.1/php_mongodb-1.20.1-8.0-nts-vs16-x64.zip"
+            }
+          },
+          "latest": "1.20.1"
+        },
+        "8.1": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "php_mongodb.dll",
+              "sha256": "2e2d4a7278f38041d21f14bf522059fb68b60d3e6f2670c9956dc99011db2fb4",
+              "url": "https://downloads.php.net/~windows/pecl/releases/mongodb/2.5.3/php_mongodb-2.5.3-8.1-nts-vs16-x64.zip"
+            }
+          },
+          "latest": "2.5.3"
+        },
+        "8.2": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "php_mongodb.dll",
+              "sha256": "fc51b5ad37f44acaa8aeae93c88fe8318d48876a8d125ea48c9f070e302aad20",
+              "url": "https://downloads.php.net/~windows/pecl/releases/mongodb/2.5.3/php_mongodb-2.5.3-8.2-nts-vs16-x64.zip"
+            }
+          },
+          "latest": "2.5.3"
+        },
+        "8.3": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "php_mongodb.dll",
+              "sha256": "adacb3bb3a7c364deb6527a67108345ccf126d3c69c2778876cf406a442c4db5",
+              "url": "https://downloads.php.net/~windows/pecl/releases/mongodb/2.5.3/php_mongodb-2.5.3-8.3-nts-vs16-x64.zip"
+            }
+          },
+          "latest": "2.5.3"
+        },
+        "8.4": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "php_mongodb.dll",
+              "sha256": "a54069966280200af3dd12b46e7b8cfb502654d8ba8227b934edc6b8d79c89eb",
+              "url": "https://downloads.php.net/~windows/pecl/releases/mongodb/2.5.3/php_mongodb-2.5.3-8.4-nts-vs17-x64.zip"
+            }
+          },
+          "latest": "2.5.3"
+        },
+        "8.5": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "php_mongodb.dll",
+              "sha256": "a6bf37e11b2e77c90362d9ed9acd2a3bf03e4368d8a35fa47b73d15a0048d24b",
+              "url": "https://downloads.php.net/~windows/pecl/releases/mongodb/2.5.3/php_mongodb-2.5.3-8.5-nts-vs17-x64.zip"
+            }
+          },
+          "latest": "2.5.3"
         }
       }
     },

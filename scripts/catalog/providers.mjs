@@ -311,12 +311,43 @@ async function phpredis(ctx) {
   return { label: "phpredis", kind: "extension", extends: "php", lines };
 }
 
+/** The newest PECL Windows DLL for each supported PHP line. */
+async function phpmongodb(ctx) {
+  const base = "https://downloads.php.net/~windows/pecl/releases/mongodb/";
+  const versions = [...(await fetchText(base)).matchAll(/href="(\d+\.\d+\.\d+)\/"/g)]
+    .map((match) => match[1])
+    .sort(compareVersions);
+  // MongoDB 2.x requires PHP 8.1+. The last 1.20 release covers PHP 7.4 and 8.0.
+  const current = versions.at(-1);
+  const legacy = versions.filter((version) => compareVersions(version, "1.21.0") < 0).at(-1);
+  if (!current || !legacy) throw new Error("no compatible phpmongodb releases found");
+  const lines = {};
+  for (const version of [current, legacy]) {
+    const listing = await fetchText(`${base}${version}/`);
+    const files = [...listing.matchAll(/href="(php_mongodb-[^"]+-nts-v[cs]\d+-x64\.zip)"/g)].map((match) => match[1]);
+    for (const file of files) {
+      const line = file.match(/^php_mongodb-[^-]+-(\d+\.\d+)-nts/)?.[1];
+      if (!line || compareVersions(line, "7.4") < 0 || lines[line]) continue;
+      const url = `${base}${version}/${file}`;
+      lines[line] = {
+        latest: version,
+        builds: { [WINDOWS]: { url, sha256: await ctx.sha256(url), format: "zip", marker: "php_mongodb.dll" } },
+      };
+    }
+  }
+  for (const line of ["7.4", "8.0", "8.1", "8.2", "8.3", "8.4", "8.5"]) {
+    if (!lines[line]) throw new Error(`no phpmongodb build for PHP ${line}`);
+  }
+  return { label: "phpmongodb", kind: "extension", extends: "php", lines };
+}
+
 export const providers = {
   php,
   node,
   composer,
   cacert,
   phpredis,
+  phpmongodb,
   caddy: github({
     repo: "caddyserver/caddy",
     label: "Caddy",

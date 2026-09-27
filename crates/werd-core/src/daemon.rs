@@ -90,7 +90,11 @@ fn start_install(daemon: &Daemon, state: &State, params: &Value, update: bool) -
 
 /// Running sites and service instances that use a runtime line.
 fn runtime_users(state: &State, product: &str, line: &str) -> Vec<String> {
-    let parent = if product == "phpredis" { "php" } else { product };
+    let parent = if matches!(product, "phpredis" | "phpmongodb") {
+        "php"
+    } else {
+        product
+    };
     let mut users = projects::using_runtime(state, parent, line);
     users.extend(instances::using_runtime(&state.instances, product, line));
     users
@@ -832,7 +836,7 @@ pub fn run_daemon() -> Result<()> {
 mod tests {
     use super::*;
     use crate::jobs::JobState;
-    use crate::runtimes::tests::{fixture, php_redis_fixture, LocalFetcher};
+    use crate::runtimes::tests::{fixture, php_extensions_fixture, LocalFetcher};
 
     fn daemon(root: &Path, catalog: Option<(Catalog, LocalFetcher)>) -> Daemon {
         let (catalog, fetcher): (Option<Arc<Catalog>>, Arc<dyn Fetcher>) = match catalog {
@@ -911,7 +915,7 @@ mod tests {
     #[test]
     fn startup_backfills_redis_for_existing_php() {
         let root = tempfile::tempdir().unwrap();
-        let (catalog, fetcher) = php_redis_fixture(root.path());
+        let (catalog, fetcher) = php_extensions_fixture(root.path());
         let php = runtimes::line_dir(root.path(), "php", "8.5");
         std::fs::create_dir_all(&php).unwrap();
         std::fs::write(php.join("php-cgi.exe"), "php").unwrap();

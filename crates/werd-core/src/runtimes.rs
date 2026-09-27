@@ -27,9 +27,11 @@ const PHP_EXTENSIONS: &[&str] = &[
     "bz2",
     "curl",
     "exif",
+    "ffi",
     "fileinfo",
     "gd",
     "gettext",
+    "gmp",
     "intl",
     "mbstring",
     "mysqli",
@@ -38,10 +40,16 @@ const PHP_EXTENSIONS: &[&str] = &[
     "pdo_pgsql",
     "pdo_sqlite",
     "pgsql",
+    "shmop",
+    "soap",
+    "sockets",
     "sodium",
     "sqlite3",
     "zip",
 ];
+
+const PHP_PECL_EXTENSIONS: &[(&str, &str)] =
+    &[("phpredis", "php_redis.dll"), ("phpmongodb", "php_mongodb.dll")];
 
 // ---- Installed state -------------------------------------------------------
 
@@ -287,8 +295,10 @@ pub fn install(
     if product == "pgvector" && Installed::load(root)?.lines("postgresql").is_empty() {
         bail!("Install PostgreSQL before pgvector");
     }
-    if product == "phpredis" && Installed::load(root)?.version("php", line).is_none() {
-        bail!("Install PHP {line} before phpredis");
+    if PHP_PECL_EXTENSIONS.iter().any(|(id, _)| *id == product)
+        && Installed::load(root)?.version("php", line).is_none()
+    {
+        bail!("Install PHP {line} before {product}");
     }
     let archive = download(root, fetcher, build, progress)?;
     let destination = line_dir(root, product, line);
@@ -310,13 +320,15 @@ pub fn install(
                 install(root, catalog, fetcher, "cacert", "mozilla", progress)?;
             }
             // PECL provides a separate DLL for each PHP line on Windows.
-            if catalog.build("phpredis", line).is_ok() {
-                install(root, catalog, fetcher, "phpredis", line, progress)?;
+            for (extension, _) in PHP_PECL_EXTENSIONS {
+                if catalog.build(extension, line).is_ok() {
+                    install(root, catalog, fetcher, extension, line, progress)?;
+                }
             }
             write_php_ini(root, line, &Settings::load(root)?)?;
         }
         "cacert" => write_all_php_ini(root, &Settings::load(root)?)?,
-        "phpredis" => write_php_ini(root, line, &Settings::load(root)?)?,
+        "phpredis" | "phpmongodb" => write_php_ini(root, line, &Settings::load(root)?)?,
         "pgvector" => {
             progress.step("Building pgvector");
             for postgres in installed.lines("postgresql") {
@@ -340,8 +352,12 @@ pub fn uninstall(root: &Path, product: &str, line: &str) -> Result<()> {
     if installed.version(product, line).is_none() {
         bail!("{product} {line} is not installed");
     }
-    if product == "php" && installed.version("phpredis", line).is_some() {
-        uninstall(root, "phpredis", line)?;
+    if product == "php" {
+        for (extension, _) in PHP_PECL_EXTENSIONS {
+            if installed.version(extension, line).is_some() {
+                uninstall(root, extension, line)?;
+            }
+        }
         installed = Installed::load(root)?;
     }
     let directory = line_dir(root, product, line);
@@ -355,7 +371,7 @@ pub fn uninstall(root: &Path, product: &str, line: &str) -> Result<()> {
     }
     installed.remove(product, line);
     installed.save(root)?;
-    if product == "phpredis" {
+    if PHP_PECL_EXTENSIONS.iter().any(|(id, _)| *id == product) {
         write_php_ini(root, line, &Settings::load(root)?)?;
     }
     let mut settings = Settings::load(root)?;
@@ -388,13 +404,18 @@ pub fn write_php_ini(root: &Path, line: &str, settings: &Settings) -> Result<()>
             ini.push_str(&format!("extension={extension}\n"));
         }
     }
-    if cfg!(windows) && Installed::load(root)?.version("phpredis", line).is_some() {
-        let redis = line_dir(root, "phpredis", line).join("php_redis.dll");
-        if redis.is_file() {
-            ini.push_str(&format!(
-                "extension=\"{}\"\n",
-                redis.to_string_lossy().replace('\\', "/")
-            ));
+    if cfg!(windows) {
+        let installed = Installed::load(root)?;
+        for (extension, library) in PHP_PECL_EXTENSIONS {
+            if installed.version(extension, line).is_some() {
+                let path = line_dir(root, extension, line).join(library);
+                if path.is_file() {
+                    ini.push_str(&format!(
+                        "extension=\"{}\"\n",
+                        path.to_string_lossy().replace('\\', "/")
+                    ));
+                }
+            }
         }
     }
     let memory = if settings.memory_limit_mb < 0 {
@@ -666,11 +687,24 @@ pub(crate) mod tests {
         format!("{:x}", Sha256::digest(fs::read(path).unwrap()))
     }
 
-    pub fn php_redis_fixture(dir: &Path) -> (Catalog, LocalFetcher) {
+    pub fn php_extensions_fixture(dir: &Path) -> (Catalog, LocalFetcher) {
         let php = dir.join("php.zip");
-        zip_with(&php, &[("php-cgi.exe", "php"), ("ext/php_intl.dll", "intl")]);
+        zip_with(
+            &php,
+            &[
+                ("php-cgi.exe", "php"),
+                ("ext/php_intl.dll", "intl"),
+                ("ext/php_ffi.dll", "ffi"),
+                ("ext/php_gmp.dll", "gmp"),
+                ("ext/php_shmop.dll", "shmop"),
+                ("ext/php_soap.dll", "soap"),
+                ("ext/php_sockets.dll", "sockets"),
+            ],
+        );
         let redis = dir.join("redis.zip");
         zip_with(&redis, &[("php_redis.dll", "redis"), ("README", "pecl")]);
+        let mongodb = dir.join("mongodb.zip");
+        zip_with(&mongodb, &[("php_mongodb.dll", "mongodb"), ("LICENSE", "apache")]);
         let catalog = serde_json::json!({ "schema": 1, "products": {
             "php": { "label": "PHP", "kind": "runtime", "lines": { "8.5": {
                 "latest": "8.5.11", "builds": { crate::catalog::PLATFORM: {
@@ -683,6 +717,12 @@ pub(crate) mod tests {
                     "url": "https://example.test/redis.zip", "sha256": sha(&redis),
                     "format": "zip", "marker": "php_redis.dll"
                 }}}}
+            },
+            "phpmongodb": { "label": "phpmongodb", "kind": "extension", "extends": "php",
+                "lines": { "8.5": { "latest": "2.5.3", "builds": { crate::catalog::PLATFORM: {
+                    "url": "https://example.test/mongodb.zip", "sha256": sha(&mongodb),
+                    "format": "zip", "marker": "php_mongodb.dll"
+                }}}}
             }
         }});
         (
@@ -690,6 +730,7 @@ pub(crate) mod tests {
             LocalFetcher(HashMap::from([
                 ("https://example.test/php.zip".into(), php),
                 ("https://example.test/redis.zip".into(), redis),
+                ("https://example.test/mongodb.zip".into(), mongodb),
             ])),
         )
     }
@@ -848,14 +889,23 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn php_installs_redis_and_removes_it_with_the_parent() {
+    fn php_installs_pecl_extensions_and_removes_them_with_the_parent() {
         let root = tempfile::tempdir().unwrap();
-        let (catalog, fetcher) = php_redis_fixture(root.path());
+        let (catalog, fetcher) = php_extensions_fixture(root.path());
         assert!(install(
             root.path(),
             &catalog,
             &fetcher,
             "phpredis",
+            "8.5",
+            &Progress::detached()
+        )
+        .is_err());
+        assert!(install(
+            root.path(),
+            &catalog,
+            &fetcher,
+            "phpmongodb",
             "8.5",
             &Progress::detached()
         )
@@ -870,7 +920,9 @@ pub(crate) mod tests {
         )
         .unwrap();
         let redis = line_dir(root.path(), "phpredis", "8.5").join("php_redis.dll");
+        let mongodb = line_dir(root.path(), "phpmongodb", "8.5").join("php_mongodb.dll");
         assert!(redis.is_file());
+        assert!(mongodb.is_file());
         assert_eq!(
             Installed::load(root.path()).unwrap().version("phpredis", "8.5"),
             Some("6.3.0")
@@ -881,7 +933,26 @@ pub(crate) mod tests {
                 "extension=\"{}\"",
                 redis.to_string_lossy().replace('\\', "/")
             )));
+            assert!(ini.contains(&format!(
+                "extension=\"{}\"",
+                mongodb.to_string_lossy().replace('\\', "/")
+            )));
+            for extension in ["ffi", "gmp", "shmop", "soap", "sockets"] {
+                assert!(ini.contains(&format!("extension={extension}\n")));
+            }
         }
+        uninstall(root.path(), "phpmongodb", "8.5").unwrap();
+        let ini = fs::read_to_string(line_dir(root.path(), "php", "8.5").join("php.ini")).unwrap();
+        assert!(!ini.contains("php_mongodb.dll"));
+        install(
+            root.path(),
+            &catalog,
+            &fetcher,
+            "phpmongodb",
+            "8.5",
+            &Progress::detached(),
+        )
+        .unwrap();
         uninstall(root.path(), "phpredis", "8.5").unwrap();
         let ini = fs::read_to_string(line_dir(root.path(), "php", "8.5").join("php.ini")).unwrap();
         assert!(!ini.contains("php_redis.dll"));
@@ -896,7 +967,12 @@ pub(crate) mod tests {
         .unwrap();
         uninstall(root.path(), "php", "8.5").unwrap();
         assert!(!redis.exists());
+        assert!(!mongodb.exists());
         assert!(Installed::load(root.path()).unwrap().lines("phpredis").is_empty());
+        assert!(Installed::load(root.path())
+            .unwrap()
+            .lines("phpmongodb")
+            .is_empty());
     }
 
     #[test]
