@@ -9,6 +9,10 @@
 //!
 //! It reads Werd's files directly instead of asking the daemon, so it stays fast
 //! and works while the daemon is stopped.
+//!
+//! When Werd has no version of the tool at all (e.g. no Node.js installed in
+//! Werd), it runs the next `node` found on PATH instead, so putting Werd first
+//! on PATH never hides a native install or Herd.
 
 use std::cmp::Ordering;
 use std::env;
@@ -188,6 +192,44 @@ fn target(home: &Path, tool: Tool, line: &str) -> Result<(PathBuf, Vec<OsString>
     })
 }
 
+/// Whether Werd itself can run `tool`.
+fn werd_provides(home: &Path, tool: Tool) -> bool {
+    !installed_lines(home, tool.runtime()).is_empty()
+        && (tool != Tool::Composer || !installed_lines(home, "composer").is_empty())
+}
+
+/// The same command elsewhere on `path` (a native install, Herd, …), skipping
+/// Werd's own bin folder. `extensions` are tried in order (PATHEXT on Windows).
+fn next_on_path(
+    name: &str,
+    own_dir: &Path,
+    path: &std::ffi::OsStr,
+    extensions: &[String],
+) -> Option<PathBuf> {
+    let own = fs::canonicalize(own_dir).ok()?;
+    env::split_paths(path)
+        .filter(|dir| fs::canonicalize(dir).ok().as_ref() != Some(&own))
+        .flat_map(|dir| {
+            extensions
+                .iter()
+                .map(move |extension| dir.join(format!("{name}{extension}")))
+        })
+        .find(|candidate| candidate.is_file())
+}
+
+fn path_extensions() -> Vec<String> {
+    if cfg!(windows) {
+        env::var("PATHEXT")
+            .unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".into())
+            .split(';')
+            .filter(|extension| !extension.is_empty())
+            .map(str::to_ascii_lowercase)
+            .collect()
+    } else {
+        vec![String::new()]
+    }
+}
+
 fn run() -> Result<i32, String> {
     let mut args = env::args_os();
     let program = PathBuf::from(args.next().unwrap_or_default());
@@ -199,6 +241,22 @@ fn run() -> Result<i32, String> {
         .parent()
         .and_then(Path::parent)
         .ok_or("werd: cannot locate the Werd data folder")?;
+    if !werd_provides(home, tool) {
+        let name = program
+            .file_stem()
+            .map(|stem| stem.to_string_lossy().to_ascii_lowercase())
+            .unwrap_or_default();
+        let bin = executable.parent().unwrap_or(home);
+        if let Some(other) =
+            env::var_os("PATH").and_then(|path| next_on_path(&name, bin, &path, &path_extensions()))
+        {
+            let status = Command::new(&other)
+                .args(args)
+                .status()
+                .map_err(|error| format!("werd: cannot run {}: {error}", other.display()))?;
+            return Ok(status.code().unwrap_or(1));
+        }
+    }
     let cwd = env::current_dir().map_err(|error| error.to_string())?;
     let line = resolve(home, tool, &cwd)?;
     let (binary, leading) = target(home, tool, &line)?;
@@ -241,6 +299,27 @@ mod tests {
 
     const INSTALLED: &str = r#"{"php":{"8.4":{"version":"8.4.26"},"8.5":{"version":"8.5.11"}},
         "node":{"20":{"version":"20.1.0"},"22":{"version":"22.23.3"}}}"#;
+
+    #[test]
+    fn other_installs_on_path_are_found_after_werd() {
+        let root = tempfile::tempdir().unwrap();
+        let own = root.path().join("werd").join("bin");
+        let native = root.path().join("nodejs");
+        let empty = root.path().join("empty");
+        for dir in [&own, &native, &empty] {
+            fs::create_dir_all(dir).unwrap();
+        }
+        fs::write(own.join("npm.cmd"), "").unwrap();
+        fs::write(native.join("npm.cmd"), "").unwrap();
+        let path = env::join_paths([&own, &empty, &native]).unwrap();
+        let extensions = vec![".exe".to_string(), ".cmd".to_string()];
+        assert_eq!(
+            next_on_path("npm", &own, &path, &extensions),
+            Some(native.join("npm.cmd")),
+            "Werd's own folder is skipped"
+        );
+        assert_eq!(next_on_path("php", &own, &path, &extensions), None);
+    }
 
     #[test]
     fn tools_come_from_the_program_name() {
