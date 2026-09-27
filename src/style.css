@@ -1436,3 +1436,11 @@ h2 {
   color: var(--fail);
   overflow-wrap: anywhere;
 }
+
+.trusted {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ok);
+  white-space: nowrap;
+}

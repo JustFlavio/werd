@@ -344,6 +344,8 @@ export const en = {
     certificateHint:
       "Werd signs site certificates with a local CA. Trust it for your user to open sites without browser warnings.",
     trust: "Trust certificate",
+    trusted: "Trusted",
+    certificateMissing: "Werd creates its certificate authority when the first site starts.",
     cli: "Command line",
     cliHint:
       "Puts php, composer, node, npm and npx first on your PATH. Inside a site they use its versions; anywhere else, the global PHP version.",

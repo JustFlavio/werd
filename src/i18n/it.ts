@@ -343,6 +343,8 @@ export const it: Messages = {
     certificateHint:
       "Werd firma i certificati dei siti con una CA locale. Rendila attendibile per il tuo utente per aprire i siti senza avvisi del browser.",
     trust: "Rendi attendibile",
+    trusted: "Già attendibile",
+    certificateMissing: "Werd crea la sua autorità di certificazione al primo avvio di un sito.",
     cli: "Riga di comando",
     cliHint:
       "Mette php, composer, node, npm e npx in testa al PATH. Dentro un sito usano le sue versioni; altrove, la versione PHP globale.",

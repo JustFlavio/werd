@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
+  certificateStatus,
   type DomainsStatus,
   disablePath,
   domainsStatus,
@@ -83,6 +84,7 @@ export default function App() {
   const [system, setSystem] = useState<SystemInfo | null>(null);
   const [domains, setDomains] = useState<DomainsStatus | null>(null);
   const [atLogin, setAtLogin] = useState<boolean | null>(null);
+  const [certificate, setCertificate] = useState<{ exists: boolean; trusted: boolean } | null>(null);
 
   const fail = useCallback((cause: unknown) => setToast({ tone: "error", text: message(cause) }), []);
   const runtimes = useRuntimes(fail);
@@ -130,6 +132,7 @@ export default function App() {
       void systemInfo().then(setSystem).catch(fail);
       void getSettings().then(setSettings).catch(fail);
       void launchAtLogin().then(setAtLogin).catch(fail);
+      void certificateStatus().then(setCertificate).catch(fail);
     }
   }, [page, fail]);
 
@@ -335,9 +338,13 @@ export default function App() {
                 await runtimes.refresh();
               })
             }
+            certificate={certificate}
             onTrustCa={() =>
               void trustCa()
-                .then((text) => setToast({ tone: "info", text }))
+                .then(async (text) => {
+                  setToast({ tone: "info", text });
+                  setCertificate(await certificateStatus());
+                })
                 .catch(fail)
             }
           />

@@ -1,4 +1,4 @@
-import { FolderPlus, X } from "lucide-react";
+import { Check, FolderPlus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { type DomainsStatus, pickFolder, type Settings, type SystemInfo } from "../api";
 import { LOCALES, type Locale, useI18n } from "../i18n";
@@ -18,6 +18,7 @@ export function General({
   onTogglePath,
   onRefreshCatalog,
   onTrustCa,
+  certificate,
 }: {
   system: SystemInfo | null;
   settings: Settings | null;
@@ -32,6 +33,7 @@ export function General({
   onTogglePath: (enable: boolean) => void;
   onRefreshCatalog: () => void;
   onTrustCa: () => void;
+  certificate: { exists: boolean; trusted: boolean } | null;
 }) {
   const { t, locale, setLocale } = useI18n();
   const [port, setPort] = useState("");
@@ -216,11 +218,25 @@ export function General({
           title={t.general.certificate}
           description={t.general.certificateHint}
           action={
-            <button type="button" className="button" onClick={onTrustCa}>
-              {t.general.trust}
-            </button>
+            certificate?.trusted ? (
+              <span className="trusted">
+                <Check size={15} /> {t.general.trusted}
+              </span>
+            ) : (
+              <button
+                type="button"
+                className="button"
+                disabled={certificate !== null && !certificate.exists}
+                title={certificate && !certificate.exists ? t.general.certificateMissing : undefined}
+                onClick={onTrustCa}
+              >
+                {t.general.trust}
+              </button>
+            )
           }
-        />
+        >
+          {certificate && !certificate.exists && <p className="muted">{t.general.certificateMissing}</p>}
+        </Section>
 
         <Section title={t.general.dataFolder} description={t.general.dataFolderHint}>
           <div className="path-row">

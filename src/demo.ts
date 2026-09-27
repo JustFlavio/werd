@@ -620,6 +620,8 @@ export async function demoRpc(method: string, params: Record<string, unknown>): 
         { label: "PHP 8.4", ok: true, detail: "8.4.25 installed" },
         { label: "PostgreSQL 18", ok: false, detail: "18.6 recorded but files are missing; reinstall it" },
       ] satisfies DoctorResult[];
+    case "certificate.status":
+      return { exists: true, trusted: true };
     case "trust-ca":
       return "Werd's local CA was added to the current user's trusted roots";
     default:
