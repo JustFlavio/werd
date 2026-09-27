@@ -102,6 +102,9 @@ pub struct Project {
     /// Services from `werd.yml` still waiting to be linked.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub requirements: Vec<Requirement>,
+    /// Start the site whenever Werd starts.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub autostart: bool,
     #[serde(default)]
     pub status: ProjectStatus,
     #[serde(skip_serializing_if = "Option::is_none")]

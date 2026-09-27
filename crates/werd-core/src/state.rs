@@ -147,6 +147,7 @@ mod tests {
             name: "shop".into(),
             domain: None,
             parked: None,
+            autostart: false,
             path: "/work/shop".into(),
             php: "8.5".into(),
             node: None,

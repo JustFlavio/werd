@@ -575,6 +575,12 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
             text(params, "category")?
         )?),
         "resolve" => resolve_site(daemon, state, id(params)?)?,
+        "autostart" => json!(projects::set_autostart(
+            root,
+            state,
+            id(params)?,
+            params["autostart"].as_bool().context("Missing autostart")?
+        )?),
         "domain" => json!(projects::set_domain(
             root,
             state,
@@ -702,6 +708,7 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
                 text(params, "name")?
             )?)
         }
+        "router.logs" => json!(process::tail_file(&crate::router::log_file(root))?),
         "jobs.list" => json!(daemon.jobs.list()),
         "setup.run" => json!(start_setup(daemon, true)?),
         "settings.get" => json!(Settings::load(root)?),
@@ -783,9 +790,11 @@ pub fn run_daemon() -> Result<()> {
         }
     });
 
-    // Start autostart services after the API is up, so clients never wait for them.
+    // Start autostart services, then autostart sites, after the API is up so
+    // clients never wait for them.
     let autostart = Arc::clone(&state);
     let autostart_root = root.clone();
+    let autostart_jobs = daemon.jobs.clone();
     thread::spawn(move || {
         let ids: Vec<String> = autostart
             .lock()
@@ -802,6 +811,26 @@ pub fn run_daemon() -> Result<()> {
         for id in ids {
             if let Ok(mut state) = autostart.lock() {
                 let _ = instances::start(&autostart_root, &mut state.instances, &id);
+            }
+        }
+        // Sites need Caddy, which a first-run setup may still be downloading.
+        wait_for_setup(&autostart_jobs);
+        let sites: Vec<String> = autostart
+            .lock()
+            .map(|state| {
+                state
+                    .projects
+                    .iter()
+                    .filter(|project| project.autostart)
+                    .map(|project| project.id.clone())
+                    .collect()
+            })
+            .unwrap_or_default();
+        for id in sites {
+            if let Ok(mut state) = autostart.lock() {
+                if let Err(error) = projects::start(&autostart_root, &mut state, &id) {
+                    projects::mark_failed(&autostart_root, &mut state, &id, &error);
+                }
             }
         }
     });

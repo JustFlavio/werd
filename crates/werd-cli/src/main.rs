@@ -87,6 +87,9 @@ enum Command {
         /// e.g. `shop` or `shop.test`
         #[arg(long)]
         domain: Option<String>,
+        /// Start the site whenever Werd starts.
+        #[arg(long)]
+        autostart: Option<bool>,
     },
     /// Link a site category (database, cache, queue, mail, storage, search) to a service.
     Link {
@@ -338,12 +341,14 @@ fn run(cli: Cli) -> Result<()> {
             php,
             node,
             domain,
+            autostart,
         } => {
             return sites::set(
                 &resolve(project)?,
                 php.as_deref(),
                 node.as_deref(),
                 domain.as_deref(),
+                *autostart,
             )
         }
         Command::Domains { action } => return sites::domains(action.as_ref(), cli.json),

@@ -122,6 +122,7 @@ pub(crate) fn add_with(
         name,
         domain: Some(domain),
         parked: None,
+        autostart: false,
         path: display_path,
         php: initial_php(root, php.map(str::to_string).or(manifest.php)),
         node: manifest.node,
@@ -285,6 +286,14 @@ pub(crate) fn reset_ports(root: &Path, state: &mut State, id: &str) -> Result<Pr
     )?;
     state.save(root)?;
     Ok(updated)
+}
+
+/// Chooses whether the site starts together with Werd.
+pub(crate) fn set_autostart(root: &Path, state: &mut State, id: &str, autostart: bool) -> Result<Project> {
+    let index = state.index(id)?;
+    state.projects[index].autostart = autostart;
+    state.save(root)?;
+    Ok(state.projects[index].clone())
 }
 
 /// Changes the PHP line (applied on the next start) or the Node major of a site.

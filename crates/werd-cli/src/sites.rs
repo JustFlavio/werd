@@ -101,9 +101,26 @@ pub fn info(id: &str, json_output: bool) -> Result<()> {
     Ok(())
 }
 
-pub fn set(id: &str, php: Option<&str>, node: Option<&str>, domain: Option<&str>) -> Result<()> {
-    if php.is_none() && node.is_none() && domain.is_none() {
-        bail!("Pass --php <version>, --node <version> or --domain <name>");
+pub fn set(
+    id: &str,
+    php: Option<&str>,
+    node: Option<&str>,
+    domain: Option<&str>,
+    autostart: Option<bool>,
+) -> Result<()> {
+    if php.is_none() && node.is_none() && domain.is_none() && autostart.is_none() {
+        bail!("Pass --php <version>, --node <version>, --domain <name> or --autostart true|false");
+    }
+    if let Some(enabled) = autostart {
+        call("sites.autostart", json!({ "id": id, "autostart": enabled }))?;
+        println!(
+            "{}",
+            if enabled {
+                "The site starts whenever Werd starts"
+            } else {
+                "The site no longer starts with Werd"
+            }
+        );
     }
     if let Some(domain) = domain {
         let site = call("sites.domain", json!({ "id": id, "domain": domain }))?;
