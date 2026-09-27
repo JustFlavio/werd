@@ -4,7 +4,7 @@ All notable changes to Werd are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.0-rc.2] - 2026-09-27
+## [0.3.0-rc.3] - 2026-09-27
 
 ### Features
 - **core:** Report whether the local CA is trusted
@@ -20,12 +20,14 @@ All notable changes to Werd are documented here. The format follows
 - **cli:** Let other installs run when Werd has no version of a tool
 - **ui:** Show Starting Werd until the daemon answers
 - **release:** Rename the Linux bundle config so Tauri does not merge it
+- **desktop:** Keep the downloaded update until Restart
 
 ### Build and CI
 - Bump version to 0.3.0-beta.8
 - **release:** Package every platform with one script
 - Publish releases to werd-releases from version tags
 - Bump version to 0.3.0-rc.1
+- Bump version to 0.3.0-rc.2
 
 ## [0.3.0-beta.7] - 2026-09-27
 

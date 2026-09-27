@@ -3,7 +3,7 @@ members = ["crates/werd-core", "crates/werd-cli", "crates/werd-shim", "crates/we
 resolver = "2"
 
 [workspace.package]
-version = "0.3.0-rc.2"
+version = "0.3.0-rc.3"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/JustFlavio/werd"
