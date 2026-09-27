@@ -327,33 +327,35 @@ fn wait_for_setup(jobs: &Jobs) {
     }
 }
 
-/// Adds phpredis to PHP lines installed before Werd shipped the extension.
-fn start_phpredis_backfill(daemon: &Daemon) -> Result<Option<crate::jobs::Job>> {
+/// Adds the PECL extensions Werd ships with PHP (phpredis, the MongoDB driver)
+/// to PHP lines installed before Werd shipped them.
+fn start_extension_backfill(daemon: &Daemon) -> Result<Option<crate::jobs::Job>> {
     let root = daemon.root.clone();
     let catalog = daemon.catalog();
     let installed = Installed::load(&root)?;
-    let missing: Vec<String> = installed
-        .lines("php")
-        .into_iter()
-        .filter(|line| catalog.build("phpredis", line).is_ok())
-        .filter(|line| {
-            installed.version("phpredis", line).is_none()
-                || !runtimes::line_dir(&root, "phpredis", line)
-                    .join("php_redis.dll")
-                    .is_file()
-        })
-        .collect();
+    let mut missing: Vec<(String, String)> = Vec::new();
+    for line in installed.lines("php") {
+        for (extension, library) in runtimes::PHP_PECL_EXTENSIONS {
+            let present = installed.version(extension, &line).is_some()
+                && runtimes::line_dir(&root, extension, &line)
+                    .join(library)
+                    .is_file();
+            if !present && catalog.build(extension, &line).is_ok() {
+                missing.push(((*extension).to_string(), line.clone()));
+            }
+        }
+    }
     if missing.is_empty() {
         return Ok(None);
     }
     let fetcher = Arc::clone(&daemon.fetcher);
     let job = daemon
         .jobs
-        .start("phpredis", "installed", "install", move |progress| {
-            for line in missing {
-                progress.step(&format!("Installing phpredis for PHP {line}"));
+        .start("php-extensions", "installed", "install", move |progress| {
+            for (extension, line) in missing {
+                progress.step(&format!("Installing {extension} for PHP {line}"));
                 progress.bytes(0, None);
-                runtimes::install(&root, &catalog, fetcher.as_ref(), "phpredis", &line, progress)?;
+                runtimes::install(&root, &catalog, fetcher.as_ref(), &extension, &line, progress)?;
             }
             Ok(())
         })?;
@@ -764,13 +766,19 @@ pub fn run_daemon() -> Result<()> {
     // Prepare a fresh install (Caddy, PHP, Composer) without blocking startup.
     let _ = start_setup(&daemon, false);
 
-    // Setup installs phpredis with new PHP lines. Backfill older installations
-    // after it finishes, without delaying the API or service startup.
+    // New Werd versions may enable more bundled extensions: rewrite php.ini of
+    // every installed line so they apply without reinstalling PHP.
+    if let Ok(settings) = Settings::load(&root) {
+        let _ = runtimes::write_all_php_ini(&root, &settings);
+    }
+
+    // Setup installs PECL extensions with new PHP lines. Backfill older
+    // installations after it finishes, without delaying the API or services.
     let backfill = daemon.clone();
     thread::spawn(move || {
         wait_for_setup(&backfill.jobs);
-        if let Err(error) = start_phpredis_backfill(&backfill) {
-            eprintln!("Werd phpredis setup: {error:#}");
+        if let Err(error) = start_extension_backfill(&backfill) {
+            eprintln!("Werd PHP extensions: {error:#}");
         }
     });
 
@@ -913,7 +921,7 @@ mod tests {
     }
 
     #[test]
-    fn startup_backfills_redis_for_existing_php() {
+    fn startup_backfills_pecl_extensions_for_existing_php() {
         let root = tempfile::tempdir().unwrap();
         let (catalog, fetcher) = php_extensions_fixture(root.path());
         let php = runtimes::line_dir(root.path(), "php", "8.5");
@@ -923,7 +931,7 @@ mod tests {
         installed.set("php", "8.5", "8.5.11");
         installed.save(root.path()).unwrap();
         let daemon = daemon(root.path(), Some((catalog, fetcher)));
-        let job = start_phpredis_backfill(&daemon).unwrap().unwrap();
+        let job = start_extension_backfill(&daemon).unwrap().unwrap();
         let finished = daemon.jobs.wait(&job.id);
         assert_eq!(finished.state, JobState::Done, "{:?}", finished.error);
         assert!(runtimes::line_dir(root.path(), "phpredis", "8.5")
@@ -934,7 +942,10 @@ mod tests {
                 .unwrap()
                 .contains("php_redis.dll"));
         }
-        assert!(start_phpredis_backfill(&daemon).unwrap().is_none());
+        assert!(runtimes::line_dir(root.path(), "phpmongodb", "8.5")
+            .join("php_mongodb.dll")
+            .is_file());
+        assert!(start_extension_backfill(&daemon).unwrap().is_none());
     }
 
     #[test]

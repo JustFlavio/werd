@@ -48,7 +48,7 @@ const PHP_EXTENSIONS: &[&str] = &[
     "zip",
 ];
 
-const PHP_PECL_EXTENSIONS: &[(&str, &str)] =
+pub(crate) const PHP_PECL_EXTENSIONS: &[(&str, &str)] =
     &[("phpredis", "php_redis.dll"), ("phpmongodb", "php_mongodb.dll")];
 
 // ---- Installed state -------------------------------------------------------
