@@ -688,6 +688,10 @@ h2 {
   .brand > span,
   .nav-item span,
   .sidebar-footer {
+    justify-content: center;
+    padding: 12px 0;
+  }
+  .sidebar-version {
     display: none;
   }
   .brand {
@@ -1453,4 +1457,117 @@ h2 {
   justify-content: center;
   gap: 12px;
   color: var(--muted);
+}
+
+/* ---------- Update button (sidebar footer) ---------- */
+
+.sidebar-version {
+  flex: 1;
+  min-width: 0;
+}
+.update-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  max-width: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 13px;
+  overflow: hidden;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    max-width 0.25s ease,
+    background-color 0.2s ease;
+}
+.update-icon {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+}
+.update-label {
+  padding-right: 11px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.update-available:hover,
+.update-available:focus-visible,
+.update-wide {
+  max-width: 180px;
+}
+.update-wide .update-label {
+  opacity: 1;
+}
+.update-available:hover .update-label,
+.update-available:focus-visible .update-label {
+  opacity: 1;
+}
+.update-available:hover {
+  background: var(--accent-hover);
+}
+.update-downloading {
+  background: var(--surface-hover);
+  color: var(--accent);
+  cursor: progress;
+}
+.update-ring {
+  position: absolute;
+  inset: 0;
+  width: 26px;
+  height: 26px;
+  rotate: -90deg;
+}
+.update-ring circle {
+  fill: none;
+  stroke-width: 2.4;
+}
+.update-ring-track {
+  stroke: var(--border-strong);
+}
+.update-ring-fill {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.2s linear;
+}
+.update-installing {
+  cursor: progress;
+}
+.update-installing .update-icon svg {
+  animation: spin 1s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .update-button,
+  .update-label,
+  .update-ring-fill {
+    transition: none;
+  }
+  .update-installing .update-icon svg {
+    animation: none;
+  }
+}
+
+.notes h3 {
+  margin: 16px 0 6px;
+  font-size: 13px;
+  color: var(--text-strong);
+}
+.notes ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.notes li {
+  margin: 3px 0;
+}
+.notes code {
+  font-family: var(--mono);
+  font-size: 12px;
 }

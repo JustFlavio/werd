@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { demoRpc } from "./demo";
 
@@ -322,6 +322,61 @@ export async function siteAction(id: string, action: string): Promise<void> {
   return invoke<void>("site_action", { id, action });
 }
 
+// ---- Updates -------------------------------------------------------------------
+
+export interface UpdateInfo {
+  version: string;
+  /** Release notes in markdown. */
+  notes: string | null;
+  date: string | null;
+}
+
+const demoUpdate: UpdateInfo = {
+  version: "0.3.1",
+  notes:
+    "## [0.3.1]\n\n### Features\n\n- **ui:** Update Werd from the sidebar\n- **core:** Start sites with Werd\n\n### Bug fixes\n\n- **release:** Keep PATH and .test domains across updates",
+  date: null,
+};
+
+/** Asks for a newer Werd; null when up to date. */
+export async function checkUpdate(): Promise<UpdateInfo | null> {
+  if (!desktop) return demo ? demoUpdate : null;
+  return invoke<UpdateInfo | null>("check_update");
+}
+
+/** Downloads the update found by checkUpdate, reporting bytes as they arrive. */
+export async function downloadUpdate(
+  onProgress: (progress: { downloaded: number; total: number | null }) => void,
+): Promise<void> {
+  if (!desktop) {
+    const total = 24_000_000;
+    for (let downloaded = 0; downloaded <= total; downloaded += total / 20) {
+      onProgress({ downloaded, total });
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    }
+    return;
+  }
+  const channel = new Channel<{ downloaded: number; total: number | null }>();
+  channel.onmessage = onProgress;
+  return invoke<void>("download_update", { onProgress: channel });
+}
+
+/** Installs the downloaded update and restarts Werd. */
+export async function installUpdate(): Promise<void> {
+  if (!desktop) {
+    window.location.reload();
+    return;
+  }
+  return invoke<void>("install_update");
+}
+
+/** Calls `handler` when the tray asks to check for updates. Returns an unsubscribe function. */
+export function onCheckUpdateRequest(handler: () => void): () => void {
+  if (!desktop) return () => {};
+  const pending = listen("werd://check-update", handler);
+  return () => void pending.then((unlisten) => unlisten());
+}
+
 /** Opens the system folder picker; null when cancelled. */
 export async function pickFolder(title: string): Promise<string | null> {
   if (!desktop) return demo ? "C:\\Users\\dev\\Developer\\new-app" : null;
@@ -349,6 +404,7 @@ export async function setTrayLabels(labels: {
   stop_all: string;
   quit: string;
   use_php: string;
+  check_updates: string;
 }): Promise<void> {
   if (!desktop) return;
   return invoke<void>("set_tray_labels", { labels });

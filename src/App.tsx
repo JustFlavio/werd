@@ -42,6 +42,8 @@ import {
   unparkFolder,
   updateSettings,
 } from "./api";
+import { UpdateButton } from "./components/UpdateButton";
+import { WhatsNew } from "./components/WhatsNew";
 import { useT } from "./i18n";
 import { Logo } from "./Logo";
 import { About } from "./pages/About";
@@ -119,6 +121,7 @@ export default function App() {
       stop_all: t.tray.stopAll,
       quit: t.tray.quit,
       use_php: t.tray.usePhp,
+      check_updates: t.tray.checkUpdates,
     }).catch(() => {});
   }, [t, phpKey]);
 
@@ -207,7 +210,8 @@ export default function App() {
           <span className={`status status-${offline ? "fail" : "ok"}`}>
             <i aria-hidden />
           </span>
-          {offline ? t.shell.daemonOffline : `v${__APP_VERSION__}`}
+          <span className="sidebar-version">{offline ? t.shell.daemonOffline : `v${__APP_VERSION__}`}</span>
+          <UpdateButton onError={fail} onUpToDate={() => setToast({ tone: "info", text: t.update.upToDate })} />
         </div>
       </aside>
 
@@ -365,6 +369,8 @@ export default function App() {
           </>
         )}
       </main>
+
+      <WhatsNew />
 
       {toast && (
         <div className={`toast toast-${toast.tone}`} role={toast.tone === "error" ? "alert" : "status"}>

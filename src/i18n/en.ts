@@ -341,6 +341,18 @@ export const en = {
     stopAll: "Stop all sites and services",
     quit: "Quit",
     usePhp: "Use PHP",
+    checkUpdates: "Check for updates",
+  },
+  update: {
+    short: "Update",
+    available: (version: string) => `Update to Werd ${version}`,
+    downloading: (percent: number) => `Downloading the update… ${percent}%`,
+    restart: "Restart",
+    installing: "Updating…",
+    upToDate: "Werd is up to date.",
+    whatsNew: (version: string) => `What's new in Werd ${version}`,
+    noNotes: "This version has no release notes.",
+    gotIt: "Got it",
   },
   general: {
     title: "General",

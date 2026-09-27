@@ -340,6 +340,18 @@ export const it: Messages = {
     stopAll: "Ferma tutti i siti e i servizi",
     quit: "Esci",
     usePhp: "Usa PHP",
+    checkUpdates: "Controlla aggiornamenti",
+  },
+  update: {
+    short: "Aggiorna",
+    available: (version: string) => `Aggiorna a Werd ${version}`,
+    downloading: (percent: number) => `Download dell’aggiornamento… ${percent}%`,
+    restart: "Riavvia",
+    installing: "Aggiornamento…",
+    upToDate: "Werd è aggiornato.",
+    whatsNew: (version: string) => `Novità di Werd ${version}`,
+    noNotes: "Questa versione non ha note di rilascio.",
+    gotIt: "Ho capito",
   },
   general: {
     title: "Generale",
