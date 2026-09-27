@@ -40,7 +40,7 @@ jobs:
             const all = {
               windows: { platform: "windows", os: "windows-latest", config: "src-tauri/tauri.nsis.conf.json" },
               macos: { platform: "macos", os: "macos-14", config: "src-tauri/tauri.dmg.conf.json" },
-              linux: { platform: "linux", os: "ubuntu-22.04", config: "src-tauri/tauri.linux.conf.json" },
+              linux: { platform: "linux", os: "ubuntu-22.04", config: "src-tauri/tauri.deb.conf.json" },
             };
             const wanted = process.env.PLATFORMS.split(",").map((name) => name.trim()).filter((name) => all[name]);
             console.log("matrix=" + JSON.stringify({ include: wanted.map((name) => all[name]) }));

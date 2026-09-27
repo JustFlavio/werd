@@ -24,7 +24,7 @@ const SIDECARS = [
 const CONFIGS = {
   win32: "src-tauri/tauri.nsis.conf.json",
   darwin: "src-tauri/tauri.dmg.conf.json",
-  linux: "src-tauri/tauri.linux.conf.json",
+  linux: "src-tauri/tauri.deb.conf.json",
 };
 
 function run(command, args, options = {}) {
