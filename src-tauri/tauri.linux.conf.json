@@ -1,0 +1,11 @@
+{
+  "bundle": {
+    "targets": ["deb", "appimage"],
+    "externalBin": ["binaries/werd-daemon", "binaries/werd", "binaries/werd-shim", "binaries/werd-helper"],
+    "linux": {
+      "deb": {
+        "depends": ["libayatana-appindicator3-1"]
+      }
+    }
+  }
+}

@@ -1,6 +1,6 @@
 {
   "bundle": {
-    "targets": ["dmg"],
-    "externalBin": ["binaries/werd-daemon", "binaries/werd", "binaries/werd-shim"]
+    "targets": ["dmg", "app"],
+    "externalBin": ["binaries/werd-daemon", "binaries/werd", "binaries/werd-shim", "binaries/werd-helper"]
   }
 }

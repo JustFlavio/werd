@@ -17,7 +17,8 @@
     "coverage": "vitest run --coverage",
     "metrics": "node scripts/metrics.mjs",
     "version:bump": "node scripts/bump-version.mjs",
-    "prepare": "lefthook install"
+    "prepare": "lefthook install",
+    "package": "node scripts/package.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.10.0",
