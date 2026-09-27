@@ -28,14 +28,23 @@
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
-  ; An update runs the old uninstaller with /UPDATE: keep the user's setup then.
+  ; Keep the user's setup (PATH, .test domains, launch at login) unless this is
+  ; a real uninstall. Installing a new version runs the old uninstaller straight
+  ; from the program folder (with _?=), and the updater also adds /UPDATE. An
+  ; uninstall started from Windows Settings first copies itself to a temporary
+  ; folder, so only then does $EXEDIR differ from $INSTDIR.
+  StrCpy $R9 0
   ${If} $UpdateMode <> 1
+  ${AndIf} $EXEDIR != $INSTDIR
+    StrCpy $R9 1
+  ${EndIf}
+  ${If} $R9 = 1
     ; Remove Werd's bin folder from the user PATH.
     nsExec::Exec '"$INSTDIR\werd.exe" path disable'
     Pop $0
   ${EndIf}
   !insertmacro WERD_STOP_DAEMON
-  ${If} $UpdateMode <> 1
+  ${If} $R9 = 1
     ; Remove the .test domains from the hosts file. This needs administrator
     ; approval, so ask only when the file has a Werd block.
     nsExec::Exec '"$INSTDIR\werd-helper.exe" check'
