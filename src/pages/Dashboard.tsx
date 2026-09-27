@@ -1,16 +1,50 @@
 import { Info, RotateCw, TriangleAlert } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Page } from "../App";
-import { type Project, runSetup, type ServiceInstance } from "../api";
+import { type Project, projectLogs, routerLogs, runSetup, type ServiceInstance, serviceLogs } from "../api";
 import { Progress } from "../components/RuntimeTable";
 import { useT } from "../i18n";
 import type { Runtimes } from "../runtimes";
-import { PageHeader, Section, StatusDot } from "../ui";
+import { Modal, PageHeader, Section, StatusDot } from "../ui";
 
 interface ActiveService {
   id: string;
   label: string;
   detail: string;
+  /** Loads the log shown by the (i) button. */
+  logs: () => Promise<string[]>;
+}
+
+/** Logs of several sites' PHP processes, one titled block per site. */
+async function phpLogs(sites: Project[]): Promise<string[]> {
+  const blocks = await Promise.all(
+    sites.map(async (site) => [`── ${site.name} ──`, ...(await projectLogs(site.id, "php").catch(() => []))]),
+  );
+  return blocks.flat();
+}
+
+function LogsModal({ service, onClose }: { service: ActiveService; onClose: () => void }) {
+  const t = useT();
+  const [lines, setLines] = useState<string[] | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  useEffect(() => {
+    void service
+      .logs()
+      .then(setLines)
+      .catch((cause) => setFailed(cause instanceof Error ? cause.message : String(cause)));
+  }, [service]);
+  return (
+    <Modal title={t.dashboard.logsTitle(service.label)} onClose={onClose} wide>
+      <p className="muted">{service.detail}</p>
+      {failed ? (
+        <div className="callout callout-error">{failed}</div>
+      ) : (
+        <pre className="log-box mono">
+          {lines === null ? t.common.loading : lines.length ? lines.join("\n") : t.dashboard.noLogs}
+        </pre>
+      )}
+    </Modal>
+  );
 }
 
 export function Dashboard({
@@ -31,6 +65,7 @@ export function Dashboard({
   onOpenUrl: (url: string) => void;
 }) {
   const t = useT();
+  const [showing, setShowing] = useState<ActiveService | null>(null);
   const running = useMemo(() => projects.filter((project) => project.status === "running"), [projects]);
 
   const runningInstances = useMemo(() => instances.filter((instance) => instance.status === "running"), [instances]);
@@ -40,17 +75,26 @@ export function Dashboard({
       id: `instance:${instance.id}`,
       label: instance.name,
       detail: `${instance.product} ${instance.line} · 127.0.0.1:${instance.port}`,
+      logs: () => serviceLogs(instance.id),
     }));
     if (running.length === 0) return rows;
     const names = (list: Project[]) => list.map((project) => project.name).join(", ");
-    rows.push(
-      { id: "site:caddy", label: "Caddy", detail: t.dashboard.servesHttps(names(running)) },
-      {
-        id: "site:php",
-        label: `PHP ${[...new Set(running.map((project) => project.php))].sort().join(", ")}`,
-        detail: t.dashboard.servesFastcgi(names(running)),
-      },
-    );
+    rows.push({
+      id: "site:caddy",
+      label: "Caddy",
+      detail: t.dashboard.servesHttps(names(running)),
+      logs: routerLogs,
+    });
+    // One row per PHP version in use, like Herd's PHP-8.5.
+    for (const line of [...new Set(running.map((project) => project.php))].sort().reverse()) {
+      const sites = running.filter((project) => project.php === line);
+      rows.push({
+        id: `php:${line}`,
+        label: `PHP ${line}`,
+        detail: t.dashboard.servesFastcgi(names(sites)),
+        logs: () => phpLogs(sites),
+      });
+    }
     return rows;
   }, [running, runningInstances, t]);
 
@@ -121,9 +165,15 @@ export function Dashboard({
                   <li key={service.id}>
                     <StatusDot status="running" />
                     <span>{service.label}</span>
-                    <span className="info" title={service.detail}>
-                      <Info size={15} aria-label={service.detail} />
-                    </span>
+                    <button
+                      type="button"
+                      className="icon-button info"
+                      title={t.dashboard.showLogs(service.label)}
+                      aria-label={t.dashboard.showLogs(service.label)}
+                      onClick={() => setShowing(service)}
+                    >
+                      <Info size={15} />
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -184,6 +234,7 @@ export function Dashboard({
           }
         />
       </div>
+      {showing && <LogsModal service={showing} onClose={() => setShowing(null)} />}
     </>
   );
 }

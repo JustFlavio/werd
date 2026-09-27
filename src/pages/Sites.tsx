@@ -29,6 +29,7 @@ import {
   removeProject,
   resolveProject,
   type ServiceInstance,
+  setProjectAutostart,
   setProjectDomain,
   setProjectNode,
   setProjectPhp,
@@ -529,6 +530,17 @@ function GeneralTab({
                 </option>
               ))}
             </select>
+          </dd>
+          <dt>{t.sites.startup}</dt>
+          <dd>
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={project.autostart ?? false}
+                onChange={(event) => change(() => setProjectAutostart(project.id, event.target.checked))}
+              />
+              {t.sites.autostart}
+            </label>
           </dd>
           <dt>{t.sites.path}</dt>
           <dd className="mono">{project.path}</dd>

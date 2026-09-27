@@ -43,6 +43,9 @@ export const it: Messages = {
   dashboard: {
     title: "Dashboard",
     activeServices: "Servizi attivi",
+    showLogs: (name: string) => `Mostra il log di ${name}`,
+    logsTitle: (name: string) => `Log di ${name}`,
+    noLogs: "Nessuna riga di log per ora.",
     setupTitle: "Preparazione di Werd",
     setupHint: "Scarico il server web, PHP e Composer, così il primo sito è subito pronto.",
     setupDownloading: (what: string) => `Scarico ${what}. Subito dopo il primo sito sarà pronto per partire.`,
@@ -88,6 +91,8 @@ export const it: Messages = {
     setupStarting: "Avvio",
     setupReady: "Pronto",
     setupFailed: "Non riuscito",
+    startup: "Avvio",
+    autostart: "Avvia con Werd",
     search: "Cerca siti",
     noMatch: "Nessun sito corrisponde.",
     terminal: "Terminale",

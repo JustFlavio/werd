@@ -25,6 +25,8 @@ export interface Project {
   path: string;
   /** `.test` domain, e.g. `shop.test`. */
   domain?: string | null;
+  /** Start the site whenever Werd starts. */
+  autostart?: boolean;
   /** Parked folder the site comes from; such sites follow their folder. */
   parked?: string | null;
   php: string;
@@ -197,6 +199,8 @@ export const setProjectNode = (id: string, line: string | null) => rpc<Project>(
 export const linkProject = (id: string, category: Category, instance: string) =>
   rpc<Project>("sites.link", { id, category, instance });
 export const unlinkProject = (id: string, category: Category) => rpc<Project>("sites.unlink", { id, category });
+export const setProjectAutostart = (id: string, autostart: boolean) =>
+  rpc<Project>("sites.autostart", { id, autostart });
 export const setProjectDomain = (id: string, domain: string) => rpc<Project>("sites.domain", { id, domain });
 export const listParks = () => rpc<string[]>("parks.list");
 export const parkFolder = (path: string) => rpc<string[]>("parks.add", { path });
@@ -273,6 +277,8 @@ export const setServiceAutostart = (id: string, autostart: boolean) =>
 export const serviceDetails = (id: string) => rpc<ServiceDetails>("services.details", { id });
 export const renameService = (id: string, name: string) => rpc<ServiceInstance>("services.rename", { id, name });
 export const serviceLogs = (id: string) => rpc<string[]>("services.logs", { id });
+/** The last lines of the shared Caddy's log. */
+export const routerLogs = () => rpc<string[]>("router.logs");
 
 // ---- System ------------------------------------------------------------------
 

@@ -405,6 +405,14 @@ export async function demoRpc(method: string, params: Record<string, unknown>): 
       project.requirements = [];
       return { project, jobs };
     }
+    case "sites.autostart":
+      findProject(params.id).autostart = Boolean(params.autostart);
+      return findProject(params.id);
+    case "router.logs":
+      return [
+        '{"level":"info","msg":"serving initial configuration"}',
+        '{"level":"info","msg":"certificate obtained successfully","identifier":"shop.test"}',
+      ];
     case "sites.domain": {
       const project = findProject(params.id);
       const raw = String(params.domain).trim().toLowerCase();

@@ -47,6 +47,9 @@ export const en = {
   dashboard: {
     title: "Dashboard",
     activeServices: "Active services",
+    showLogs: (name: string) => `Show the ${name} log`,
+    logsTitle: (name: string) => `${name} log`,
+    noLogs: "No log lines yet.",
     setupTitle: "Setting up Werd",
     setupHint: "Downloading the web server, PHP and Composer so your first site is ready to go.",
     setupDownloading: (what: string) => `Downloading ${what}. Your first site will be ready to start right after.`,
@@ -92,6 +95,8 @@ export const en = {
     setupStarting: "Starting",
     setupReady: "Ready",
     setupFailed: "Failed",
+    startup: "Startup",
+    autostart: "Start with Werd",
     search: "Search sites",
     noMatch: "No site matches.",
     terminal: "Terminal",
