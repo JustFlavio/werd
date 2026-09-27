@@ -166,6 +166,56 @@ fn run_elevated(_program: &Path, _arguments: &[String]) -> Result<u32> {
     bail!("Updating the hosts file is not available on this platform yet")
 }
 
+/// SHA-1 thumbprint of a PEM certificate, as Windows shows it (uppercase hex).
+pub(crate) fn thumbprint(pem: &str) -> Option<String> {
+    use base64::Engine;
+    use sha1::{Digest, Sha1};
+    let body: String = pem
+        .lines()
+        .skip_while(|line| !line.starts_with("-----BEGIN CERTIFICATE-----"))
+        .skip(1)
+        .take_while(|line| !line.starts_with("-----END CERTIFICATE-----"))
+        .collect();
+    if body.trim().is_empty() {
+        return None;
+    }
+    let der = base64::engine::general_purpose::STANDARD
+        .decode(body.trim())
+        .ok()?;
+    Some(
+        Sha1::digest(der)
+            .iter()
+            .map(|byte| format!("{byte:02X}"))
+            .collect(),
+    )
+}
+
+/// Whether `certificate` is among the trusted roots of the current user or the
+/// computer. Reads the certificate stores in the registry; nothing is changed.
+pub fn is_certificate_trusted(certificate: &Path) -> bool {
+    let Some(thumbprint) = std::fs::read_to_string(certificate)
+        .ok()
+        .as_deref()
+        .and_then(thumbprint)
+    else {
+        return false;
+    };
+    #[cfg(windows)]
+    {
+        use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
+        use winreg::RegKey;
+        let key = format!(r"SOFTWARE\Microsoft\SystemCertificates\Root\Certificates\{thumbprint}");
+        [HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE]
+            .into_iter()
+            .any(|hive| RegKey::predef(hive).open_subkey(&key).is_ok())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = thumbprint;
+        false
+    }
+}
+
 /// Adds `certificate` to the current user's trusted roots.
 pub fn trust_certificate(certificate: &Path) -> Result<String> {
     if cfg!(windows) {
@@ -189,6 +239,18 @@ pub fn trust_certificate(certificate: &Path) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn thumbprints_match_what_windows_shows() {
+        // Any PEM body works: the thumbprint is the SHA-1 of the decoded bytes.
+        let pem = "-----BEGIN CERTIFICATE-----\nAAECAwQF\n-----END CERTIFICATE-----\n";
+        assert_eq!(
+            thumbprint(pem).as_deref(),
+            Some("868460D98D09D8BBB93D7B6CDD15CC7FBEC676B9")
+        );
+        assert!(thumbprint("not a certificate").is_none());
+        assert!(!is_certificate_trusted(Path::new("missing.crt")));
+    }
 
     #[test]
     fn only_loopback_urls_with_a_port_and_the_repository_are_openable() {

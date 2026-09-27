@@ -459,6 +459,15 @@ pub(crate) fn using_runtime(state: &State, product: &str, line: &str) -> Vec<Str
         .collect()
 }
 
+/// Whether the local CA exists yet (after the first site start) and is trusted.
+pub(crate) fn local_ca_status(root: &Path) -> serde_json::Value {
+    let certificate = caddy_data(root).join("caddy/pki/authorities/local/root.crt");
+    serde_json::json!({
+        "exists": certificate.is_file(),
+        "trusted": platform::is_certificate_trusted(&certificate),
+    })
+}
+
 pub(crate) fn trust_local_ca(root: &Path) -> Result<String> {
     let certificate = caddy_data(root).join("caddy/pki/authorities/local/root.crt");
     if !certificate.is_file() {

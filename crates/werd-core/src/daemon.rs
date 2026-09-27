@@ -600,6 +600,7 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
             &projects::domains(state)
         )),
         "trust-ca" => json!(projects::trust_local_ca(root)?),
+        "certificate.status" => projects::local_ca_status(root),
 
         "system.info" => {
             let catalog = daemon.catalog();
