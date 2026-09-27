@@ -1,0 +1,110 @@
+name: Release
+
+# Builds the installers and publishes them to the public JustFlavio/werd-releases
+# repository, where the in-app updater looks for latest.json. The source stays here.
+#
+# Secrets: RELEASES_TOKEN (fine-grained token, contents read/write on werd-releases),
+# TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD (update signatures).
+# Variable: RELEASE_PLATFORMS, e.g. "windows,macos,linux" (default: windows).
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  RELEASES_REPO: werd-releases
+
+jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      version: ${{ steps.version.outputs.version }}
+      notes: ${{ steps.notes.outputs.notes }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - id: matrix
+        env:
+          PLATFORMS: ${{ vars.RELEASE_PLATFORMS || 'windows' }}
+        run: |
+          node -e '
+            const all = {
+              windows: { platform: "windows", os: "windows-latest", config: "src-tauri/tauri.nsis.conf.json" },
+              macos: { platform: "macos", os: "macos-14", config: "src-tauri/tauri.dmg.conf.json" },
+              linux: { platform: "linux", os: "ubuntu-22.04", config: "src-tauri/tauri.linux.conf.json" },
+            };
+            const wanted = process.env.PLATFORMS.split(",").map((name) => name.trim()).filter((name) => all[name]);
+            console.log("matrix=" + JSON.stringify({ include: wanted.map((name) => all[name]) }));
+          ' >> "$GITHUB_OUTPUT"
+      - id: notes
+        run: |
+          npx --yes git-cliff@2 --latest --strip header > notes.md
+          {
+            echo "notes<<WERD_NOTES_EOF"
+            cat notes.md
+            echo "WERD_NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build (${{ matrix.platform }})
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Linux system dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci
+      - name: Build sidecars
+        run: node scripts/package.mjs --sidecars-only
+      - name: Build and upload the installer
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          owner: ${{ github.repository_owner }}
+          repo: ${{ env.RELEASES_REPO }}
+          tagName: v${{ needs.plan.outputs.version }}
+          releaseName: Werd ${{ needs.plan.outputs.version }}
+          releaseBody: ${{ needs.plan.outputs.notes }}
+          # Published by the last job once every platform is uploaded, so the
+          # updater never sees a half-finished release.
+          releaseDraft: true
+          # Betas are regular releases: GitHub hides prereleases from releases/latest,
+          # which is where the updater looks.
+          prerelease: false
+          includeUpdaterJson: true
+          args: --config ${{ matrix.config }}
+
+  publish:
+    name: Publish
+    needs: [plan, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the draft release
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          TAG: v${{ needs.plan.outputs.version }}
+        run: gh release edit "$TAG" --repo "${{ github.repository_owner }}/${{ env.RELEASES_REPO }}" --draft=false --latest
