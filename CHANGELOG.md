@@ -4,7 +4,7 @@ All notable changes to Werd are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.0-rc.1] - 2026-09-27
+## [0.3.0-rc.2] - 2026-09-27
 
 ### Features
 - **core:** Report whether the local CA is trusted
@@ -25,6 +25,7 @@ All notable changes to Werd are documented here. The format follows
 - Bump version to 0.3.0-beta.8
 - **release:** Package every platform with one script
 - Publish releases to werd-releases from version tags
+- Bump version to 0.3.0-rc.1
 
 ## [0.3.0-beta.7] - 2026-09-27
 
