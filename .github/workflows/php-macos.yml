@@ -1,0 +1,106 @@
+name: PHP for macOS
+
+# Builds static PHP (cli + fpm) for macOS with static-php-cli, for every active
+# php.net line plus the current pre-release, on Apple Silicon and Intel runners.
+# Each version becomes the release `php-<version>` in this repository, never
+# marked as latest; the runtime catalog picks the archives up on its next refresh.
+# A day without new PHP releases costs one short Linux job.
+on:
+  schedule:
+    - cron: "41 5 * * *"
+  workflow_dispatch:
+    inputs:
+      versions:
+        description: "Rebuild these versions (space separated, e.g. 8.5.11 8.6.0RC2); empty builds what is missing"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: php-macos
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      count: ${{ steps.plan.outputs.count }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - id: plan
+        run: node scripts/php-builds/plan.mjs ${{ inputs.versions }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    name: PHP ${{ matrix.version }} (${{ matrix.arch }})
+    needs: plan
+    if: needs.plan.outputs.count != '0'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Cache static-php-cli downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/spc/downloads
+          key: spc-${{ matrix.arch }}-${{ hashFiles('scripts/php-builds/**') }}-${{ matrix.version }}
+          restore-keys: spc-${{ matrix.arch }}-${{ hashFiles('scripts/php-builds/**') }}-
+      - name: Build
+        run: scripts/php-builds/build.sh "${{ matrix.version }}" "${{ matrix.url }}" "${{ matrix.sha256 }}" "${{ matrix.arch }}" "$RUNNER_TEMP/dist"
+        env:
+          WORK: ${{ runner.temp }}/spc
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: php-${{ matrix.version }}-macos-${{ matrix.arch }}
+          path: ${{ runner.temp }}/dist/*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish
+    needs: [plan, build]
+    # Publish what built even when another version failed.
+    if: always() && needs.plan.outputs.count != '0'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create or update releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          shopt -s nullglob
+          archives=(dist/php-*-macos-*.tar.gz)
+          if [ ${#archives[@]} -eq 0 ]; then
+            echo "nothing built" >&2
+            exit 1
+          fi
+          for archive in "${archives[@]}"; do
+            name=$(basename "$archive")
+            version=${name#php-}
+            version=${version%-macos-*}
+            tag="php-$version"
+            if ! gh release view "$tag" >/dev/null 2>&1; then
+              flags=(--latest=false --title "PHP $version for macOS")
+              if [[ "$version" =~ [a-zA-Z] ]]; then flags+=(--prerelease); fi
+              gh release create "$tag" "${flags[@]}" --notes "Static PHP $version (cli and php-fpm) for macOS, built from the official php.net source with static-php-cli. Werd installs these archives; see scripts/php-builds/ for the extension list and the build script."
+            fi
+            gh release upload "$tag" "$archive" "$archive.sha256" --clobber
+          done

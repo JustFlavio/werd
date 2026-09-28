@@ -1,0 +1,64 @@
+# Extensions compiled into Werd's macOS PHP builds, one per line.
+# Chosen for Laravel: the framework's requirements, every database driver Werd
+# offers (MySQL/MariaDB, PostgreSQL, SQLite, MongoDB, SQL Server), Redis, and the
+# image and archive tools packages commonly need. build.sh fails if one is missing.
+#
+# `name <X.Y` builds an extension only for PHP below X.Y, for PECL extensions that
+# do not support a new line yet. Remove the limit once upstream releases a fix.
+bcmath
+bz2
+calendar
+ctype
+curl
+dba
+dom
+exif
+ffi
+fileinfo
+filter
+ftp
+gd
+gettext
+gmp
+iconv
+igbinary <8.6
+imagick <8.6
+intl
+ldap
+mbregex
+mbstring
+mongodb
+mysqli
+mysqlnd
+opcache
+openssl
+pcntl
+pdo
+pdo_mysql
+pdo_pgsql
+pdo_sqlite
+pdo_sqlsrv <8.6
+pgsql
+phar
+posix
+readline
+redis <8.6
+session
+shmop
+simplexml
+soap
+sockets
+sodium
+sqlite3
+sqlsrv <8.6
+sysvmsg
+sysvsem
+sysvshm
+tokenizer
+xml
+xmlreader
+xmlwriter
+xsl
+zip
+zlib
+zstd
