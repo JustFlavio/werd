@@ -198,6 +198,9 @@ export default function App() {
               key={id}
               className={`nav-item ${page === id ? "active" : ""}`}
               aria-current={page === id ? "page" : undefined}
+              // Narrow windows hide the label and keep only the icon.
+              aria-label={t.nav[id]}
+              title={t.nav[id]}
               onClick={() => setPage(id)}
             >
               <Icon size={17} strokeWidth={1.75} />

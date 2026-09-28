@@ -686,7 +686,9 @@ h2 {
     width: 64px;
   }
   .brand > span,
-  .nav-item span,
+  .nav-item span {
+    display: none;
+  }
   .sidebar-footer {
     justify-content: center;
     padding: 12px 0;
