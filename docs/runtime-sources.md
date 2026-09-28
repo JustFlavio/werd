@@ -1,4 +1,4 @@
-# Windows runtimes: provenance and release blockers
+# Runtimes: provenance and release blockers
 
 Runtimes are downloaded on demand and never bundled with the Werd installer. The catalog lives in `catalog/catalog.json`. Every download is verified with SHA-256 before extraction, and a unit test checks that every pinned checksum is well formed.
 
@@ -17,11 +17,26 @@ pgvector v0.8.6 is built from [source](https://github.com/pgvector/pgvector/tree
 
 The app, or `scripts/build-pgvector-windows.ps1`, installs `vector.dll`, the SQL files and `vector.control` into the local PostgreSQL runtime. Never use a DLL built for a different PostgreSQL build.
 
+## macOS runtimes
+
+| Runtime | Source | Checksums | Notes |
+| --- | --- | --- | --- |
+| PHP 8.2+ and the next pre-release (8.6.0RC2), arm64 and x64 | Built by Werd: [`php-macos.yml`](../.github/workflows/php-macos.yml) compiles the official php.net source with [static-php-cli](https://github.com/crazywhalecc/static-php-cli) and publishes the `php-<version>` releases of this repository | The php.net source is checked against php.net's SHA-256; the archives use GitHub's asset digest | `php` and `php-fpm` in one archive, with the licenses of every bundled library. The extensions are listed in [`scripts/php-builds/extensions.txt`](../scripts/php-builds/extensions.txt) and checked after each build. The workflow runs daily, so new patches arrive within a day of php.net. |
+| PHP 8.0 and 8.1, arm64 and x64 | [static-php-cli bulk builds](https://dl.static-php.dev/static-php-cli/bulk/) (`cli` + `fpm` tarballs) | Hashed by the catalog generator; no upstream checksums are published | Lines php.net no longer updates; the bulk builds carry their final patches. Also the fallback for a newer line until Werd's own build is published. Includes swoole, lacks MongoDB and SQL Server. |
+| Node.js 16+, arm64 and x64 | [nodejs.org](https://nodejs.org/dist/) `darwin-*.tar.gz` | Upstream `SHASUMS256.txt` | Official tarballs: `bin/node`, `lib/node_modules/npm`. |
+| Composer, CA certificates | Same as Windows (`any` builds) | Upstream | |
+
+Static PHP builds cannot load extra `.so` extensions: an extension is available only if it is compiled in. There is no CGI SAPI either, so sites run on `php-fpm`. static-php-cli and Node.js are MIT-licensed. PHP stays under the PHP License 3.01, and the libraries compiled into the binaries keep their own licenses (the `licenses/` folder of each archive).
+
+PHP 8.6 is a release candidate. Its macOS build skips the PECL extensions that do not compile against it yet (igbinary, imagick, redis, sqlsrv, pdo_sqlsrv); `extensions.txt` marks them `<8.6`, and removing the limit brings them back once upstream supports 8.6. Laravel's Redis connection can use the `predis` client in the meantime.
+
+PHP 8.6 on Windows comes from the [QA builds](https://downloads.php.net/~windows/qa/) of windows.php.net until its release.
+
 ## Before the public beta
 
 - Review the licenses and notices of the MSYS2 DLLs in the Windows Redis package (`msys-2.0.dll`, `msys-crypto-3.dll`, `msys-ssl-3.dll`) and of dependencies embedded in the other binaries. The Redis port repository states that its license does not replace Redis's own.
 - Produce a reproducible, verified pgvector artifact matching the PostgreSQL 18.6-1 package exactly, so end users do not need Visual Studio Build Tools.
-- Create the equivalent catalogs for macOS (Apple Silicon and Intel) and Linux (x64 and arm64), with checksums, licenses and real tests on each platform.
+- Complete the macOS catalog (Caddy and the services) and create the Linux one (x64 and arm64), with checksums, licenses and real tests on each platform.
 - Verify installers and updates on every platform and keep the required third-party notices.
 
 These items block the public beta. The Windows prototype exists to validate the flow locally.

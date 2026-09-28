@@ -21,6 +21,7 @@ Prerequisites: Node.js 22+, Rust stable (installed via [rustup](https://rustup.r
 
 ```bash
 npm install            # also installs the git hooks (lefthook)
+cargo build --workspace # the daemon, CLI and shims; `tauri dev` builds only the app
 npm run tauri dev      # desktop app with hot reload
 npm run dev            # UI only in the browser; open http://127.0.0.1:1420/?demo for sample data
 ```
