@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated": "2026-09-28T12:09:35.714Z",
+  "generated": "2026-09-28T13:49:38.795Z",
   "products": {
     "cacert": {
       "kind": "tool",
@@ -78,11 +78,11 @@
             "windows-x64": {
               "format": "zip",
               "marker": "mailpit.exe",
-              "sha256": "42c20e5c3254125ea7489847811f10d70e39de573fe41d03a61412c87913e995",
-              "url": "https://github.com/axllent/mailpit/releases/download/v1.31.2/mailpit-windows-amd64.zip"
+              "sha256": "863e9502d4e0f14a78c0f91c5091797b1c7b7b7e3fc7e5eab62e5770ce44b76e",
+              "url": "https://github.com/axllent/mailpit/releases/download/v1.31.3/mailpit-windows-amd64.zip"
             }
           },
-          "latest": "1.31.2"
+          "latest": "1.31.3"
         }
       }
     },
@@ -173,11 +173,11 @@
             "windows-x64": {
               "format": "file",
               "marker": "meilisearch.exe",
-              "sha256": "1a3a3f2fa249b2a471eca479d37b1d3bbb9bda1aacae3eaf7839218105810125",
-              "url": "https://github.com/meilisearch/meilisearch/releases/download/v1.54.0/meilisearch-windows-amd64.exe"
+              "sha256": "b011d3cb78683b77d0f4c9fd9c1e71c56475b259ca65c46a886524457d7c5818",
+              "url": "https://github.com/meilisearch/meilisearch/releases/download/v1.54.1/meilisearch-windows-amd64.exe"
             }
           },
-          "latest": "1.54.0"
+          "latest": "1.54.1"
         }
       }
     },
@@ -232,6 +232,17 @@
             }
           },
           "latest": "8.3.11"
+        },
+        "9.0": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "bin/mongod.exe",
+              "sha256": "2cabba2e80b90bcd1c1096845711975199104148c849a007984cb3ee4d237406",
+              "url": "https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-9.0.2.zip"
+            }
+          },
+          "latest": "9.0.2"
         }
       }
     },
