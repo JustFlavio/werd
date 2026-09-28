@@ -124,7 +124,25 @@ impl ManagedChild {
             .map(|status| status.to_string())
     }
 
+    /// Stops the child. On macOS and Linux it runs in its own process group
+    /// (see [`spawn_logged`]): the whole group gets SIGTERM, so servers such as
+    /// php-fpm stop their workers, then SIGKILL for anything still running.
+    /// Killing only php-fpm's master leaves a worker holding the site's port.
     pub fn kill(&mut self) {
+        #[cfg(unix)]
+        {
+            use rustix::process::{kill_process_group, Pid, Signal};
+            let group = Pid::from_child(&self.child);
+            if self.child.try_wait().ok().flatten().is_none() {
+                let _ = kill_process_group(group, Signal::TERM);
+                let deadline = std::time::Instant::now() + STOP_GRACE;
+                while std::time::Instant::now() < deadline && self.child.try_wait().ok().flatten().is_none() {
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+            }
+            // Fails with ESRCH once every member has exited.
+            let _ = kill_process_group(group, Signal::KILL);
+        }
         if self.child.try_wait().ok().flatten().is_none() {
             let _ = self.child.kill();
         }
@@ -132,10 +150,17 @@ impl ManagedChild {
     }
 }
 
-/// Starts `command` with stderr going to `<log_dir>/<name>.log`.
+/// How long a stopping child may take before it is killed.
+#[cfg(unix)]
+const STOP_GRACE: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// Starts `command` with stderr going to `<log_dir>/<name>.log`. On macOS and
+/// Linux the child leads a new process group, so stopping it reaches its workers.
 pub(crate) fn spawn_logged(log_dir: &Path, name: &str, mut command: Command) -> Result<ManagedChild> {
     fs::create_dir_all(log_dir)?;
     let log = File::create(log_dir.join(format!("{name}.log")))?;
+    #[cfg(unix)]
+    std::os::unix::process::CommandExt::process_group(&mut command, 0);
     let child = command
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -220,6 +245,37 @@ pub(crate) fn tail_file(path: &Path) -> Result<Vec<String>> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(unix)]
+    #[test]
+    fn stopping_a_child_also_stops_the_processes_it_started() {
+        let directory = tempfile::tempdir().unwrap();
+        let pid_file = directory.path().join("grandchild.pid");
+        // A parent that starts a long-running child and ignores SIGTERM for itself,
+        // like a server master whose worker would otherwise be orphaned.
+        let mut command = std::process::Command::new("/bin/sh");
+        command.arg("-c").arg(format!(
+            "sleep 300 & echo $! > '{}'; trap '' TERM; wait",
+            pid_file.display()
+        ));
+        let mut child = super::spawn_logged(directory.path(), "test", command).unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while !pid_file.is_file() && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        let grandchild: i32 = std::fs::read_to_string(&pid_file)
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap();
+        child.kill();
+        let alive = std::process::Command::new("kill")
+            .args(["-0", &grandchild.to_string()])
+            .status()
+            .unwrap()
+            .success();
+        assert!(!alive, "the grandchild {grandchild} survived");
+    }
+
     use super::*;
 
     #[test]
