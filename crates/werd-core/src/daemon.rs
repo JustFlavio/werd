@@ -759,6 +759,7 @@ pub fn run_daemon() -> Result<()> {
     if let Err(error) = process::kill_children_on_exit() {
         eprintln!("Werd daemon: {error:#}; processes may outlive a crash");
     }
+    process::stop_leftover_children(&root);
     migrations::run(&root).context("Upgrading the Werd data folder failed")?;
     shims::refresh(&root);
     let state = Arc::new(Mutex::new(State::load(&root)?));

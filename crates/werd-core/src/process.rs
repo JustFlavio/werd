@@ -109,6 +109,95 @@ pub(crate) fn kill_children_on_exit() -> Result<()> {
     Ok(())
 }
 
+// ---- Leftovers of a crashed daemon (macOS and Linux) ------------------------
+//
+// Without a job object, children outlive a daemon that crashes or is killed.
+// Each one is recorded in `<home>/children.json` with its start time, and the
+// next daemon stops the process groups still running. The start time guards
+// against a PID the system has since given to an unrelated program.
+
+/// `children.json` of the running daemon, once [`stop_leftover_children`] ran.
+#[cfg(unix)]
+static REGISTRY: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+#[cfg(unix)]
+static REGISTRY_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+#[cfg(unix)]
+#[derive(serde::Serialize, serde::Deserialize, PartialEq, Debug)]
+struct Recorded {
+    pid: u32,
+    started: String,
+}
+
+/// When `pid` started, as `ps` prints it; `None` once it has exited.
+#[cfg(unix)]
+fn start_time(pid: u32) -> Option<String> {
+    let output = Command::new("ps")
+        .args(["-o", "lstart=", "-p", &pid.to_string()])
+        .output()
+        .ok()?;
+    let started = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    (output.status.success() && !started.is_empty()).then_some(started)
+}
+
+#[cfg(unix)]
+fn update_registry(change: impl FnOnce(&mut Vec<Recorded>)) {
+    let Some(path) = REGISTRY.get() else { return };
+    let _guard = REGISTRY_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let mut records: Vec<Recorded> = fs::read(path)
+        .ok()
+        .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+        .unwrap_or_default();
+    change(&mut records);
+    let _ = fs::write(path, serde_json::to_vec(&records).unwrap_or_default());
+}
+
+/// Stops the process groups recorded in `path` that are still the same processes.
+/// Returns how many were stopped.
+#[cfg(unix)]
+fn stop_recorded(path: &Path) -> usize {
+    use rustix::process::{kill_process_group, Pid, Signal};
+    let records: Vec<Recorded> = fs::read(path)
+        .ok()
+        .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+        .unwrap_or_default();
+    let mut stopped = 0;
+    for record in records {
+        if start_time(record.pid).as_deref() != Some(record.started.as_str()) {
+            continue;
+        }
+        let Some(group) = i32::try_from(record.pid).ok().and_then(Pid::from_raw) else {
+            continue;
+        };
+        let _ = kill_process_group(group, Signal::TERM);
+        let deadline = std::time::Instant::now() + STOP_GRACE;
+        while std::time::Instant::now() < deadline && start_time(record.pid).is_some() {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+        let _ = kill_process_group(group, Signal::KILL);
+        stopped += 1;
+    }
+    stopped
+}
+
+/// Stops what a crashed daemon left running, then records this daemon's children.
+pub(crate) fn stop_leftover_children(root: &Path) {
+    #[cfg(unix)]
+    {
+        let path = root.join("children.json");
+        let stopped = stop_recorded(&path);
+        if stopped > 0 {
+            eprintln!("Werd daemon: stopped {stopped} process(es) left by a previous daemon");
+        }
+        let _ = fs::write(&path, "[]");
+        let _ = REGISTRY.set(path);
+    }
+    #[cfg(not(unix))]
+    let _ = root;
+}
+
 /// A supervised child, named after its log file (`postgres`, `php`, ...).
 pub(crate) struct ManagedChild {
     pub name: String,
@@ -142,6 +231,8 @@ impl ManagedChild {
             }
             // Fails with ESRCH once every member has exited.
             let _ = kill_process_group(group, Signal::KILL);
+            let pid = self.child.id();
+            update_registry(|records| records.retain(|record| record.pid != pid));
         }
         if self.child.try_wait().ok().flatten().is_none() {
             let _ = self.child.kill();
@@ -167,6 +258,17 @@ pub(crate) fn spawn_logged(log_dir: &Path, name: &str, mut command: Command) -> 
         .stderr(Stdio::from(log))
         .spawn()
         .with_context(|| format!("Cannot start {name}"))?;
+    #[cfg(unix)]
+    if REGISTRY.get().is_some() {
+        if let Some(started) = start_time(child.id()) {
+            update_registry(|records| {
+                records.push(Recorded {
+                    pid: child.id(),
+                    started,
+                })
+            });
+        }
+    }
     Ok(ManagedChild {
         name: name.into(),
         child,
@@ -274,6 +376,48 @@ mod tests {
             .unwrap()
             .success();
         assert!(!alive, "the grandchild {grandchild} survived");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn leftovers_of_a_crashed_daemon_are_stopped_but_reused_pids_are_not() {
+        use super::{start_time, stop_recorded, Recorded};
+        use std::os::unix::process::CommandExt;
+        let directory = tempfile::tempdir().unwrap();
+        let spawn = || {
+            std::process::Command::new("/bin/sleep")
+                .arg("300")
+                .process_group(0)
+                .spawn()
+                .unwrap()
+        };
+        let (mut leftover, mut unrelated) = (spawn(), spawn());
+        let records = vec![
+            Recorded {
+                pid: leftover.id(),
+                started: start_time(leftover.id()).unwrap(),
+            },
+            // Same PID, different start time: another program now owns it.
+            Recorded {
+                pid: unrelated.id(),
+                started: "Thu Jan  1 00:00:00 1970".into(),
+            },
+        ];
+        let path = directory.path().join("children.json");
+        std::fs::write(&path, serde_json::to_vec(&records).unwrap()).unwrap();
+
+        assert_eq!(stop_recorded(&path), 1);
+        // Stopped by now; the test process still has to reap it.
+        assert!(
+            leftover.try_wait().unwrap().is_some(),
+            "the leftover is still running"
+        );
+        assert!(
+            unrelated.try_wait().unwrap().is_none(),
+            "an unrelated process was killed"
+        );
+        let _ = unrelated.kill();
+        let _ = unrelated.wait();
     }
 
     use super::*;
