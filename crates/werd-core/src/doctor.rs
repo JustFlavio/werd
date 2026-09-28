@@ -72,11 +72,9 @@ pub fn run(root: &Path, catalog: &Catalog, router: &Router, site_domains: &[Stri
                         .get(product)
                         .map_or(product.as_str(), |p| p.label.as_str());
                     let marker = catalog
-                        .products
-                        .get(product)
-                        .and_then(|p| p.lines.get(line))
-                        .and_then(|l| l.builds.values().next())
-                        .map(|build| build.marker.clone());
+                        .build(product, line)
+                        .ok()
+                        .map(|(_, build)| build.marker.clone());
                     let present =
                         marker.is_none_or(|marker| line_dir(root, product, line).join(marker).is_file());
                     checks.push(check(
@@ -121,7 +119,7 @@ mod tests {
         installed.save(root.path()).unwrap();
         let checks = run(root.path(), &Catalog::embedded(), &Router::default(), &[]);
         let php = checks.iter().find(|check| check.label == "PHP 8.5").unwrap();
-        assert!(!php.ok, "php-cgi.exe is missing on disk");
+        assert!(!php.ok, "the PHP binary is missing on disk");
         assert!(checks[0].ok, "the daemon check is always first and ok");
     }
 }
