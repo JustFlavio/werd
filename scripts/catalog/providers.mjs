@@ -5,16 +5,33 @@
 import { compareVersions, exists, fetchJson, fetchText, githubHeaders, githubReleases, latestPerLine } from "./lib.mjs";
 
 const WINDOWS = "windows-x64";
+/** Catalog platform → architecture names used upstream (static-php-cli, Node.js). */
+const MACOS = [
+  { platform: "macos-arm64", arch: "arm64", spc: "aarch64", node: "darwin-arm64", files: "osx-arm64-tar" },
+  { platform: "macos-x64", arch: "x64", spc: "x86_64", node: "darwin-x64", files: "osx-x64-tar" },
+];
+/** This repository: macOS PHP builds are published in its `php-<version>` releases. */
+const WERD_REPO = process.env.GITHUB_REPOSITORY ?? "JustFlavio/werd";
 const minor = (version) => version.split(".").slice(0, 2).join(".");
 const major = (version) => version.split(".")[0];
 
 async function php(ctx) {
-  const base = "https://downloads.php.net/~windows/releases/";
-  const releases = await fetchJson(`${base}releases.json`);
   const lines = {};
+  await addWindowsPhp(ctx, lines, "https://downloads.php.net/~windows/releases/");
+  // The QA folder adds the next minor (8.6.0RC2) before its release; its RCs of
+  // existing lines are skipped.
+  await addWindowsPhp(ctx, lines, "https://downloads.php.net/~windows/qa/", { newLinesOnly: true });
+  await addWerdPhp(ctx, lines);
+  await addStaticPhp(ctx, lines);
+  return { label: "PHP", kind: "runtime", lines };
+}
+
+async function addWindowsPhp(ctx, lines, base, { newLinesOnly = false } = {}) {
+  const releases = await fetchJson(`${base}releases.json`);
   for (const [line, release] of Object.entries(releases)) {
     const key = Object.keys(release).find((name) => /^nts-v[cs]\d+-x64$/.test(name));
     if (!key || compareVersions(line, "7.4") < 0) continue;
+    if (newLinesOnly && (lines[line] || !/(alpha|beta|RC)\d+$/.test(release.version))) continue;
     const zip = release[key].zip;
     lines[line] = {
       latest: release.version,
@@ -28,7 +45,78 @@ async function php(ctx) {
       },
     };
   }
-  return { label: "PHP", kind: "runtime", lines };
+}
+
+/**
+ * macOS PHP built by `.github/workflows/php-macos.yml`: php and php-fpm in one
+ * archive per architecture, released as `php-<version>`. The newest release of
+ * each line wins; GitHub's asset digest is the upstream checksum.
+ */
+async function addWerdPhp(ctx, lines) {
+  const releases = await githubReleases(WERD_REPO, 5, { prereleases: true });
+  for (const { platform, arch } of MACOS) {
+    const newest = new Map();
+    for (const release of releases) {
+      const version = release.tag_name.match(/^php-(\d+\.\d+\.\d+(?:(?:alpha|beta|RC)\d+)?)$/)?.[1];
+      const asset =
+        version && release.assets.find((candidate) => candidate.name === `php-${version}-macos-${arch}.tar.gz`);
+      if (!asset) continue;
+      const line = minor(version);
+      if (!newest.has(line) || compareVersions(version, newest.get(line).version) > 0) {
+        newest.set(line, { version, asset });
+      }
+    }
+    for (const [line, { version, asset }] of newest) {
+      const url = asset.browser_download_url;
+      const upstream = asset.digest?.startsWith("sha256:") ? asset.digest.slice(7) : undefined;
+      lines[line] ??= { latest: version, builds: {} };
+      if (compareVersions(version, lines[line].latest) > 0) lines[line].latest = version;
+      lines[line].builds[platform] = {
+        url,
+        sha256: await ctx.sha256(url, upstream),
+        format: "tar.gz",
+        marker: "php-fpm",
+        ...(version === lines[line].latest ? {} : { version }),
+      };
+    }
+  }
+}
+
+/**
+ * macOS PHP from static-php-cli's prebuilt "bulk" distribution, for lines Werd
+ * does not build itself (8.0 and 8.1, which php.net no longer updates).
+ * Self-contained binaries with the common extensions compiled in (list in its
+ * README.txt). There is no CGI SAPI, so the php-fpm archive is installed next
+ * to the CLI. Each build records its own version when it differs from Windows.
+ */
+async function addStaticPhp(ctx, lines) {
+  const base = "https://dl.static-php.dev/static-php-cli/bulk/";
+  const listing = await fetchJson(`${base}?format=json`);
+  const names = new Set(listing.map((entry) => entry.name));
+  for (const { platform, spc } of MACOS) {
+    const newest = new Map();
+    for (const name of names) {
+      const version = name.match(new RegExp(`^php-(\\d+\\.\\d+\\.\\d+)-cli-macos-${spc}\\.tar\\.gz$`))?.[1];
+      if (!version || !names.has(`php-${version}-fpm-macos-${spc}.tar.gz`)) continue;
+      const line = minor(version);
+      if (!newest.has(line) || compareVersions(version, newest.get(line)) > 0) newest.set(line, version);
+    }
+    for (const [line, version] of newest) {
+      if (lines[line]?.builds[platform]) continue;
+      const cli = `${base}php-${version}-cli-macos-${spc}.tar.gz`;
+      const fpm = `${base}php-${version}-fpm-macos-${spc}.tar.gz`;
+      lines[line] ??= { latest: version, builds: {} };
+      if (compareVersions(version, lines[line].latest) > 0) lines[line].latest = version;
+      lines[line].builds[platform] = {
+        url: cli,
+        sha256: await ctx.sha256(cli),
+        format: "tar.gz",
+        marker: "php-fpm",
+        ...(version === lines[line].latest ? {} : { version }),
+        extra: [{ url: fpm, sha256: await ctx.sha256(fpm), format: "tar.gz" }],
+      };
+    }
+  }
 }
 
 async function node(ctx) {
@@ -51,11 +139,24 @@ async function node(ctx) {
       .split("\n")
       .find((row) => row.endsWith(`  ${file}`))
       ?.split(" ")[0];
-    lines[line] = {
-      latest: version,
-      lts,
-      builds: { [WINDOWS]: { url, sha256: await ctx.sha256(url, upstream), format: "zip", marker: "node.exe" } },
-    };
+    const builds = { [WINDOWS]: { url, sha256: await ctx.sha256(url, upstream), format: "zip", marker: "node.exe" } };
+    for (const { platform, node, files } of MACOS) {
+      if (!index.find((release) => release.version === `v${version}`)?.files.includes(files)) continue;
+      const tarball = `node-v${version}-${node}.tar.gz`;
+      const hash = sums
+        .split("\n")
+        .find((row) => row.endsWith(`  ${tarball}`))
+        ?.split(" ")[0];
+      if (!hash) continue;
+      const tarballUrl = `https://nodejs.org/dist/v${version}/${tarball}`;
+      builds[platform] = {
+        url: tarballUrl,
+        sha256: await ctx.sha256(tarballUrl, hash),
+        format: "tar.gz",
+        marker: "bin/node",
+      };
+    }
+    lines[line] = { latest: version, lts, builds };
   }
   return { label: "Node.js", kind: "runtime", lines };
 }

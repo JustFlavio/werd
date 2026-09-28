@@ -41,27 +41,40 @@ export function githubHeaders() {
   };
 }
 
-/** Non-prerelease GitHub releases, newest first. */
-export async function githubReleases(repo, pages = 2) {
+/** Published GitHub releases, newest first; pre-releases only when asked for. */
+export async function githubReleases(repo, pages = 2, { prereleases = false } = {}) {
   const releases = [];
   for (let page = 1; page <= pages; page++) {
     const batch = await fetchJson(
       `https://api.github.com/repos/${repo}/releases?per_page=100&page=${page}`,
       githubHeaders(),
     );
-    releases.push(...batch.filter((release) => !release.prerelease && !release.draft));
+    releases.push(...batch.filter((release) => !release.draft && (prereleases || !release.prerelease)));
     if (batch.length < 100) break;
   }
   return releases;
 }
 
-/** Numeric comparison of dotted versions ("8.10.2" > "8.9.9"). */
+/** Each dotted part as [number, stage, stage number]; a final release (stage 3) sorts after alpha, beta and RC. */
+function versionKey(value) {
+  return value.split(/[.-]/).map((part) => {
+    const [, number, letters, stageNumber] = part.toLowerCase().match(/^(\d*)([a-z]*)(\d*)$/) ?? [];
+    const stage = !letters ? 3 : letters === "alpha" ? 0 : letters === "beta" ? 1 : 2;
+    return [Number.parseInt(number, 10) || 0, stage, Number.parseInt(stageNumber, 10) || 0];
+  });
+}
+
+/** Numeric comparison of dotted versions ("8.10.2" > "8.9.9", "8.6.0RC2" < "8.6.0"). */
 export function compareVersions(a, b) {
-  const left = a.split(/[.-]/).map((part) => Number.parseInt(part, 10) || 0);
-  const right = b.split(/[.-]/).map((part) => Number.parseInt(part, 10) || 0);
+  const left = versionKey(a);
+  const right = versionKey(b);
+  const release = [0, 3, 0];
   for (let index = 0; index < Math.max(left.length, right.length); index++) {
-    const difference = (left[index] ?? 0) - (right[index] ?? 0);
-    if (difference !== 0) return difference;
+    const l = left[index] ?? release;
+    const r = right[index] ?? release;
+    for (let field = 0; field < 3; field++) {
+      if (l[field] !== r[field]) return l[field] - r[field];
+    }
   }
   return 0;
 }

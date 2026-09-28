@@ -21,7 +21,9 @@ const previous = existsSync(target) ? JSON.parse(readFileSync(target, "utf8")) :
 const knownHashes = new Map();
 for (const product of Object.values(previous.products)) {
   for (const line of Object.values(product.lines)) {
-    for (const build of Object.values(line.builds)) knownHashes.set(build.url, build.sha256);
+    for (const build of Object.values(line.builds)) {
+      for (const part of [build, ...(build.extra ?? [])]) knownHashes.set(part.url, part.sha256);
+    }
   }
 }
 
