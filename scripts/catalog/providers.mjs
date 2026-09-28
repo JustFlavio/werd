@@ -197,25 +197,37 @@ async function cacert(ctx) {
   };
 }
 
-/** Latest release per line from GitHub, one Windows zip asset per release. */
-function github({ repo, label, kind, categories, defaultPort, lineOf, asset, marker, minLine }) {
+/**
+ * Latest release per line from GitHub: a Windows zip asset per release, plus
+ * `platforms` (catalog platform → `{ asset, format, marker }`) for other systems.
+ * GitHub's asset digest is the upstream checksum when it has one.
+ */
+function github({ repo, label, kind, categories, defaultPort, lineOf, asset, marker, minLine, platforms = {} }) {
+  const targets = { [WINDOWS]: { asset, format: "zip", marker }, ...platforms };
   return async (ctx) => {
     const releases = await githubReleases(repo);
     const byVersion = new Map();
     for (const release of releases) {
       const version = release.tag_name.replace(/^v/, "");
-      const file = release.assets.find((candidate) => asset.test(candidate.name));
-      if (file) byVersion.set(version, file.browser_download_url);
+      const files = {};
+      for (const [platform, target] of Object.entries(targets)) {
+        const file = release.assets.find((candidate) => target.asset.test(candidate.name));
+        if (file) files[platform] = file;
+      }
+      if (Object.keys(files).length) byVersion.set(version, files);
     }
     const latest = latestPerLine([...byVersion.keys()], lineOf);
     const lines = {};
     for (const [line, version] of latest) {
       if (minLine && compareVersions(line, minLine) < 0) continue;
-      const url = byVersion.get(version);
-      lines[line] = {
-        latest: version,
-        builds: { [WINDOWS]: { url, sha256: await ctx.sha256(url), format: "zip", marker } },
-      };
+      const builds = {};
+      for (const [platform, file] of Object.entries(byVersion.get(version))) {
+        const url = file.browser_download_url;
+        const upstream = file.digest?.startsWith("sha256:") ? file.digest.slice(7) : undefined;
+        const { format, marker } = targets[platform];
+        builds[platform] = { url, sha256: await ctx.sha256(url, upstream), format, marker };
+      }
+      lines[line] = { latest: version, builds };
     }
     return {
       label,
@@ -457,6 +469,10 @@ export const providers = {
     asset: /_windows_amd64\.zip$/,
     marker: "caddy.exe",
     minLine: "2",
+    platforms: {
+      "macos-arm64": { asset: /_mac_arm64\.tar\.gz$/, format: "tar.gz", marker: "caddy" },
+      "macos-x64": { asset: /_mac_amd64\.tar\.gz$/, format: "tar.gz", marker: "caddy" },
+    },
   }),
   postgresql,
   pgvector,

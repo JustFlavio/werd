@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated": "2026-09-28T10:08:05.986Z",
+  "generated": "2026-09-28T11:14:42.870Z",
   "products": {
     "cacert": {
       "kind": "tool",
@@ -25,6 +25,18 @@
       "lines": {
         "2": {
           "builds": {
+            "macos-arm64": {
+              "format": "tar.gz",
+              "marker": "caddy",
+              "sha256": "9efb0af2d6cf09cfb5053c0e51721b9b3d4956d346234f39368d943d25a3c9a7",
+              "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.4/caddy_2.11.4_mac_arm64.tar.gz"
+            },
+            "macos-x64": {
+              "format": "tar.gz",
+              "marker": "caddy",
+              "sha256": "34bc9e5cceee8d67844ef51da624f5b79e8d070f27236e050c3f0066a2dba534",
+              "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.4/caddy_2.11.4_mac_amd64.tar.gz"
+            },
             "windows-x64": {
               "format": "zip",
               "marker": "caddy.exe",
