@@ -7,7 +7,11 @@ Werd is an open-source local development environment for Laravel and PHP, in the
 
 A desktop app and a `werd` CLI share one Rust daemon. Sites run their own PHP FastCGI behind one shared Caddy, on `https://<name>.test`, and link to shared services you create once: PostgreSQL (with optional pgvector), MySQL, MariaDB, MongoDB, Redis, Mailpit, RustFS (S3) and Meilisearch.
 
-> **Status: pre-beta.** Windows works end to end. macOS and Linux are next. See the [roadmap](#roadmap).
+> **Status: release candidate.** Windows x64 works end to end. macOS and Linux are next. See the [roadmap](#roadmap).
+
+## Download
+
+Download the latest Windows installer from [Werd releases](https://github.com/JustFlavio/werd-releases/releases/latest). Signed in-app updates currently use that repository too, so existing installations continue to receive updates.
 
 ## What works today (Windows x64)
 
