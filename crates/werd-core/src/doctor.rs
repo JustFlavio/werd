@@ -117,9 +117,26 @@ mod tests {
         let mut installed = Installed::default();
         installed.set("php", "8.5", "8.5.11");
         installed.save(root.path()).unwrap();
-        let checks = run(root.path(), &Catalog::embedded(), &Router::default(), &[]);
+        // A build for whatever platform the tests run on, so its marker is checked.
+        let catalog = Catalog::parse(
+            &serde_json::json!({ "schema": 1, "products": { "php": { "label": "PHP", "kind": "runtime",
+                "lines": { "8.5": { "latest": "8.5.11", "builds": { crate::catalog::PLATFORM: {
+                    "url": "https://example.test/php.zip", "sha256": "0".repeat(64),
+                    "format": "zip", "marker": "php-binary"
+                }}}}
+            }}})
+            .to_string(),
+        )
+        .unwrap();
+        let checks = run(root.path(), &catalog, &Router::default(), &[]);
         let php = checks.iter().find(|check| check.label == "PHP 8.5").unwrap();
         assert!(!php.ok, "the PHP binary is missing on disk");
         assert!(checks[0].ok, "the daemon check is always first and ok");
+
+        let binary = crate::runtimes::line_dir(root.path(), "php", "8.5");
+        std::fs::create_dir_all(&binary).unwrap();
+        std::fs::write(binary.join("php-binary"), "").unwrap();
+        let checks = run(root.path(), &catalog, &Router::default(), &[]);
+        assert!(checks.iter().find(|check| check.label == "PHP 8.5").unwrap().ok);
     }
 }
