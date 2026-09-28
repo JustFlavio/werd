@@ -1,7 +1,7 @@
 //! `werd-helper hosts <domain>...`: replaces the Werd block of the hosts file.
 //! `werd-helper check`: exits 1 when the hosts file has a Werd block (no rights needed).
 //!
-//! Werd starts `hosts` elevated (UAC) because the hosts file needs administrator
+//! Werd starts `hosts` elevated (UAC on Windows, the password prompt on macOS) because the hosts file needs administrator
 //! rights. It does nothing else: every domain must be a `.test` name and is
 //! always mapped to 127.0.0.1, so a tampered call cannot redirect real sites.
 //! `hosts` without domains removes the block; the uninstaller uses it.
@@ -22,7 +22,10 @@ fn main() -> ExitCode {
                 return ExitCode::from(2);
             }
             match domains::apply_hosts(&wanted) {
-                Ok(()) => ExitCode::SUCCESS,
+                Ok(()) => {
+                    flush_dns_cache();
+                    ExitCode::SUCCESS
+                }
                 Err(_) => ExitCode::from(3),
             }
         }
@@ -32,5 +35,17 @@ fn main() -> ExitCode {
             Err(_) => ExitCode::from(3),
         },
         _ => ExitCode::from(2),
+    }
+}
+
+/// macOS caches name lookups; without a flush a new domain can take a while to resolve.
+fn flush_dns_cache() {
+    if cfg!(target_os = "macos") {
+        let _ = std::process::Command::new("/usr/bin/dscacheutil")
+            .arg("-flushcache")
+            .status();
+        let _ = std::process::Command::new("/usr/bin/killall")
+            .args(["-HUP", "mDNSResponder"])
+            .status();
     }
 }

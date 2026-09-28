@@ -288,11 +288,11 @@ export const enablePath = () => rpc<Settings>("path.enable");
 export const disablePath = () => rpc<Settings>("path.disable");
 export const doctor = () => rpc<DoctorResult[]>("doctor");
 export const trustCa = () => rpc<string>("trust-ca");
-/** Whether the local CA exists (after the first site start) and is trusted by Windows. */
+/** Whether the local CA exists (after the first site start) and is trusted by the system. */
 export const certificateStatus = () => rpc<{ exists: boolean; trusted: boolean }>("certificate.status");
 export const domainsStatus = () => rpc<DomainsStatus>("domains.status");
 
-/** Adds every site domain to the hosts file. Windows asks for administrator approval. */
+/** Adds every site domain to the hosts file. The system asks for administrator approval. */
 export async function syncHosts(): Promise<void> {
   if (demo) {
     await demoRpc("hosts.sync", {});

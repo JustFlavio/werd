@@ -97,7 +97,8 @@ pub fn helper_executable() -> Result<PathBuf> {
 }
 
 /// Maps `domains` to 127.0.0.1 in the hosts file. Windows asks for administrator
-/// approval (UAC); nothing changes if the user declines.
+/// approval (UAC), macOS for an administrator password; nothing changes if the
+/// user declines.
 pub fn sync_hosts(domains: &[String]) -> Result<()> {
     for domain in domains {
         if !crate::domains::is_valid(domain) {
@@ -161,7 +162,50 @@ fn run_elevated(program: &Path, arguments: &[String]) -> Result<u32> {
     }
 }
 
-#[cfg(not(windows))]
+/// AppleScript that runs its arguments as one shell command, each argument quoted.
+#[cfg(target_os = "macos")]
+const ELEVATED_SCRIPT: &str = r#"on run argv
+    set command to quoted form of (item 1 of argv)
+    repeat with argument in rest of argv
+        set command to command & " " & quoted form of (argument as text)
+    end repeat
+    do shell script command with prompt "Werd needs your password to add .test domains to /etc/hosts." with administrator privileges
+end run"#;
+
+/// Runs `program` as root after macOS asks for an administrator password;
+/// returns its exit code.
+#[cfg(target_os = "macos")]
+fn run_elevated(program: &Path, arguments: &[String]) -> Result<u32> {
+    let output = hidden_command("/usr/bin/osascript")
+        .arg("-e")
+        .arg(ELEVATED_SCRIPT)
+        .arg(program)
+        .args(arguments)
+        .output()
+        .context("Cannot ask for administrator approval")?;
+    if output.status.success() {
+        return Ok(0);
+    }
+    elevated_exit_code(&String::from_utf8_lossy(&output.stderr))
+}
+
+/// Reads `do shell script`'s error: -128 is a cancelled password prompt, any
+/// other number is the command's exit code.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+fn elevated_exit_code(stderr: &str) -> Result<u32> {
+    let number = stderr
+        .trim()
+        .strip_suffix(')')
+        .and_then(|rest| rest.rsplit_once('('))
+        .and_then(|(_, number)| number.parse::<i64>().ok());
+    match number {
+        Some(-128) => bail!("Administrator approval was declined; the hosts file was not changed"),
+        Some(code) if code > 0 => Ok(u32::try_from(code).unwrap_or(1)),
+        _ => bail!("Cannot run the Werd helper as administrator: {}", stderr.trim()),
+    }
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
 fn run_elevated(_program: &Path, _arguments: &[String]) -> Result<u32> {
     bail!("Updating the hosts file is not available on this platform yet")
 }
@@ -209,7 +253,17 @@ pub fn is_certificate_trusted(certificate: &Path) -> bool {
             .into_iter()
             .any(|hive| RegKey::predef(hive).open_subkey(&key).is_ok())
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        let _ = thumbprint;
+        // Succeeds only when the keychain trust settings make the CA a trusted root.
+        hidden_command("/usr/bin/security")
+            .args(["verify-cert", "-p", "basic", "-q", "-c"])
+            .arg(certificate)
+            .output()
+            .is_ok_and(|output| output.status.success())
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let _ = thumbprint;
         false
@@ -231,6 +285,24 @@ pub fn trust_certificate(certificate: &Path) -> Result<String> {
             );
         }
         Ok("Werd's local CA was added to the current user's trusted roots".into())
+    } else if cfg!(target_os = "macos") {
+        // macOS asks for the user's password before changing trust settings.
+        let keychain = dirs::home_dir()
+            .context("Home folder not found")?
+            .join("Library/Keychains/login.keychain-db");
+        let output = hidden_command("/usr/bin/security")
+            .args(["add-trusted-cert", "-r", "trustRoot", "-k"])
+            .arg(keychain)
+            .arg(certificate)
+            .output()
+            .context("The security tool is not available")?;
+        if !output.status.success() {
+            bail!(
+                "Trusting the certificate failed: {}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            );
+        }
+        Ok("Werd's local CA was added to your login keychain as a trusted root".into())
     } else {
         bail!("Trusting the local CA is not available on this platform yet")
     }
@@ -250,6 +322,17 @@ mod tests {
         );
         assert!(thumbprint("not a certificate").is_none());
         assert!(!is_certificate_trusted(Path::new("missing.crt")));
+    }
+
+    #[test]
+    fn elevated_errors_are_read_from_osascript() {
+        let declined = "0:198: execution error: User canceled. (-128)\n";
+        assert!(elevated_exit_code(declined)
+            .unwrap_err()
+            .to_string()
+            .contains("declined"));
+        assert_eq!(elevated_exit_code("0:198: execution error: (3)\n").unwrap(), 3);
+        assert!(elevated_exit_code("something else").is_err());
     }
 
     #[test]

@@ -33,7 +33,7 @@ export const it: Messages = {
   shell: {
     starting: "Avvio di Werd…",
     hostsMissing: (domains: string[]) =>
-      `Non ancora nel file hosts: ${domains.length <= 3 ? domains.join(", ") : `${domains.slice(0, 3).join(", ")} +${domains.length - 3}`}. Windows chiede l’autorizzazione di amministratore per aggiungerli.`,
+      `Non ancora nel file hosts: ${domains.length <= 3 ? domains.join(", ") : `${domains.slice(0, 3).join(", ")} +${domains.length - 3}`}. Il sistema chiede l’autorizzazione di amministratore per aggiungerli.`,
     updateHosts: "Aggiorna file hosts",
     hostsUpdated: "Il file hosts è aggiornato.",
     daemonOffline: "Gestore non raggiungibile",
@@ -209,7 +209,7 @@ export const it: Messages = {
     installingPhp: (line: string) => `==> Installazione di PHP ${line}`,
     linking: (path: string) => `==> Collegamento di ${path}`,
     linked: (name: string, domain: string) => `${name} è pronto su https://${domain}`,
-    updatingHosts: (domains: string) => `==> Aggiunta di ${domains} al file hosts (Windows chiede l’autorizzazione)`,
+    updatingHosts: (domains: string) => `==> Aggiunta di ${domains} al file hosts (il sistema chiede l’autorizzazione)`,
     hostsSkipped: "Il file hosts non è stato aggiornato",
     noSite: "Il progetto è stato creato ma Werd non è riuscito a collegarlo",
     working: "In corso…",

@@ -169,7 +169,7 @@ export default function App() {
     await refresh();
   }
 
-  /** Adds missing site domains to the hosts file; Windows shows a UAC prompt. */
+  /** Adds missing site domains to the hosts file; the system asks for administrator approval. */
   const updateHosts = () =>
     run("hosts", async () => {
       await syncHosts();

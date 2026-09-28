@@ -195,7 +195,7 @@ pub fn sync_hosts_if_needed() -> Result<()> {
         return Ok(());
     }
     println!(
-        "Adding {} to the hosts file; Windows will ask for administrator approval.",
+        "Adding {} to the hosts file; your system will ask for administrator approval.",
         missing.join(", ")
     );
     let domains: Vec<String> = serde_json::from_value(status["domains"].clone())?;

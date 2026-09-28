@@ -40,7 +40,7 @@ export const en = {
     daemonOfflineBanner: (error: string) => `Cannot reach the Werd daemon: ${error}`,
     portsReset: "Ports will be reassigned on the next start. Remember to update your .env.",
     hostsMissing: (domains: string[]) =>
-      `Not in the hosts file yet: ${domains.length <= 3 ? domains.join(", ") : `${domains.slice(0, 3).join(", ")} +${domains.length - 3}`}. Windows asks for administrator approval to add them.`,
+      `Not in the hosts file yet: ${domains.length <= 3 ? domains.join(", ") : `${domains.slice(0, 3).join(", ")} +${domains.length - 3}`}. Your system asks for administrator approval to add them.`,
     updateHosts: "Update hosts file",
     hostsUpdated: "The hosts file is up to date.",
   },
@@ -211,7 +211,7 @@ export const en = {
     installingPhp: (line: string) => `==> Installing PHP ${line}`,
     linking: (path: string) => `==> Linking ${path}`,
     linked: (name: string, domain: string) => `${name} is ready at https://${domain}`,
-    updatingHosts: (domains: string) => `==> Adding ${domains} to the hosts file (Windows asks for permission)`,
+    updatingHosts: (domains: string) => `==> Adding ${domains} to the hosts file (your system asks for permission)`,
     hostsSkipped: "The hosts file was not updated",
     noSite: "The project was created but Werd could not link it",
     working: "Working…",
