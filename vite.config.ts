@@ -13,6 +13,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["src/test/setup.ts"],
+    // Only this checkout: git worktrees under .claude/ have their own src/.
+    include: ["src/**/*.test.{ts,tsx}"],
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],
