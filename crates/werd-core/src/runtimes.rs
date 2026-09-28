@@ -184,10 +184,10 @@ pub fn list(root: &Path, catalog: &Catalog, settings: &Settings) -> Result<Vec<R
                 label: product.label.clone(),
                 kind: product.kind,
                 line: (*line).clone(),
-                latest: Some(entry.latest.clone()),
+                latest: Some(entry.latest_here().to_string()),
                 update_available: current
                     .as_deref()
-                    .is_some_and(|version| compare_versions(version, &entry.latest) == Ordering::Less),
+                    .is_some_and(|version| compare_versions(version, entry.latest_here()) == Ordering::Less),
                 installed: current,
                 is_default: default == Some(line.as_str()),
                 lts: entry.lts,
@@ -253,25 +253,31 @@ impl Fetcher for HttpFetcher {
     }
 }
 
-/// Downloads `build` once into `downloads/`, rejecting any checksum mismatch.
-fn download(root: &Path, fetcher: &dyn Fetcher, build: &Build, progress: &Progress) -> Result<PathBuf> {
+/// Downloads `url` once into `downloads/`, rejecting any checksum mismatch.
+fn download(
+    root: &Path,
+    fetcher: &dyn Fetcher,
+    url: &str,
+    sha256: &str,
+    progress: &Progress,
+) -> Result<PathBuf> {
     let downloads = root.join("downloads");
     fs::create_dir_all(&downloads)?;
-    let archive = downloads.join(&build.sha256);
-    if archive.is_file() && verify_sha256(&archive, &build.sha256)? {
+    let archive = downloads.join(sha256);
+    if archive.is_file() && verify_sha256(&archive, sha256)? {
         return Ok(archive);
     }
-    let partial = downloads.join(format!("{}.part", build.sha256));
+    let partial = downloads.join(format!("{sha256}.part"));
     progress.step("Downloading");
     {
         let mut file = File::create(&partial)?;
-        fetcher.fetch(&build.url, &mut file, &|done, total| progress.bytes(done, total))?;
+        fetcher.fetch(url, &mut file, &|done, total| progress.bytes(done, total))?;
         file.sync_all()?;
     }
     progress.step("Verifying");
-    if !verify_sha256(&partial, &build.sha256)? {
+    if !verify_sha256(&partial, sha256)? {
         let _ = fs::remove_file(&partial);
-        bail!("Checksum mismatch for {}: download rejected", build.url);
+        bail!("Checksum mismatch for {url}: download rejected");
     }
     fs::rename(partial, &archive)?;
     Ok(archive)
@@ -289,7 +295,9 @@ pub fn install(
     progress: &Progress,
 ) -> Result<String> {
     let (entry, build) = catalog.build(product, line)?;
-    if build.format == Format::Unsupported {
+    if build.format == Format::Unsupported
+        || build.extra.iter().any(|part| part.format == Format::Unsupported)
+    {
         bail!("This version of Werd cannot install {product} {line}; update Werd");
     }
     if product == "pgvector" && Installed::load(root)?.lines("postgresql").is_empty() {
@@ -300,22 +308,28 @@ pub fn install(
     {
         bail!("Install PHP {line} before {product}");
     }
-    let archive = download(root, fetcher, build, progress)?;
+    let mut archives = vec![(
+        download(root, fetcher, &build.url, &build.sha256, progress)?,
+        build.format,
+    )];
+    for part in &build.extra {
+        archives.push((
+            download(root, fetcher, &part.url, &part.sha256, progress)?,
+            part.format,
+        ));
+    }
     let destination = line_dir(root, product, line);
     progress.step("Installing");
-    match build.format {
-        Format::Zip => extract_into(&archive, &destination, &build.marker)?,
-        Format::Phar | Format::File => place_file(&archive, &destination, &build.marker)?,
-        Format::Unsupported => bail!("Unsupported archive format"),
-    }
+    install_files(&archives, &destination, build)?;
 
     let mut installed = Installed::load(root)?;
-    installed.set(product, line, &entry.latest);
+    installed.set(product, line, entry.latest_here());
     installed.save(root)?;
 
     match product {
         "php" => {
-            // PHP on Windows ships without CA certificates; HTTPS (Composer, Guzzle) needs them.
+            // Neither PHP for Windows nor the static macOS builds know where the
+            // system CA certificates are; HTTPS (Composer, Guzzle) needs them.
             if installed.lines("cacert").is_empty() && catalog.products.contains_key("cacert") {
                 install(root, catalog, fetcher, "cacert", "mozilla", progress)?;
             }
@@ -344,7 +358,7 @@ pub fn install(
         }
         _ => {}
     }
-    Ok(entry.latest.clone())
+    Ok(entry.latest_here().to_string())
 }
 
 pub fn uninstall(root: &Path, product: &str, line: &str) -> Result<()> {
@@ -549,29 +563,50 @@ fn verify_sha256(path: &Path, expected: &str) -> Result<bool> {
     Ok(format!("{:x}", hash.finalize()) == expected)
 }
 
-/// Copies a single-file download (e.g. a .phar) to `destination/name`.
-fn place_file(download: &Path, destination: &Path, name: &str) -> Result<()> {
+/// Unpacks every archive of a build into a staging folder, then swaps it into
+/// place, so a failed or interrupted install never leaves a half-written runtime behind.
+fn install_files(archives: &[(PathBuf, Format)], destination: &Path, build: &Build) -> Result<()> {
     let staging = staging_dir(destination)?;
-    fs::copy(download, staging.join(name))?;
-    swap_into(&staging, destination)
-}
-
-/// Extracts into a staging folder, then swaps it into place, so a failed or
-/// interrupted install never leaves a half-written runtime behind.
-fn extract_into(archive: &Path, destination: &Path, marker: &str) -> Result<()> {
-    let staging = staging_dir(destination)?;
-    let result = extract(archive, &staging).and_then(|()| {
-        if staging.join(marker).is_file() {
-            Ok(())
-        } else {
-            bail!("The archive is incomplete: {marker} is missing")
-        }
-    });
+    let result = archives
+        .iter()
+        .try_for_each(|(archive, format)| match format {
+            Format::Zip => extract(archive, &staging),
+            Format::TarGz => extract_tar_gz(archive, &staging),
+            // A .phar or a bare executable, saved under the marker name.
+            Format::Phar | Format::File => {
+                let target = staging.join(&build.marker);
+                fs::copy(archive, &target)?;
+                if *format == Format::File {
+                    make_executable(&target)?;
+                }
+                Ok(())
+            }
+            Format::Unsupported => bail!("Unsupported archive format"),
+        })
+        .and_then(|()| {
+            if staging.join(&build.marker).is_file() {
+                Ok(())
+            } else {
+                bail!("The archive is incomplete: {} is missing", build.marker)
+            }
+        });
     if let Err(error) = result {
         let _ = fs::remove_dir_all(&staging);
         return Err(error);
     }
     swap_into(&staging, destination)
+}
+
+#[cfg(unix)]
+fn make_executable(path: &Path) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o755))?;
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn make_executable(_path: &Path) -> Result<()> {
+    Ok(())
 }
 
 fn staging_dir(destination: &Path) -> Result<PathBuf> {
@@ -644,10 +679,51 @@ fn extract(path: &Path, destination: &Path) -> Result<()> {
         if let Some(parent) = output.parent() {
             fs::create_dir_all(parent)?;
         }
-        let mut file = File::create(output)?;
+        let mut file = File::create(&output)?;
         std::io::copy(&mut entry, &mut file)?;
         file.flush()?;
+        #[cfg(unix)]
+        if let Some(mode) = entry.unix_mode() {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&output, fs::Permissions::from_mode(mode & 0o755))?;
+        }
     }
+    Ok(())
+}
+
+/// Extracts a `.tar.gz` with its permissions and symbolic links (Node.js links
+/// `bin/npm` into `lib/`), dropping a single top-level folder like `extract`.
+/// The `tar` crate refuses entries and links that escape `destination`.
+fn extract_tar_gz(path: &Path, destination: &Path) -> Result<()> {
+    let unpacked = destination.join(".unpacked");
+    fs::create_dir_all(&unpacked)?;
+    let mut expanded: u64 = 0;
+    let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(File::open(path)?));
+    archive.set_preserve_permissions(true);
+    for entry in archive.entries()? {
+        let mut entry = entry?;
+        expanded = expanded.saturating_add(entry.size());
+        if expanded > MAX_ARCHIVE_BYTES {
+            bail!("Archive too large once extracted");
+        }
+        if !entry.unpack_in(&unpacked)? {
+            bail!("Unsafe path in archive: {}", entry.path()?.display());
+        }
+    }
+    let top: Vec<_> = fs::read_dir(&unpacked)?.collect::<std::io::Result<_>>()?;
+    let source = match top.as_slice() {
+        [single] if single.file_type()?.is_dir() => single.path(),
+        _ => unpacked.clone(),
+    };
+    for entry in fs::read_dir(&source)? {
+        let entry = entry?;
+        let target = destination.join(entry.file_name());
+        if target.is_dir() {
+            fs::remove_dir_all(&target)?;
+        }
+        fs::rename(entry.path(), target)?;
+    }
+    fs::remove_dir_all(&unpacked)?;
     Ok(())
 }
 
@@ -973,6 +1049,111 @@ pub(crate) mod tests {
             .unwrap()
             .lines("phpmongodb")
             .is_empty());
+    }
+
+    fn tar_gz_with(path: &Path, entries: &[(&str, &str, u32)], links: &[(&str, &str)]) {
+        let mut builder = tar::Builder::new(flate2::write::GzEncoder::new(
+            File::create(path).unwrap(),
+            flate2::Compression::fast(),
+        ));
+        for (name, content, mode) in entries {
+            let mut header = tar::Header::new_gnu();
+            header.set_size(content.len() as u64);
+            header.set_mode(*mode);
+            builder
+                .append_data(&mut header, name, content.as_bytes())
+                .unwrap();
+        }
+        for (name, target) in links {
+            let mut header = tar::Header::new_gnu();
+            header.set_entry_type(tar::EntryType::Symlink);
+            header.set_size(0);
+            builder.append_link(&mut header, name, target).unwrap();
+        }
+        builder.into_inner().unwrap().finish().unwrap();
+    }
+
+    #[test]
+    fn tar_gz_builds_with_extra_parts_install_into_one_folder() {
+        let root = tempfile::tempdir().unwrap();
+        let cli = root.path().join("cli.tar.gz");
+        tar_gz_with(&cli, &[("php", "cli", 0o755)], &[]);
+        let fpm = root.path().join("fpm.tar.gz");
+        tar_gz_with(&fpm, &[("php-fpm", "fpm", 0o755)], &[]);
+        let node = root.path().join("node.tar.gz");
+        tar_gz_with(
+            &node,
+            &[
+                ("node-v24/bin/node", "node", 0o755),
+                ("node-v24/lib/node_modules/npm/bin/npm-cli.js", "npm", 0o644),
+            ],
+            &[("node-v24/bin/npm", "../lib/node_modules/npm/bin/npm-cli.js")],
+        );
+        let catalog = serde_json::json!({ "schema": 1, "products": {
+            "php": { "label": "PHP", "kind": "runtime", "lines": { "8.5": {
+                "latest": "8.5.11", "builds": { crate::catalog::PLATFORM: {
+                    "url": "https://example.test/cli.tar.gz", "sha256": sha(&cli),
+                    "format": "tar.gz", "marker": "php-fpm", "version": "8.5.8",
+                    "extra": [{ "url": "https://example.test/fpm.tar.gz", "sha256": sha(&fpm), "format": "tar.gz" }]
+                }}
+            }}},
+            "node": { "label": "Node.js", "kind": "runtime", "lines": { "24": {
+                "latest": "24.1.0", "builds": { crate::catalog::PLATFORM: {
+                    "url": "https://example.test/node.tar.gz", "sha256": sha(&node),
+                    "format": "tar.gz", "marker": "bin/node"
+                }}
+            }}}
+        }});
+        let catalog = Catalog::parse(&catalog.to_string()).unwrap();
+        let fetcher = LocalFetcher(HashMap::from([
+            ("https://example.test/cli.tar.gz".into(), cli),
+            ("https://example.test/fpm.tar.gz".into(), fpm),
+            ("https://example.test/node.tar.gz".into(), node),
+        ]));
+        let version = install(
+            root.path(),
+            &catalog,
+            &fetcher,
+            "php",
+            "8.5",
+            &Progress::detached(),
+        )
+        .unwrap();
+        assert_eq!(
+            version, "8.5.8",
+            "the build's own version wins over the line's latest"
+        );
+        let php = line_dir(root.path(), "php", "8.5");
+        assert_eq!(fs::read_to_string(php.join("php")).unwrap(), "cli");
+        assert_eq!(fs::read_to_string(php.join("php-fpm")).unwrap(), "fpm");
+        assert!(php.join("php.ini").is_file());
+        assert!(!php.join(".unpacked").exists());
+
+        install(
+            root.path(),
+            &catalog,
+            &fetcher,
+            "node",
+            "24",
+            &Progress::detached(),
+        )
+        .unwrap();
+        let node = line_dir(root.path(), "node", "24");
+        assert!(
+            node.join("bin/node").is_file(),
+            "the single top folder is stripped"
+        );
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = fs::metadata(node.join("bin/node")).unwrap().permissions().mode();
+            assert_eq!(mode & 0o111, 0o111, "executables stay executable");
+            assert_eq!(
+                fs::read_to_string(node.join("bin/npm")).unwrap(),
+                "npm",
+                "links are kept"
+            );
+        }
     }
 
     #[test]

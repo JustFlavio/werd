@@ -75,6 +75,9 @@ pub struct Line {
 #[serde(rename_all = "lowercase")]
 pub enum Format {
     Zip,
+    /// A gzip-compressed tarball (macOS and Linux releases).
+    #[serde(rename = "tar.gz")]
+    TarGz,
     /// A PHP archive saved under the marker name (e.g. `composer.phar`).
     Phar,
     /// A single executable saved under the marker name (e.g. `meilisearch.exe`).
@@ -91,6 +94,21 @@ pub struct Build {
     pub format: Format,
     /// Path, relative to the install folder, whose presence means "installed".
     pub marker: String,
+    /// The patch this build installs when it lags behind the line's `latest`
+    /// (static macOS PHP builds follow php.net by a few weeks).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    /// More archives extracted into the same folder, e.g. `php-fpm` next to the
+    /// PHP CLI on macOS, where they ship separately.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub extra: Vec<Part>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Part {
+    pub url: String,
+    pub sha256: String,
+    pub format: Format,
 }
 
 impl Catalog {
@@ -147,11 +165,23 @@ impl Catalog {
             .get(line)
             .with_context(|| format!("Unknown {} version: {line}", entry.label))?;
         let build = line_entry
-            .builds
-            .get(PLATFORM)
-            .or_else(|| line_entry.builds.get("any"))
+            .build_here()
             .with_context(|| format!("{} {line} is not available for {PLATFORM}", entry.label))?;
         Ok((line_entry, build))
+    }
+}
+
+impl Line {
+    /// The build for this platform, or the portable one.
+    pub fn build_here(&self) -> Option<&Build> {
+        self.builds.get(PLATFORM).or_else(|| self.builds.get("any"))
+    }
+
+    /// The newest patch installable on this platform.
+    pub fn latest_here(&self) -> &str {
+        self.build_here()
+            .and_then(|build| build.version.as_deref())
+            .unwrap_or(&self.latest)
     }
 }
 
@@ -161,7 +191,7 @@ impl Product {
         let mut lines: Vec<_> = self
             .lines
             .iter()
-            .filter(|(_, line)| line.builds.contains_key(PLATFORM) || line.builds.contains_key("any"))
+            .filter(|(_, line)| line.build_here().is_some())
             .collect();
         lines.sort_by(|a, b| compare_versions(b.0, a.0));
         lines
@@ -169,21 +199,46 @@ impl Product {
 }
 
 /// Numeric comparison of dotted versions: `8.10.2` > `8.9.9`, `18` > `9.6`.
+/// Pre-releases sort before their release: `8.6.0alpha1` < `8.6.0RC2` < `8.6.0RC10` < `8.6.0`.
 pub fn compare_versions(a: &str, b: &str) -> Ordering {
-    let parse = |value: &str| -> Vec<u64> {
-        value
-            .split(['.', '-'])
-            .map(|part| part.parse().unwrap_or(0))
-            .collect()
-    };
-    let (left, right) = (parse(a), parse(b));
+    let (left, right) = (version_key(a), version_key(b));
     for index in 0..left.len().max(right.len()) {
-        let ordering = left.get(index).unwrap_or(&0).cmp(right.get(index).unwrap_or(&0));
+        let ordering = left
+            .get(index)
+            .unwrap_or(&RELEASE)
+            .cmp(right.get(index).unwrap_or(&RELEASE));
         if ordering != Ordering::Equal {
             return ordering;
         }
     }
     Ordering::Equal
+}
+
+/// A missing suffix: a final release, after every alpha, beta or RC.
+const RELEASE: (u64, u8, u64) = (0, 3, 0);
+
+/// Each dotted part as (number, stage, stage number): `0RC2` → (0, 2, 2).
+fn version_key(value: &str) -> Vec<(u64, u8, u64)> {
+    value
+        .split(['.', '-'])
+        .map(|part| {
+            let digits = part.len() - part.trim_start_matches(|c: char| c.is_ascii_digit()).len();
+            let (number, suffix) = part.split_at(digits);
+            let suffix = suffix.to_ascii_lowercase();
+            let letters = suffix.trim_end_matches(|c: char| c.is_ascii_digit());
+            let stage = match letters {
+                "" => 3,
+                "alpha" => 0,
+                "beta" => 1,
+                _ => 2,
+            };
+            (
+                number.parse().unwrap_or(0),
+                stage,
+                suffix[letters.len()..].parse().unwrap_or(0),
+            )
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -199,12 +254,21 @@ mod tests {
             for (line, entry) in &product.lines {
                 assert!(!entry.latest.is_empty(), "{id} {line}");
                 for (platform, build) in &entry.builds {
-                    assert!(build.url.starts_with("https://"), "{id} {line} {platform}");
-                    assert_eq!(build.sha256.len(), 64, "{id} {line} {platform}");
-                    assert!(
-                        build.sha256.chars().all(|c| c.is_ascii_hexdigit()),
-                        "{id} {line} {platform}"
+                    let parts = std::iter::once((&build.url, &build.sha256, build.format)).chain(
+                        build
+                            .extra
+                            .iter()
+                            .map(|part| (&part.url, &part.sha256, part.format)),
                     );
+                    for (url, sha256, format) in parts {
+                        assert!(url.starts_with("https://"), "{id} {line} {platform}");
+                        assert_eq!(sha256.len(), 64, "{id} {line} {platform}");
+                        assert!(
+                            sha256.chars().all(|c| c.is_ascii_hexdigit()),
+                            "{id} {line} {platform}"
+                        );
+                        assert_ne!(format, Format::Unsupported, "{id} {line} {platform}");
+                    }
                     assert!(!build.marker.is_empty(), "{id} {line} {platform}");
                 }
             }
@@ -223,6 +287,12 @@ mod tests {
         assert_eq!(compare_versions("18", "9.6"), Ordering::Greater);
         assert_eq!(compare_versions("8.4.25", "8.4.26"), Ordering::Less);
         assert_eq!(compare_versions("1.0", "1.0.0"), Ordering::Equal);
+        assert_eq!(compare_versions("8.6.0RC2", "8.6.0"), Ordering::Less);
+        assert_eq!(compare_versions("8.6.0RC10", "8.6.0RC2"), Ordering::Greater);
+        assert_eq!(compare_versions("8.6.0beta3", "8.6.0RC1"), Ordering::Less);
+        assert_eq!(compare_versions("8.6.0alpha1", "8.6.0beta1"), Ordering::Less);
+        assert_eq!(compare_versions("8.6.0RC2", "8.5.11"), Ordering::Greater);
+        assert_eq!(compare_versions("18.6-1", "18.6-2"), Ordering::Less);
     }
 
     #[test]

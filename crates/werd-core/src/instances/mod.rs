@@ -542,7 +542,7 @@ pub(crate) fn offerings(root: &Path, catalog: &Catalog) -> Result<Vec<serde_json
             .map(|(line, entry)| {
                 serde_json::json!({
                     "line": line,
-                    "latest": entry.latest,
+                    "latest": entry.latest_here(),
                     "lts": entry.lts,
                     "eol": entry.eol,
                     "installed": installed.version(id, line),
