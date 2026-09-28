@@ -560,7 +560,12 @@ fn verify_sha256(path: &Path, expected: &str) -> Result<bool> {
         }
         hash.update(&buffer[..count]);
     }
-    Ok(format!("{:x}", hash.finalize()) == expected)
+    Ok(to_hex(&hash.finalize()) == expected)
+}
+
+/// Lowercase hex encoding of a digest, as published next to the downloads.
+fn to_hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 /// Unpacks every archive of a build into a staging folder, then swaps it into
@@ -760,7 +765,7 @@ pub(crate) mod tests {
     }
 
     fn sha(path: &Path) -> String {
-        format!("{:x}", Sha256::digest(fs::read(path).unwrap()))
+        to_hex(&Sha256::digest(fs::read(path).unwrap()))
     }
 
     pub fn php_extensions_fixture(dir: &Path) -> (Catalog, LocalFetcher) {
