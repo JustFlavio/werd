@@ -176,7 +176,16 @@ fn target(home: &Path, tool: Tool, line: &str) -> Result<(PathBuf, Vec<OsString>
     let runtimes = home.join("runtimes");
     let php = runtimes.join("php").join(line).join(exe("php"));
     let node_dir = runtimes.join("node").join(line);
-    let npm_script = |name: &str| node_dir.join("node_modules/npm/bin").join(name).into_os_string();
+    // The Windows zip has node.exe at the top; the macOS and Linux tarballs use bin/ and lib/.
+    let (node, npm_bin) = if cfg!(windows) {
+        (node_dir.join(exe("node")), node_dir.join("node_modules/npm/bin"))
+    } else {
+        (
+            node_dir.join("bin/node"),
+            node_dir.join("lib/node_modules/npm/bin"),
+        )
+    };
+    let npm_script = |name: &str| npm_bin.join(name).into_os_string();
     Ok(match tool {
         Tool::Php => (php, Vec::new()),
         Tool::Composer => {
@@ -186,9 +195,9 @@ fn target(home: &Path, tool: Tool, line: &str) -> Result<(PathBuf, Vec<OsString>
                 .ok_or("werd: Composer is not installed. Install it from Werd or with `werd install composer@2`.")?;
             (php, vec![phar.into_os_string()])
         }
-        Tool::Node => (node_dir.join(exe("node")), Vec::new()),
-        Tool::Npm => (node_dir.join(exe("node")), vec![npm_script("npm-cli.js")]),
-        Tool::Npx => (node_dir.join(exe("node")), vec![npm_script("npx-cli.js")]),
+        Tool::Node => (node, Vec::new()),
+        Tool::Npm => (node, vec![npm_script("npm-cli.js")]),
+        Tool::Npx => (node, vec![npm_script("npx-cli.js")]),
     })
 }
 
@@ -266,7 +275,15 @@ fn run() -> Result<i32, String> {
             binary.display()
         ));
     }
-    let status = Command::new(&binary)
+    let mut command = Command::new(&binary);
+    if tool.runtime() == "php" && !cfg!(windows) {
+        // PHP for Windows reads php.ini next to php.exe; static macOS and Linux
+        // builds look in /usr/local/etc/php unless PHPRC points at Werd's.
+        if let Some(folder) = binary.parent() {
+            command.env("PHPRC", folder);
+        }
+    }
+    let status = command
         .args(leading)
         .args(args)
         .status()

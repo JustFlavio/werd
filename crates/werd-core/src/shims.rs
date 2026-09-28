@@ -135,6 +135,58 @@ mod user_path {
     }
 }
 
+const PROFILE_START: &str = "# >>> werd >>>";
+const PROFILE_END: &str = "# <<< werd <<<";
+
+/// `profile` with Werd's PATH block at the end, or `None` when it is already there.
+/// Appending keeps Werd ahead of entries the file adds earlier (Homebrew, Herd);
+/// a block already present is left where it is.
+#[cfg_attr(windows, allow(dead_code))]
+pub fn profile_with_block(profile: &str, bin: &str) -> Option<String> {
+    let block = format!(
+        "{PROFILE_START}\n# Added by Werd: php, composer, node, npm and npx.\nexport PATH=\"{}:$PATH\"\n{PROFILE_END}\n",
+        bin.replace('\\', "\\\\").replace('"', "\\\"").replace('$', "\\$")
+    );
+    if profile.contains(&block) {
+        return None;
+    }
+    let mut updated = profile_without_block(profile).unwrap_or_else(|| profile.to_string());
+    if !updated.is_empty() && !updated.ends_with('\n') {
+        updated.push('\n');
+    }
+    updated.push_str(&block);
+    Some(updated)
+}
+
+/// `profile` without Werd's PATH block, or `None` when it has none.
+#[cfg_attr(windows, allow(dead_code))]
+pub fn profile_without_block(profile: &str) -> Option<String> {
+    let start = profile.find(PROFILE_START)?;
+    let end = profile[start..].find(PROFILE_END)? + start + PROFILE_END.len();
+    let end = if profile[end..].starts_with('\n') {
+        end + 1
+    } else {
+        end
+    };
+    Some(format!("{}{}", &profile[..start], &profile[end..]))
+}
+
+/// Shell start-up files that get the PATH block: the default shell's file is
+/// created when missing (zsh on macOS, bash on Linux), the others only if present.
+#[cfg(not(windows))]
+fn shell_profiles() -> Result<Vec<(PathBuf, bool)>> {
+    let home = dirs::home_dir().context("Home folder not found")?;
+    let default = if cfg!(target_os = "macos") {
+        ".zshrc"
+    } else {
+        ".bashrc"
+    };
+    Ok([".zshrc", ".bashrc", ".bash_profile"]
+        .into_iter()
+        .map(|name| (home.join(name), name == default))
+        .collect())
+}
+
 /// Installs the shims and adds `<home>/bin` to the user's PATH.
 pub fn enable(root: &Path) -> Result<()> {
     install(root, &shim_source()?)?;
@@ -144,13 +196,18 @@ pub fn enable(root: &Path) -> Result<()> {
         user_path::write(&updated)?;
     }
     #[cfg(not(windows))]
-    bail!("Adding Werd to PATH is not supported on this platform yet; add {bin} to your shell profile");
-    #[allow(unreachable_code)]
-    {
-        let mut settings = Settings::load(root)?;
-        settings.path_enabled = true;
-        settings.save(root)
+    for (profile, create) in shell_profiles()? {
+        if !create && !profile.exists() {
+            continue;
+        }
+        let current = fs::read_to_string(&profile).unwrap_or_default();
+        if let Some(updated) = profile_with_block(&current, &bin) {
+            fs::write(&profile, updated).with_context(|| format!("Cannot update {}", profile.display()))?;
+        }
     }
+    let mut settings = Settings::load(root)?;
+    settings.path_enabled = true;
+    settings.save(root)
 }
 
 /// Removes `<home>/bin` from the user's PATH and deletes the shims.
@@ -159,6 +216,16 @@ pub fn disable(root: &Path) -> Result<()> {
     #[cfg(windows)]
     if let Some(updated) = without_entry(&user_path::read()?, &bin.to_string_lossy()) {
         user_path::write(&updated)?;
+    }
+    #[cfg(not(windows))]
+    for (profile, _) in shell_profiles()? {
+        if let Some(updated) = fs::read_to_string(&profile)
+            .ok()
+            .as_deref()
+            .and_then(profile_without_block)
+        {
+            fs::write(&profile, updated).with_context(|| format!("Cannot update {}", profile.display()))?;
+        }
     }
     if bin.exists() {
         fs::remove_dir_all(&bin).with_context(|| format!("Cannot remove {}", bin.display()))?;
@@ -214,6 +281,32 @@ mod tests {
         );
         assert_eq!(without_entry(original, bin), None);
         assert_eq!(with_entry("", bin).unwrap(), bin);
+    }
+
+    #[test]
+    fn shell_profile_block_is_added_once_and_removed_cleanly() {
+        let bin = "/Users/me/Library/Application Support/Werd/bin";
+        let original = "export PATH=\"/opt/homebrew/bin:$PATH\"";
+        let added = profile_with_block(original, bin).unwrap();
+        assert!(added.starts_with("export PATH=\"/opt/homebrew/bin:$PATH\"\n# >>> werd >>>\n"));
+        assert!(added.contains(&format!("export PATH=\"{bin}:$PATH\"\n")));
+        assert_eq!(profile_with_block(&added, bin), None, "not duplicated");
+        assert_eq!(
+            profile_with_block(&format!("{added}alias ll='ls -l'\n"), bin),
+            None,
+            "an existing block is left where the user keeps it"
+        );
+        let other_bin = profile_with_block(&added, "/elsewhere/bin").unwrap();
+        assert_eq!(
+            other_bin.matches("# >>> werd >>>").count(),
+            1,
+            "a stale block is replaced"
+        );
+        assert_eq!(profile_without_block(&added).unwrap(), format!("{original}\n"));
+        assert_eq!(profile_without_block(original), None);
+        assert!(profile_with_block("", "/a$b\"c")
+            .unwrap()
+            .contains(r#"export PATH="/a\$b\"c:$PATH""#));
     }
 
     #[test]
