@@ -7,11 +7,11 @@ Werd is a free, MIT-licensed local development environment for Laravel and PHP. 
 
 A desktop app and a `werd` CLI share one Rust daemon. Sites run their own PHP FastCGI behind one shared Caddy, on `https://<name>.test`, and link to shared services you create once: PostgreSQL (with optional pgvector), MySQL, MariaDB, MongoDB, Redis, Mailpit, RustFS (S3) and Meilisearch.
 
-> **Status: alpha development, preparing `0.1.0-alpha.2`.** This is a new project with no public stable release. Windows x64 is the currently exercised development platform; macOS support is partial and Linux still needs runtime coverage and validation. The first stable release will be gated by the [official roadmap](#official-roadmap), not by a date.
+> **Status: `0.1.0-alpha.2`, available for Windows x64.** This is a new project with no public stable release. Windows x64 is the currently validated alpha platform; macOS support is partial and Linux still needs runtime coverage and validation. The first stable release will be gated by the [official roadmap](#official-roadmap), not by a date.
 
 ## Download
 
-Application installers will be published in [this repository's releases](https://github.com/JustFlavio/werd/releases). Early alphas may provide only Windows x64 installers and will state exactly which platforms were tested. Until a new alpha is published, use the [development setup](#getting-started-development).
+**[Download Werd 0.1.0-alpha.2 for Windows x64](https://github.com/JustFlavio/werd/releases/download/v0.1.0-alpha.2/Werd_0.1.0-alpha.2_x64-setup.exe)**, or read the [release notes and known limitations](https://github.com/JustFlavio/werd/releases/tag/v0.1.0-alpha.2). The alpha uses the signed preview update channel. macOS and Linux installers are not available yet; contributors can use the [development setup](#getting-started-development).
 
 Application versions follow one sequence across operating systems: `0.1.0-alpha.N` → `0.1.0-beta.N` → `0.1.0-rc.N` → `0.1.0`. Alpha, beta and RC builds are GitHub prereleases. Platform names belong in asset names, not in application versions. Custom runtime binaries live separately in [werd-runtimes](https://github.com/JustFlavio/werd-runtimes), under tags such as `php-8.5.11`. See the [release policy](docs/releases.md) for publication and update channels.
 
