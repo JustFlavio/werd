@@ -8,7 +8,7 @@ Pre-launch experiment tags were retired before the first alpha. This history kee
 the source changes, including earlier distribution experiments. See the
 [release policy](docs/releases.md) for the current version and channel rules.
 
-## [Unreleased]
+## [0.1.0-alpha.1] - 2026-09-29
 
 ### Features
 - **core:** Add project manager daemon and runtime catalog

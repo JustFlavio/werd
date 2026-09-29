@@ -51,7 +51,11 @@ jobs:
           PRERELEASE: ${{ steps.plan.outputs.prerelease }}
           VERSION: ${{ steps.plan.outputs.version }}
         run: |
-          npx --yes git-cliff@2 --latest --strip header > notes.md
+          if [ -f "docs/release-notes/$VERSION.md" ]; then
+            cp "docs/release-notes/$VERSION.md" notes.md
+          else
+            npx --yes git-cliff@2 --latest --strip header > notes.md
+          fi
           printf '\nBuilt platforms: %s. See README for current support and known limitations.\n' "$PLATFORMS" >> notes.md
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             test "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)" = true || { echo "Published versions are immutable" >&2; exit 1; }
