@@ -1,0 +1,15 @@
+{
+  "version": "0.1.0-alpha.2",
+  "notes": "",
+  "pub_date": "2026-09-29T23:18:01.909Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTWmFBS2dWMDVpdy91S0xIQ2tzdXh2VFZadm4wT1E2OVZiSzZHUTB4R2dZRVJ3ZnFQQUdSRytPQ2VGQVlVeHVaODhBVldKYWpEMmZWNkVvL3lKSmpTSTdpdnNwYkgyRkFRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNzIzODc5CWZpbGU6V2VyZF8wLjEuMC1hbHBoYS4yX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjEuMC1hbHBoYS4yClcvdjRyZzBzVzNzVjIvQ01USnFJQjFIODFwaXdkeWVWUW9IOWRjMHQyT0g0aU9ScS9ZN3g5WUgra2I3aFlBQ1pyUm5mUlRnY3AySW5PemVwaTM5Q0RBPT0K",
+      "url": "https://github.com/JustFlavio/werd/releases/download/v0.1.0-alpha.2/Werd_0.1.0-alpha.2_x64-setup.exe"
+    },
+    "windows-x86_64-nsis": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTWmFBS2dWMDVpdy91S0xIQ2tzdXh2VFZadm4wT1E2OVZiSzZHUTB4R2dZRVJ3ZnFQQUdSRytPQ2VGQVlVeHVaODhBVldKYWpEMmZWNkVvL3lKSmpTSTdpdnNwYkgyRkFRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNzIzODc5CWZpbGU6V2VyZF8wLjEuMC1hbHBoYS4yX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjEuMC1hbHBoYS4yClcvdjRyZzBzVzNzVjIvQ01USnFJQjFIODFwaXdkeWVWUW9IOWRjMHQyT0g0aU9ScS9ZN3g5WUgra2I3aFlBQ1pyUm5mUlRnY3AySW5PemVwaTM5Q0RBPT0K",
+      "url": "https://github.com/JustFlavio/werd/releases/download/v0.1.0-alpha.2/Werd_0.1.0-alpha.2_x64-setup.exe"
+    }
+  }
+}
