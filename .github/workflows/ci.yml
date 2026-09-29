@@ -33,6 +33,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: node scripts/release/plan.mjs --check
+      - run: node --test scripts/release/*.test.mjs
       - run: npx biome ci .
       - run: npm run typecheck
       - run: npm run coverage

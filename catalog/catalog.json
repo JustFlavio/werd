@@ -664,13 +664,13 @@
               "format": "tar.gz",
               "marker": "php-fpm",
               "sha256": "1e008d1514b89348802b46494f545b740b2a1a32a807d0e5878ee3ee5349be5e",
-              "url": "https://github.com/JustFlavio/werd/releases/download/php-8.2.34/php-8.2.34-macos-arm64.tar.gz"
+              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.2.34/php-8.2.34-macos-arm64.tar.gz"
             },
             "macos-x64": {
               "format": "tar.gz",
               "marker": "php-fpm",
               "sha256": "bb9bd0fcc78444867bf536b565b3c12e86e476df1c85d9d439e4b28603a00e0c",
-              "url": "https://github.com/JustFlavio/werd/releases/download/php-8.2.34/php-8.2.34-macos-x64.tar.gz"
+              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.2.34/php-8.2.34-macos-x64.tar.gz"
             },
             "windows-x64": {
               "format": "zip",
@@ -687,13 +687,13 @@
               "format": "tar.gz",
               "marker": "php-fpm",
               "sha256": "1562d1922c8dca6df08a24ac799919d9654103e9f92b1a27b748cc1254fd69bb",
-              "url": "https://github.com/JustFlavio/werd/releases/download/php-8.3.35/php-8.3.35-macos-arm64.tar.gz"
+              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.3.35/php-8.3.35-macos-arm64.tar.gz"
             },
             "macos-x64": {
               "format": "tar.gz",
               "marker": "php-fpm",
               "sha256": "14ead09c57afa5a5435235b44196d0c6b86be0e4298c91906acb43393c454748",
-              "url": "https://github.com/JustFlavio/werd/releases/download/php-8.3.35/php-8.3.35-macos-x64.tar.gz"
+              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.3.35/php-8.3.35-macos-x64.tar.gz"
             },
             "windows-x64": {
               "format": "zip",
@@ -710,13 +710,13 @@
               "format": "tar.gz",
               "marker": "php-fpm",
               "sha256": "b0ad49bb7529e1ff1a76c5e34ec4701a5207a7c3811b29376f1800dd66386006",
-              "url": "https://github.com/JustFlavio/werd/releases/download/php-8.4.26/php-8.4.26-macos-arm64.tar.gz"
+              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.4.26/php-8.4.26-macos-arm64.tar.gz"
             },
             "macos-x64": {
               "format": "tar.gz",
               "marker": "php-fpm",
               "sha256": "e471ac0cc37fe5b3aa742e377813048fdb722425ad49eba3033db3538f2bb0ad",
-              "url": "https://github.com/JustFlavio/werd/releases/download/php-8.4.26/php-8.4.26-macos-x64.tar.gz"
+              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.4.26/php-8.4.26-macos-x64.tar.gz"
             },
             "windows-x64": {
               "format": "zip",
@@ -733,13 +733,13 @@
               "format": "tar.gz",
               "marker": "php-fpm",
               "sha256": "55754b506bb196f5952ef4a388d4d7679eceaee401d4288c35d06fa321f31ba9",
-              "url": "https://github.com/JustFlavio/werd/releases/download/php-8.5.11/php-8.5.11-macos-arm64.tar.gz"
+              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.5.11/php-8.5.11-macos-arm64.tar.gz"
             },
             "macos-x64": {
               "format": "tar.gz",
               "marker": "php-fpm",
               "sha256": "66b375e0c47c52d60c4cc37f88cc7e89e6df0cd51f9936ff5ab0279ebc9dbb80",
-              "url": "https://github.com/JustFlavio/werd/releases/download/php-8.5.11/php-8.5.11-macos-x64.tar.gz"
+              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.5.11/php-8.5.11-macos-x64.tar.gz"
             },
             "windows-x64": {
               "format": "zip",
@@ -756,13 +756,13 @@
               "format": "tar.gz",
               "marker": "php-fpm",
               "sha256": "a0e827386289aeafba5d0ebd2ffd5f3e13a664d62b2e5b498ad157b912b0125e",
-              "url": "https://github.com/JustFlavio/werd/releases/download/php-8.6.0RC2/php-8.6.0RC2-macos-arm64.tar.gz"
+              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.6.0RC2/php-8.6.0RC2-macos-arm64.tar.gz"
             },
             "macos-x64": {
               "format": "tar.gz",
               "marker": "php-fpm",
               "sha256": "14c1fbdeda79193b40eed0dd638defbae15963249bed5687ead635592e4a1101",
-              "url": "https://github.com/JustFlavio/werd/releases/download/php-8.6.0RC2/php-8.6.0RC2-macos-x64.tar.gz"
+              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.6.0RC2/php-8.6.0RC2-macos-x64.tar.gz"
             },
             "windows-x64": {
               "format": "zip",

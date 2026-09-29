@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds static PHP (cli + fpm) for macOS with static-php-cli and packs it as
 # php-<version>-macos-<arch>.tar.gz: php, php-fpm and the licenses of everything
-# compiled in. Used by .github/workflows/php-macos.yml; runs locally too.
+# compiled in. Used by the werd-runtimes workflow; runs locally too.
 #
 #   scripts/php-builds/build.sh <version> <source-url> <source-sha256> <arm64|x64> [output-dir]
 #

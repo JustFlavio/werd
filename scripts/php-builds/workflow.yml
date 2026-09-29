@@ -2,8 +2,9 @@ name: PHP for macOS
 
 # Builds static PHP (cli + fpm) for macOS with static-php-cli, for every active
 # php.net line plus the current pre-release, on Apple Silicon and Intel runners.
-# Each version becomes the release `php-<version>` in this repository, never
-# marked as latest; the runtime catalog picks the archives up on its next refresh.
+# Installed as .github/workflows/php-macos.yml in JustFlavio/werd-runtimes.
+# Recipes are checked out from the application source repository. Each runtime
+# version is published here, never in the application's release history.
 # A day without new PHP releases costs one short Linux job.
 on:
   schedule:
@@ -31,13 +32,19 @@ jobs:
       count: ${{ steps.plan.outputs.count }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          repository: JustFlavio/werd
       - uses: actions/setup-node@v5
         with:
           node-version: 22
       - id: plan
-        run: node scripts/php-builds/plan.mjs ${{ inputs.versions }}
+        run: |
+          read -ra versions <<< "$VERSIONS"
+          node scripts/php-builds/plan.mjs "${versions[@]}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WERD_RUNTIMES_REPOSITORY: ${{ github.repository }}
+          VERSIONS: ${{ inputs.versions }}
 
   build:
     name: PHP ${{ matrix.version }} (${{ matrix.arch }})
@@ -50,6 +57,8 @@ jobs:
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          repository: JustFlavio/werd
       - name: Cache static-php-cli downloads
         uses: actions/cache@v4
         with:
@@ -100,7 +109,7 @@ jobs:
             if ! gh release view "$tag" >/dev/null 2>&1; then
               flags=(--latest=false --title "PHP $version for macOS")
               if [[ "$version" =~ [a-zA-Z] ]]; then flags+=(--prerelease); fi
-              gh release create "$tag" "${flags[@]}" --notes "Static PHP $version (cli and php-fpm) for macOS, built from the official php.net source with static-php-cli. Werd installs these archives; see scripts/php-builds/ for the extension list and the build script."
+              gh release create "$tag" "${flags[@]}" --notes "Static PHP $version (cli and php-fpm) for macOS, built from the official php.net source with static-php-cli. Recipes and extension list: https://github.com/JustFlavio/werd/tree/main/scripts/php-builds"
             fi
             gh release upload "$tag" "$archive" "$archive.sha256" --clobber
           done

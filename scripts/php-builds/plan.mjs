@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Decides which macOS PHP builds are missing from this repository's releases.
+// Decides which macOS PHP builds are missing from werd-runtimes releases.
 //
 //   node scripts/php-builds/plan.mjs            # prints the build matrix as JSON
 //   node scripts/php-builds/plan.mjs 8.5.11     # only these versions, rebuilt even if published
@@ -62,7 +62,7 @@ async function publishedAssets(repository) {
 }
 
 async function main() {
-  const repository = process.env.GITHUB_REPOSITORY ?? "JustFlavio/werd";
+  const repository = process.env.WERD_RUNTIMES_REPOSITORY ?? "JustFlavio/werd-runtimes";
   const only = process.argv.slice(2);
   const published = only.length ? new Set() : await publishedAssets(repository);
   const include = [];

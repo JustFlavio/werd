@@ -5180,7 +5180,7 @@ dependencies = [
 
 [[package]]
 name = "werd-cli"
-version = "0.3.0-rc.4"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -5192,7 +5192,7 @@ dependencies = [
 
 [[package]]
 name = "werd-core"
-version = "0.3.0-rc.4"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -5216,7 +5216,7 @@ dependencies = [
 
 [[package]]
 name = "werd-desktop"
-version = "0.3.0-rc.4"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "serde",
@@ -5232,14 +5232,14 @@ dependencies = [
 
 [[package]]
 name = "werd-helper"
-version = "0.3.0-rc.4"
+version = "0.1.0-alpha.1"
 dependencies = [
  "werd-core",
 ]
 
 [[package]]
 name = "werd-shim"
-version = "0.3.0-rc.4"
+version = "0.1.0-alpha.1"
 dependencies = [
  "serde_json",
  "tempfile",

@@ -130,7 +130,7 @@ struct DownloadProgress {
     total: Option<u64>,
 }
 
-/// Asks werd-releases whether a newer version exists; remembers it for download.
+/// Checks the configured update channel; remembers a newer version for download.
 #[tauri::command]
 async fn check_update(app: AppHandle) -> Result<Option<UpdateInfo>, String> {
     let update = app

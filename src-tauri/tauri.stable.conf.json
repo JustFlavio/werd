@@ -1,0 +1,7 @@
+{
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://raw.githubusercontent.com/JustFlavio/werd/updates/stable.json"]
+    }
+  }
+}

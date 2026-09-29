@@ -10,8 +10,8 @@ const MACOS = [
   { platform: "macos-arm64", arch: "arm64", spc: "aarch64", node: "darwin-arm64", files: "osx-arm64-tar" },
   { platform: "macos-x64", arch: "x64", spc: "x86_64", node: "darwin-x64", files: "osx-x64-tar" },
 ];
-/** This repository: macOS PHP builds are published in its `php-<version>` releases. */
-const WERD_REPO = process.env.GITHUB_REPOSITORY ?? "JustFlavio/werd";
+/** Custom PHP binaries have a separate release history from the application. */
+const WERD_REPO = process.env.WERD_RUNTIMES_REPOSITORY ?? "JustFlavio/werd-runtimes";
 const minor = (version) => version.split(".").slice(0, 2).join(".");
 const major = (version) => version.split(".")[0];
 
@@ -48,7 +48,7 @@ async function addWindowsPhp(ctx, lines, base, { newLinesOnly = false } = {}) {
 }
 
 /**
- * macOS PHP built by `.github/workflows/php-macos.yml`: php and php-fpm in one
+ * macOS PHP built by the werd-runtimes workflow: php and php-fpm in one
  * archive per architecture, released as `php-<version>`. The newest release of
  * each line wins; GitHub's asset digest is the upstream checksum.
  */
