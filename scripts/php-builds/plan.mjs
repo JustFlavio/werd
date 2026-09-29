@@ -9,6 +9,8 @@
 // and published as the release `php-<version>` with one archive per architecture.
 
 import { appendFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { fetchJson, githubHeaders } from "../catalog/lib.mjs";
 
 export const ARCHITECTURES = [
@@ -80,4 +82,4 @@ async function main() {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) await main();
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await main();

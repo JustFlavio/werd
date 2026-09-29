@@ -33,7 +33,7 @@ The app workflow uses the source repository's `GITHUB_TOKEN`; no cross-repositor
 
 ## Update channels
 
-The `updates` branch of `werd` stores `preview.json` and, after the first stable publication, `stable.json`. These are static Tauri updater manifests with immutable, versioned GitHub asset URLs and signatures. This avoids channel tags or extra releases and does not require a website.
+The first application publication creates the `updates` branch of `werd` and its `preview.json`; the first stable publication adds `stable.json`. These are static Tauri updater manifests with immutable, versioned GitHub asset URLs and signatures. This avoids channel tags or extra releases and does not require a website.
 
 - **Preview:** alpha, beta and RC installers read `https://raw.githubusercontent.com/JustFlavio/werd/updates/preview.json`.
 - **Stable:** stable installers read `https://raw.githubusercontent.com/JustFlavio/werd/updates/stable.json`.

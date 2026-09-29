@@ -4,40 +4,17 @@ All notable changes to Werd are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [local-0.3.0-rc.3] - 2026-09-27
+Pre-launch experiment tags were retired before the first alpha. This history keeps
+the source changes, including earlier distribution experiments. See the
+[release policy](docs/releases.md) for the current version and channel rules.
+
+## [Unreleased]
 
 ### Features
-- **core:** Report whether the local CA is trusted
-- **core:** Start sites with Werd and expose the Caddy log
-- **ui:** Add Start with Werd to sites and logs to Dashboard services
-- **desktop:** Update Werd from werd-releases with signed packages
-- **ui:** Add the update button and What's new
-
-### Bug fixes
-- **release:** Keep PATH, .test domains and launch at login across updates
-- **runtimes:** Backfill every bundled PECL extension and refresh php.ini at start
-- **ui:** Show the HTTPS certificate as trusted when it already is
-- **cli:** Let other installs run when Werd has no version of a tool
-- **ui:** Show Starting Werd until the daemon answers
-- **release:** Rename the Linux bundle config so Tauri does not merge it
-- **desktop:** Keep the downloaded update until Restart
-
-### Build and CI
-- Bump version to 0.3.0-beta.8
-- **release:** Package every platform with one script
-- Publish releases to werd-releases from version tags
-- Bump version to 0.3.0-rc.1
-- Bump version to 0.3.0-rc.2
-- Bump version to 0.3.0-rc.3
-
-## [0.3.0-beta.7] - 2026-09-27
-
-### Features
-- **runtimes:** Add MongoDB PHP driver and bundled modules
-
-## [0.3.0-beta.6] - 2026-09-26
-
-### Features
+- **core:** Add project manager daemon and runtime catalog
+- **cli:** Add werd command line interface
+- **ui:** Add project management interface
+- **desktop:** Add tauri shell with daemon sidecar
 - **desktop:** Add open_url command for local service UIs
 - **ui:** Redesign interface with sidebar layout and Werd identity
 - **cli:** Rewrite the CLI with clap
@@ -83,6 +60,20 @@ All notable changes to Werd are documented here. The format follows
 - **ui:** Show the first-run setup on the Dashboard
 - **ui:** Show the progress of each service created for a site
 - **runtimes:** Install phpredis with PHP on Windows
+- **runtimes:** Add MongoDB PHP driver and bundled modules
+- **core:** Report whether the local CA is trusted
+- **core:** Start sites with Werd and expose the Caddy log
+- **ui:** Add Start with Werd to sites and logs to Dashboard services
+- **desktop:** Update Werd from werd-releases with signed packages
+- **ui:** Add the update button and What's new
+- **runtimes:** Install tar.gz and multi-archive builds
+- **proxy:** Serve sites with php-fpm on macOS and Linux
+- **core:** Support the command line shims on macOS
+- **runtimes:** Add macOS PHP and Node.js, and PHP 8.6 RC
+- **runtimes:** Add Caddy for macOS
+- **core:** Update the hosts file and trust the local CA on macOS
+- **runtimes:** Use Werd's own macOS PHP builds for PHP 8.2 to 8.6
+- **core:** Manage per-site Vite development servers
 
 ### Bug fixes
 - **ui:** Resolve accessibility and hook dependency lint findings
@@ -101,6 +92,17 @@ All notable changes to Werd are documented here. The format follows
 - **ui:** Wait for the site to start before opening it
 - **core:** Download Caddy only for a site that can start
 - **core:** Clear a failed start when a site's services are linked
+- **release:** Keep PATH, .test domains and launch at login across updates
+- **runtimes:** Backfill every bundled PECL extension and refresh php.ini at start
+- **ui:** Show the HTTPS certificate as trusted when it already is
+- **cli:** Let other installs run when Werd has no version of a tool
+- **ui:** Show Starting Werd until the daemon answers
+- **release:** Rename the Linux bundle config so Tauri does not merge it
+- **desktop:** Keep the downloaded update until Restart
+- **ui:** Hide sidebar labels in the compact layout
+- **core:** Check the runtime files of the current platform in doctor
+- **core:** Stop the whole process group of a child on macOS and Linux
+- **core:** Stop processes left running by a crashed daemon on macOS and Linux
 
 ### Refactoring
 - **core:** Split the daemon into focused modules
@@ -108,6 +110,7 @@ All notable changes to Werd are documented here. The format follows
 - **core:** Write process logs to any folder
 
 ### Documentation
+- Add readme and project documentation
 - Add contributing guide, code of conduct and security policy
 - Generate changelog from conventional commits with git-cliff
 - Translate README and design docs to English
@@ -118,12 +121,21 @@ All notable changes to Werd are documented here. The format follows
 - Document .test domains, the tray and the shared Caddy
 - Update the changelog
 - Document the add site flows and werd new
+- Clarify release candidate status and download
+- Document macOS runtime sources and the daemon build step
+- Define the roadmap to a stable multiplatform release
 
 ### Tests
 - **ui:** Add vitest setup with first component and helper tests
 - **cli:** Build shim test paths for the current platform
+- **core:** Give the doctor test a build for the current platform
+- **ui:** Only run the tests of this checkout
+- **runtimes:** Avoid Unix symlink privileges in Windows fixtures
 
 ### Build and CI
+- Set up cargo workspace
+- **ui:** Set up vite, react and typescript
+- Add packaging and helper scripts
 - Configure rust toolchain, workspace metadata and lints
 - Add frontend dev tooling
 - Enforce formatting and conventional commits with git hooks
@@ -138,31 +150,12 @@ All notable changes to Werd are documented here. The format follows
 - Refresh the runtime catalog weekly
 - Ship werd-shim with the installers and track its size
 - **runtimes:** Add MySQL, MariaDB, MongoDB and Meilisearch to the catalog
-- Bump version to 0.2.0
 - **release:** Ship werd-helper with the Windows installer
-- Bump version to 0.3.0
-- Bump version to 0.3.0-beta.1
 - Format the JSON files the version script rewrites
-- Bump version to 0.3.0-beta.2
-- Bump version to 0.3.0-beta.3
-- Bump version to 0.3.0-beta.4
-- Bump version to 0.3.0-beta.5
 - **runtimes:** Add phpredis to the runtime catalog
-
-## [0.1.1] - 2026-09-25
-
-### Features
-- **core:** Add project manager daemon and runtime catalog
-- **cli:** Add werd command line interface
-- **ui:** Add project management interface
-- **desktop:** Add tauri shell with daemon sidecar
-
-### Documentation
-- Add readme and project documentation
-
-### Build and CI
-- Set up cargo workspace
-- **ui:** Set up vite, react and typescript
-- Add packaging and helper scripts
+- **release:** Package every platform with one script
+- Publish releases to werd-releases from version tags
+- Build static PHP for macOS with static-php-cli
+- **release:** Unify app versions and separate runtime distribution
 
 <!-- generated by git-cliff -->
