@@ -183,6 +183,13 @@ impl Line {
             .and_then(|build| build.version.as_deref())
             .unwrap_or(&self.latest)
     }
+
+    /// Whether the installable patch is an alpha, beta or release candidate.
+    pub fn is_prerelease(&self) -> bool {
+        version_key(self.latest_here())
+            .iter()
+            .any(|(_, stage, _)| *stage < 3)
+    }
 }
 
 impl Product {

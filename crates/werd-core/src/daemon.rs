@@ -252,24 +252,29 @@ fn start_after_caddy(daemon: &Daemon, state: &mut State, id: &str) -> Result<Val
 /// Product of the first-run setup job, as shown in `jobs.list`.
 const SETUP: &str = "setup";
 
-/// What a fresh Werd needs before the first site: Caddy, the newest PHP line
+/// What a fresh Werd needs before the first site: Caddy, the newest stable PHP line
 /// (made the global version) and Composer. Returns the missing ones.
-fn setup_missing(root: &Path, catalog: &Catalog) -> Vec<(String, String)> {
+fn setup_missing(root: &Path, catalog: &Catalog) -> Result<Vec<(String, String)>> {
     let installed = Installed::load(root).unwrap_or_default();
-    ["caddy", "php", "composer"]
-        .iter()
-        .filter(|product| installed.lines(product).is_empty())
-        .filter_map(|product| {
-            let line = catalog
-                .product(product)
-                .ok()?
-                .available_lines()
-                .first()?
-                .0
-                .clone();
-            Some((product.to_string(), line))
-        })
-        .collect()
+    let mut missing = Vec::new();
+    for product in ["caddy", "php", "composer"] {
+        if !installed.lines(product).is_empty() {
+            continue;
+        }
+        let available = catalog.product(product)?.available_lines();
+        let (line, _) = available
+            .into_iter()
+            .find(|(_, line)| product != "php" || !line.is_prerelease())
+            .with_context(|| {
+                if product == "php" {
+                    "No stable PHP build is available for this platform".to_string()
+                } else {
+                    format!("{product} is not available for this platform")
+                }
+            })?;
+        missing.push((product.to_string(), line.clone()));
+    }
+    Ok(missing)
 }
 
 /// Starts the first-run setup in the background. Without `force` it runs only
@@ -281,7 +286,7 @@ fn start_setup(daemon: &Daemon, force: bool) -> Result<Option<crate::jobs::Job>>
         return Ok(None);
     }
     let catalog = daemon.catalog();
-    let missing = setup_missing(&root, &catalog);
+    let missing = setup_missing(&root, &catalog)?;
     if missing.is_empty() {
         settings.setup_done = true;
         settings.save(&root)?;
@@ -903,6 +908,84 @@ mod tests {
             catalog,
             state: Arc::new(Mutex::new(State::default())),
         }
+    }
+
+    fn setup_catalog(preview: &str) -> Catalog {
+        let build = |version: &str| {
+            json!({
+                "latest": version,
+                "builds": { "any": {
+                    "url": "https://example.test/runtime.zip", "sha256": "0".repeat(64),
+                    "format": "zip", "marker": "runtime"
+                }}
+            })
+        };
+        Catalog::parse(&json!({ "schema": 1, "products": {
+            "php": { "label": "PHP", "kind": "runtime", "lines": { "8.5": build("8.5.11"), "8.6": build(preview) }},
+            "caddy": { "label": "Caddy", "kind": "tool", "lines": { "2": build("2.11.4") }},
+            "composer": { "label": "Composer", "kind": "tool", "lines": { "2": build("2.8.0") }}
+        }}).to_string()).unwrap()
+    }
+
+    #[test]
+    fn first_setup_selects_stable_php_and_keeps_previews_installable() {
+        let root = tempfile::tempdir().unwrap();
+        for preview in ["8.6.0alpha1", "8.6.0beta1", "8.6.0RC2"] {
+            let catalog = setup_catalog(preview);
+            assert!(setup_missing(root.path(), &catalog)
+                .unwrap()
+                .contains(&("php".into(), "8.5".into())));
+            assert!(
+                catalog.build("php", "8.6").is_ok(),
+                "explicit preview installation stays available"
+            );
+        }
+        let mut catalog = setup_catalog("8.6.0");
+        catalog
+            .products
+            .get_mut("php")
+            .unwrap()
+            .lines
+            .get_mut("8.6")
+            .unwrap()
+            .builds
+            .get_mut("any")
+            .unwrap()
+            .version = Some("8.6.0RC2".into());
+        assert!(
+            setup_missing(root.path(), &catalog)
+                .unwrap()
+                .contains(&("php".into(), "8.5".into())),
+            "the actual platform build determines stability"
+        );
+        let catalog = setup_catalog("8.6.0");
+        assert!(
+            setup_missing(root.path(), &catalog)
+                .unwrap()
+                .contains(&("php".into(), "8.6".into())),
+            "a final release can become the default"
+        );
+    }
+
+    #[test]
+    fn first_setup_explains_when_only_prerelease_php_is_available() {
+        let root = tempfile::tempdir().unwrap();
+        let mut catalog = setup_catalog("8.6.0RC2");
+        catalog.products.get_mut("php").unwrap().lines.remove("8.5");
+        assert!(setup_missing(root.path(), &catalog)
+            .unwrap_err()
+            .to_string()
+            .contains("No stable PHP build"));
+    }
+
+    #[test]
+    fn first_setup_respects_an_explicitly_installed_php_preview() {
+        let root = tempfile::tempdir().unwrap();
+        let mut installed = Installed::default();
+        installed.set("php", "8.6", "8.6.0RC2");
+        installed.save(root.path()).unwrap();
+        let missing = setup_missing(root.path(), &setup_catalog("8.6.0RC2")).unwrap();
+        assert!(missing.iter().all(|(product, _)| product != "php"));
     }
 
     #[test]
