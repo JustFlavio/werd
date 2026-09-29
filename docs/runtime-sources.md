@@ -21,7 +21,7 @@ The app, or `scripts/build-pgvector-windows.ps1`, installs `vector.dll`, the SQL
 
 | Runtime | Source | Checksums | Notes |
 | --- | --- | --- | --- |
-| PHP 8.2+ and the next pre-release (8.6.0RC2), arm64 and x64 | Built by Werd: [`php-macos.yml`](../.github/workflows/php-macos.yml) compiles the official php.net source with [static-php-cli](https://github.com/crazywhalecc/static-php-cli) and publishes the `php-<version>` releases of this repository | The php.net source is checked against php.net's SHA-256; the archives use GitHub's asset digest | `php` and `php-fpm` in one archive, with the licenses of every bundled library. The extensions are listed in [`scripts/php-builds/extensions.txt`](../scripts/php-builds/extensions.txt) and checked after each build. The workflow runs daily, so new patches arrive within a day of php.net. |
+| PHP 8.2+ and the next pre-release (8.6.0RC2), arm64 and x64 | Built by Werd: the [workflow recipe](../scripts/php-builds/workflow.yml), installed in [werd-runtimes](https://github.com/JustFlavio/werd-runtimes/actions/workflows/php-macos.yml), compiles official php.net source with [static-php-cli](https://github.com/crazywhalecc/static-php-cli) and publishes separate `php-<version>` runtime releases | The php.net source is checked against php.net's SHA-256; the archives use GitHub's asset digest | `php` and `php-fpm` in one archive, with the licenses of every bundled library. The extensions are listed in [`scripts/php-builds/extensions.txt`](../scripts/php-builds/extensions.txt) and checked after each build. The daily workflow detects missing builds; failed builds remain visible in Actions. |
 | PHP 8.0 and 8.1, arm64 and x64 | [static-php-cli bulk builds](https://dl.static-php.dev/static-php-cli/bulk/) (`cli` + `fpm` tarballs) | Hashed by the catalog generator; no upstream checksums are published | Lines php.net no longer updates; the bulk builds carry their final patches. Also the fallback for a newer line until Werd's own build is published. Includes swoole, lacks MongoDB and SQL Server. |
 | Node.js 16+, arm64 and x64 | [nodejs.org](https://nodejs.org/dist/) `darwin-*.tar.gz` | Upstream `SHASUMS256.txt` | Official tarballs: `bin/node`, `lib/node_modules/npm`. |
 | Caddy 2, arm64 and x64 | [GitHub release](https://github.com/caddyserver/caddy/releases) `mac_arm64` / `mac_amd64` tarballs | GitHub's asset digest | Same release as the Windows build. |
@@ -37,7 +37,7 @@ PHP 8.6 on Windows comes from the [QA builds](https://downloads.php.net/~windows
 
 - Review the licenses and notices of the MSYS2 DLLs in the Windows Redis package (`msys-2.0.dll`, `msys-crypto-3.dll`, `msys-ssl-3.dll`) and of dependencies embedded in the other binaries. The Redis port repository states that its license does not replace Redis's own.
 - Produce a reproducible, verified pgvector artifact matching the PostgreSQL 18.6-1 package exactly, so end users do not need Visual Studio Build Tools.
-- Complete the macOS catalog (Caddy and the services) and create the Linux one (x64 and arm64), with checksums, licenses and real tests on each platform.
+- Complete the macOS service catalog and create the Linux x64 one, with checksums, licenses and real tests on each initial stable platform. Linux arm64 is a later validation target in the [official roadmap](../README.md#official-roadmap).
 - Verify installers and updates on every platform and keep the required third-party notices.
 
 These items block the public beta. The Windows prototype exists to validate the flow locally.

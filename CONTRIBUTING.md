@@ -64,10 +64,15 @@ We use [Conventional Commits](https://www.conventionalcommits.org/). The commit-
 
 ## Releases
 
-1. `npm run version:bump -- X.Y.Z` updates every manifest.
-2. `git cliff --tag vX.Y.Z -o CHANGELOG.md` regenerates the changelog.
-3. Commit as `chore(release): vX.Y.Z`, then tag `vX.Y.Z` and push with `--follow-tags`.
+Follow the [release policy](docs/releases.md) and the README's [official roadmap](README.md#official-roadmap). The next release line starts at `0.1.0-alpha.1`; alpha, beta and RC are prereleases. Application installers belong in `werd`, custom runtime builds in `werd-runtimes`.
+
+1. `npm run version:bump -- X.Y.Z-alpha.N` (or the next stage/version) updates every manifest.
+2. `node scripts/release/plan.mjs --check` and `node --test scripts/release/*.test.mjs` check version consistency and publication guards.
+3. `git cliff --tag vX.Y.Z-alpha.N -o CHANGELOG.md` regenerates the application changelog; runtime tags are ignored.
+4. Commit as `chore(release): vX.Y.Z-alpha.N`, then create an annotated application tag on that commit and push it. Manual workflow retries require the existing tag.
+
+The release stays a draft until all selected installers and signed updater entries pass validation. Stable builds require all four initial OS/architecture targets; successful builds do not replace the manual acceptance gates.
 
 ## Adding a runtime
 
-Runtimes are downloaded on demand and verified with SHA-256. Add the entry to the catalog in `crates/werd-core/src/runtimes.rs`. Then document its source URL, checksum and license in `docs/runtime-sources.md`.
+Runtimes are downloaded on demand and verified with SHA-256. Add the provider in `scripts/catalog/providers.mjs`, regenerate `catalog/catalog.json`, and implement any runtime-specific behavior in `crates/werd-core/src/runtimes.rs`. Document its source URL, checksum and license in `docs/runtime-sources.md`. Publish custom binaries in `werd-runtimes`, never as application releases.
