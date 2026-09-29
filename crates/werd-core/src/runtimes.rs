@@ -1081,13 +1081,20 @@ pub(crate) mod tests {
         let fpm = root.path().join("fpm.tar.gz");
         tar_gz_with(&fpm, &[("php-fpm", "fpm", 0o755)], &[]);
         let node = root.path().join("node.tar.gz");
+        // Unix Node archives contain links; Windows Node uses a zip and must
+        // not require the machine's symlink privilege to test tar extraction.
+        let links: &[(&str, &str)] = if cfg!(unix) {
+            &[("node-v24/bin/npm", "../lib/node_modules/npm/bin/npm-cli.js")]
+        } else {
+            &[]
+        };
         tar_gz_with(
             &node,
             &[
                 ("node-v24/bin/node", "node", 0o755),
                 ("node-v24/lib/node_modules/npm/bin/npm-cli.js", "npm", 0o644),
             ],
-            &[("node-v24/bin/npm", "../lib/node_modules/npm/bin/npm-cli.js")],
+            links,
         );
         let catalog = serde_json::json!({ "schema": 1, "products": {
             "php": { "label": "PHP", "kind": "runtime", "lines": { "8.5": {
