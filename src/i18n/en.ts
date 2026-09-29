@@ -97,6 +97,13 @@ export const en = {
     setupFailed: "Failed",
     startup: "Startup",
     autostart: "Start with Werd",
+    viteHint:
+      "Live updates for your frontend. Stops with the site. With Vite off, the site uses the last npm run build.",
+    viteStart: "Start Vite",
+    viteStop: "Stop Vite",
+    viteStartSite: "Start the site first",
+    viteAutostart: "Start Vite with this site",
+    viteLogs: "Vite logs",
     search: "Search sites",
     noMatch: "No site matches.",
     terminal: "Terminal",

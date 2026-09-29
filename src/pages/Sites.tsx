@@ -26,6 +26,7 @@ import {
   type Project,
   type ProjectInfo,
   projectEnv,
+  projectLogs,
   removeProject,
   resolveProject,
   type ServiceInstance,
@@ -33,9 +34,12 @@ import {
   setProjectDomain,
   setProjectNode,
   setProjectPhp,
+  setViteAutostart,
   siteAbout,
   siteAction,
   siteInfo,
+  startVite,
+  stopVite,
   unlinkProject,
 } from "../api";
 import { CATEGORIES, instancesFor } from "../categories";
@@ -553,6 +557,8 @@ function GeneralTab({
         </dl>
       </Section>
 
+      <ViteSection project={project} busy={busy === project.id} onChanged={onChanged} onError={onError} />
+
       <Section title={t.sites.maintenance}>
         <div className="button-row">
           <button type="button" className="button" onClick={() => onShowLogs(project)}>
@@ -579,6 +585,88 @@ function GeneralTab({
         </div>
       </Section>
     </>
+  );
+}
+
+function ViteSection({
+  project,
+  busy,
+  onChanged,
+  onError,
+}: {
+  project: Project;
+  busy: boolean;
+  onChanged: () => Promise<void>;
+  onError: (cause: unknown) => void;
+}) {
+  const t = useT();
+  const [pending, setPending] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
+  const [lines, setLines] = useState<string[]>([]);
+  const vite = project.vite;
+  const running = vite?.status === "running";
+  useEffect(() => {
+    if (!showLogs) return;
+    let cancelled = false;
+    const load = () =>
+      void projectLogs(project.id, "vite")
+        .then((output) => {
+          if (!cancelled) setLines(output);
+        })
+        .catch(onError);
+    load();
+    const timer = window.setInterval(load, 2500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [showLogs, project.id, onError]);
+  const change = async (action: () => Promise<unknown>) => {
+    setPending(true);
+    try {
+      await action();
+    } catch (error) {
+      onError(error);
+    } finally {
+      await onChanged().catch(onError);
+      setPending(false);
+    }
+  };
+  if (!vite?.available && !vite?.autostart && !running && !vite?.error) return null;
+  return (
+    <Section title="Vite" description={t.sites.viteHint}>
+      <div className="button-row">
+        <StatusDot status={vite?.status ?? "stopped"} label />
+        <button
+          type="button"
+          className="button"
+          disabled={busy || pending || (!running && (project.status !== "running" || !vite?.available))}
+          title={project.status !== "running" ? t.sites.viteStartSite : undefined}
+          onClick={() => void change(() => (running ? stopVite(project.id) : startVite(project.id)))}
+        >
+          {pending ? <Loader2 size={14} className="spin" /> : running ? <Square size={13} /> : <Play size={13} />}
+          {running ? t.sites.viteStop : t.sites.viteStart}
+        </button>
+        <button type="button" className="button" onClick={() => setShowLogs(true)}>
+          {t.sites.viteLogs}
+        </button>
+      </div>
+      <label className="checkbox">
+        <input
+          type="checkbox"
+          checked={vite?.autostart ?? false}
+          disabled={pending || busy}
+          onChange={(event) => void change(() => setViteAutostart(project.id, event.target.checked))}
+        />
+        {t.sites.viteAutostart}
+      </label>
+      {vite?.error && <div className="callout callout-error">{vite.error}</div>}
+      {showLogs && (
+        <Modal title={t.sites.viteLogs} onClose={() => setShowLogs(false)} wide>
+          <pre className="log-box mono">{lines.length ? lines.join("\n") : t.logs.empty}</pre>
+        </Modal>
+      )}
+    </Section>
   );
 }
 

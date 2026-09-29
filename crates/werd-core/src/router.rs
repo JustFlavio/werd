@@ -25,6 +25,8 @@ pub(crate) struct Route {
     pub fastcgi_port: u16,
     pub public_dir: PathBuf,
     pub domain: Option<String>,
+    /// Loopback Vite upstream and its HTTPS endpoint, when managed by Werd.
+    pub vite_ports: Option<(u16, u16)>,
 }
 
 #[derive(Default)]
@@ -63,6 +65,11 @@ pub(crate) fn caddyfile(routes: &[Route], domains_port: Option<u16>) -> String {
             caddy_path(&route.public_dir),
             route.fastcgi_port,
         ));
+        if let Some((upstream, https)) = route.vite_ports {
+            config.push_str(&format!(
+                "https://localhost:{https} {{\n  bind 127.0.0.1\n  reverse_proxy 127.0.0.1:{upstream}\n  tls internal\n}}\n"
+            ));
+        }
     }
     config
 }
@@ -204,6 +211,7 @@ mod tests {
             fastcgi_port: 9000,
             public_dir: PathBuf::from(r"\\?\C:\work\my shop\public"),
             domain: domain.map(str::to_string),
+            vite_ports: None,
         }
     }
 
@@ -230,6 +238,17 @@ mod tests {
         let mut quoted = route(None);
         quoted.public_dir = PathBuf::from(r#"/srv/a"b/public"#);
         assert!(caddyfile(&[quoted], None).contains(r#"root * "/srv/a\"b/public""#));
+    }
+
+    #[test]
+    fn vite_uses_a_separate_https_listener_and_loopback_upstream() {
+        let mut site = route(Some("shop.test"));
+        site.vite_ports = Some((5173, 8445));
+        let config = caddyfile(&[site], Some(443));
+        assert!(config.contains(
+            "https://localhost:8445 {\n  bind 127.0.0.1\n  reverse_proxy 127.0.0.1:5173\n  tls internal"
+        ));
+        assert!(config.contains("php_fastcgi 127.0.0.1:9000"));
     }
 
     #[test]

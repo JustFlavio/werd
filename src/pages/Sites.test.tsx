@@ -27,6 +27,10 @@ const api = vi.hoisted(() => ({
   inspectFolder: vi.fn(),
   siteInfo: vi.fn(),
   domainsStatus: vi.fn(),
+  startVite: vi.fn(),
+  stopVite: vi.fn(),
+  setViteAutostart: vi.fn(),
+  projectLogs: vi.fn(),
 }));
 
 vi.mock("../api", async (original) => ({
@@ -190,5 +194,41 @@ describe("Sites", () => {
     expect(screen.getByRole("heading", { name: "Siti" })).toBeInTheDocument();
     expect(screen.getByText("Disponibile dopo l’avvio")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Avvia/ })).toBeInTheDocument();
+  });
+
+  it("starts Vite and enables autostart independently of PHP", async () => {
+    const site: Project = {
+      ...blog,
+      status: "running",
+      vite: { available: true, status: "stopped", autostart: false },
+    };
+    api.startVite.mockResolvedValue(site);
+    api.setViteAutostart.mockResolvedValue(site);
+    const onChanged = vi.fn(async () => {});
+    renderSites([site], { selectedId: "blog", onChanged });
+    fireEvent.click(screen.getByRole("button", { name: "Start Vite" }));
+    await waitFor(() => expect(api.startVite).toHaveBeenCalledWith("blog"));
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: "Start Vite with this site" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("checkbox", { name: "Start Vite with this site" }));
+    await waitFor(() => expect(api.setViteAutostart).toHaveBeenCalledWith("blog", true));
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("requires a running site before starting Vite", () => {
+    renderSites([{ ...blog, vite: { available: true, status: "stopped", autostart: false } }], { selectedId: "blog" });
+    expect(screen.getByRole("button", { name: "Start Vite" })).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: "Start Vite with this site" })).toBeEnabled();
+  });
+
+  it("stops Vite and opens its dedicated log", async () => {
+    const site: Project = { ...blog, status: "running", vite: { available: true, status: "running", autostart: true } };
+    api.stopVite.mockResolvedValue(site);
+    api.projectLogs.mockResolvedValue(["Vite ready: https://localhost:8445"]);
+    renderSites([site], { selectedId: "blog" });
+    fireEvent.click(screen.getByRole("button", { name: "Stop Vite" }));
+    await waitFor(() => expect(api.stopVite).toHaveBeenCalledWith("blog"));
+    fireEvent.click(screen.getByRole("button", { name: "Vite logs" }));
+    expect(await screen.findByText("Vite ready: https://localhost:8445")).toBeInTheDocument();
+    expect(api.projectLogs).toHaveBeenCalledWith("blog", "vite");
   });
 });

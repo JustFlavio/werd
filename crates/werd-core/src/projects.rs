@@ -123,6 +123,10 @@ pub(crate) fn add_with(
         domain: Some(domain),
         parked: None,
         autostart: false,
+        vite: crate::model::ViteState {
+            available: crate::vite::available(canonical),
+            ..Default::default()
+        },
         path: display_path,
         php: initial_php(root, php.map(str::to_string).or(manifest.php)),
         node: manifest.node,
@@ -153,7 +157,7 @@ pub(crate) fn remove(root: &Path, state: &mut State, id: &str) -> Result<()> {
 /// Forgets a site without the parked-folder check; used by the parked-folder scan.
 pub(crate) fn remove_parked(root: &Path, state: &mut State, id: &str) -> Result<()> {
     let index = state.index(id)?;
-    let was_running = stop_processes(state, id);
+    let was_running = stop_processes(root, state, id);
     state.projects.remove(index);
     if was_running {
         state.sync_router(root)?;
@@ -194,8 +198,13 @@ pub(crate) fn start(root: &Path, state: &mut State, id: &str) -> Result<Project>
     }
 
     let mut ports = project.ports.clone().unwrap_or_default();
-    ports.retain(|role, _| role == "site" || role == "fastcgi");
-    ports::ensure_available(&ports)?;
+    ports.retain(|role, _| matches!(role.as_str(), "site" | "fastcgi" | "vite" | "vite_https"));
+    let php_ports = ports
+        .iter()
+        .filter(|(role, _)| matches!(role.as_str(), "site" | "fastcgi"))
+        .map(|(role, port)| (role.clone(), *port))
+        .collect();
+    ports::ensure_available(&php_ports)?;
     let mut children = Vec::new();
     if let Err(error) = proxy::start_php(
         root,
@@ -217,7 +226,7 @@ pub(crate) fn start(root: &Path, state: &mut State, id: &str) -> Result<Project>
         .sync_router(root)
         .and_then(|()| state.router.wait_for(site_port));
     if let Err(error) = served {
-        stop_processes(state, id);
+        stop_processes(root, state, id);
         let _ = state.sync_router(root);
         return Err(error);
     }
@@ -226,10 +235,13 @@ pub(crate) fn start(root: &Path, state: &mut State, id: &str) -> Result<Project>
     project.status = ProjectStatus::Running;
     project.error = None;
     let url = project.url.clone().unwrap_or_default();
-    let updated = project.clone();
     append_log(root, id, &format!("Site started: {url}"))?;
+    if state.projects[index].vite.autostart {
+        // Frontend failure is reported separately: PHP remains available.
+        let _ = crate::vite::start(root, state, id);
+    }
     state.save(root)?;
-    Ok(updated)
+    Ok(state.projects[index].clone())
 }
 
 /// Records a failed start so the UI can show it.
@@ -244,7 +256,8 @@ pub(crate) fn mark_failed(root: &Path, state: &mut State, id: &str, error: &anyh
 
 /// Stops PHP of a site; returns whether it was running. Callers then sync the
 /// router. Shared services keep running.
-pub(crate) fn stop_processes(state: &mut State, id: &str) -> bool {
+pub(crate) fn stop_processes(root: &Path, state: &mut State, id: &str) -> bool {
+    crate::vite::stop_process(root, state, id);
     let Some(mut children) = state.processes.remove(id) else {
         return false;
     };
@@ -256,7 +269,7 @@ pub(crate) fn stop_processes(state: &mut State, id: &str) -> bool {
 
 pub(crate) fn stop(root: &Path, state: &mut State, id: &str) -> Result<Project> {
     let index = state.index(id)?;
-    if stop_processes(state, id) {
+    if stop_processes(root, state, id) {
         state.sync_router(root)?;
     }
     let project = &mut state.projects[index];
@@ -460,6 +473,10 @@ pub(crate) fn using_runtime(state: &State, product: &str, line: &str) -> Vec<Str
         .filter(|project| state.processes.contains_key(&project.id))
         .filter(|project| match product {
             "php" => project.php == line,
+            "node" => state
+                .vite_processes
+                .get(&project.id)
+                .is_some_and(|vite| vite.node == line),
             // One Caddy and one CA bundle serve every running site.
             "caddy" | "cacert" => true,
             _ => false,

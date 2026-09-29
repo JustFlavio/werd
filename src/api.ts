@@ -27,6 +27,7 @@ export interface Project {
   domain?: string | null;
   /** Start the site whenever Werd starts. */
   autostart?: boolean;
+  vite?: ViteState;
   /** Parked folder the site comes from; such sites follow their folder. */
   parked?: string | null;
   php: string;
@@ -42,6 +43,14 @@ export interface Project {
 export interface Snapshot {
   projects: Project[];
   daemon_version: string;
+}
+
+export interface ViteState {
+  available: boolean;
+  autostart: boolean;
+  status: ProjectStatus;
+  error?: string | null;
+  url?: string | null;
 }
 
 export interface DoctorResult {
@@ -189,6 +198,10 @@ export const siteInfo = (id: string) => rpc<ProjectInfo>("sites.info", { id });
 export const createProject = (project: NewProject) => rpc<Job>("sites.create", { ...project });
 export const startProject = (id: string) => rpc<Project>("sites.start", { id });
 export const stopProject = (id: string) => rpc<Project>("sites.stop", { id });
+export const startVite = (id: string) => rpc<Project>("sites.vite.start", { id });
+export const stopVite = (id: string) => rpc<Project>("sites.vite.stop", { id });
+export const setViteAutostart = (id: string, autostart: boolean) =>
+  rpc<Project>("sites.vite.autostart", { id, autostart });
 export const resetPorts = (id: string) => rpc<Project>("sites.reset-ports", { id });
 export const openSite = (id: string) => rpc<string>("sites.open", { id });
 export const projectEnv = (id: string) => rpc<string>("sites.env", { id });

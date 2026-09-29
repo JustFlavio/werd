@@ -10,7 +10,9 @@ use std::path::Path;
 use std::process::{Child, Command, Stdio};
 
 /// Log files a project can have. `werd` holds Werd's own events.
-pub const LOG_SOURCES: [&str; 7] = ["werd", "postgres", "redis", "mailpit", "rustfs", "php", "caddy"];
+pub const LOG_SOURCES: [&str; 8] = [
+    "werd", "postgres", "redis", "mailpit", "rustfs", "php", "caddy", "vite",
+];
 
 const LOG_TAIL_BYTES: u64 = 256 * 1024;
 const LOG_TAIL_LINES: usize = 100;
@@ -218,6 +220,15 @@ impl ManagedChild {
     /// php-fpm stop their workers, then SIGKILL for anything still running.
     /// Killing only php-fpm's master leaves a worker holding the site's port.
     pub fn kill(&mut self) {
+        #[cfg(windows)]
+        if self.name == "vite" && self.child.try_wait().ok().flatten().is_none() {
+            // Vite may own esbuild or other plugin workers. Stop the tree too.
+            let _ = hidden_command("taskkill")
+                .args(["/PID", &self.child.id().to_string(), "/T", "/F"])
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status();
+        }
         #[cfg(unix)]
         {
             use rustix::process::{kill_process_group, Pid, Signal};
@@ -245,16 +256,21 @@ impl ManagedChild {
 #[cfg(unix)]
 const STOP_GRACE: std::time::Duration = std::time::Duration::from_secs(5);
 
-/// Starts `command` with stderr going to `<log_dir>/<name>.log`. On macOS and
+/// Starts `command` with stderr (and Vite's stdout) in `<log_dir>/<name>.log`. On macOS and
 /// Linux the child leads a new process group, so stopping it reaches its workers.
 pub(crate) fn spawn_logged(log_dir: &Path, name: &str, mut command: Command) -> Result<ManagedChild> {
     fs::create_dir_all(log_dir)?;
     let log = File::create(log_dir.join(format!("{name}.log")))?;
+    let stdout = if name == "vite" {
+        Stdio::from(log.try_clone()?)
+    } else {
+        Stdio::null()
+    };
     #[cfg(unix)]
     std::os::unix::process::CommandExt::process_group(&mut command, 0);
     let child = command
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
+        .stdout(stdout)
         .stderr(Stdio::from(log))
         .spawn()
         .with_context(|| format!("Cannot start {name}"))?;

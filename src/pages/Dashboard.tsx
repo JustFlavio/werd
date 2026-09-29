@@ -85,6 +85,14 @@ export function Dashboard({
       detail: t.dashboard.servesHttps(names(running)),
       logs: routerLogs,
     });
+    for (const project of running.filter((site) => site.vite?.status === "running")) {
+      rows.push({
+        id: `vite:${project.id}`,
+        label: `Vite · ${project.name}`,
+        detail: project.vite?.url ?? project.name,
+        logs: () => projectLogs(project.id, "vite"),
+      });
+    }
     // One row per PHP version in use, like Herd's PHP-8.5.
     for (const line of [...new Set(running.map((project) => project.php))].sort().reverse()) {
       const sites = running.filter((project) => project.php === line);

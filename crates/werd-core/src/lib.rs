@@ -43,6 +43,7 @@ pub mod runtimes;
 pub mod settings;
 mod shims;
 mod state;
+mod vite;
 
 pub use daemon::run_daemon;
 pub use model::{DoctorResult, Ports, Project, ProjectStatus, ServiceName, Snapshot};

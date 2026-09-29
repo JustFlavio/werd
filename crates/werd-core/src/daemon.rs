@@ -483,6 +483,11 @@ fn dispatch_unlocked(
 fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) -> Result<Value> {
     let root = daemon.root.as_path();
     let method = method.strip_prefix("sites.").unwrap_or(method);
+    if method == "list" {
+        for project in &mut state.projects {
+            project.vite.available = crate::vite::available(Path::new(&project.path));
+        }
+    }
     Ok(match method {
         "ping" => json!({ "version": VERSION, "protocol": PROTOCOL_VERSION }),
         "list" => json!(Snapshot {
@@ -542,6 +547,14 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
             }
         }
         "stop" => json!(projects::stop(root, state, id(params)?)?),
+        "vite.start" => json!(crate::vite::start(root, state, id(params)?)?),
+        "vite.stop" => json!(crate::vite::stop(root, state, id(params)?)?),
+        "vite.autostart" => json!(crate::vite::set_autostart(
+            root,
+            state,
+            id(params)?,
+            params["autostart"].as_bool().context("Missing autostart")?
+        )?),
         "remove" => {
             projects::remove(root, state, id(params)?)?;
             json!(null)
@@ -719,6 +732,7 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
 
 /// Marks projects whose processes died as failed and stops their other processes.
 fn reap_exited(root: &Path, state: &mut State) {
+    crate::vite::reap_exited(root, state);
     let mut failed = Vec::new();
     if let Some(exit) = state.router.has_exited() {
         for id in state.processes.keys() {
@@ -736,7 +750,7 @@ fn reap_exited(root: &Path, state: &mut State) {
     instances::reap_exited(root, &mut state.instances);
     let restart_router = !failed.is_empty();
     for (id, name, exit) in failed {
-        projects::stop_processes(state, &id);
+        projects::stop_processes(root, state, &id);
         if let Ok(index) = state.index(&id) {
             let project = &mut state.projects[index];
             project.status = ProjectStatus::Error;

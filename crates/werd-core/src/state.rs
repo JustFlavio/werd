@@ -15,6 +15,7 @@ pub(crate) struct State {
     pub projects: Vec<Project>,
     /// Running processes per project id.
     pub processes: HashMap<String, Vec<ManagedChild>>,
+    pub vite_processes: HashMap<String, crate::vite::RunningVite>,
     /// Shared service instances (PostgreSQL, Redis, …).
     pub instances: Instances,
     /// The Caddy that serves running sites.
@@ -33,6 +34,11 @@ impl State {
             Vec::new()
         };
         for project in &mut projects {
+            crate::vite::cleanup_hot(root, project);
+            project.vite.status = ProjectStatus::Stopped;
+            project.vite.url = None;
+            project.vite.error = None;
+            project.vite.available = crate::vite::available(Path::new(&project.path));
             project.status = ProjectStatus::Stopped;
             project.url = None;
             crate::migrations::upgrade_project(project);
@@ -40,6 +46,7 @@ impl State {
         let mut state = Self {
             projects,
             processes: HashMap::new(),
+            vite_processes: HashMap::new(),
             instances: Instances::load(root)?,
             router: Router::default(),
         };
@@ -81,6 +88,16 @@ impl State {
                     fastcgi_port: router::port(project, "fastcgi").ok()?,
                     public_dir: std::path::Path::new(&project.path).join("public"),
                     domain: project.domain.clone(),
+                    vite_ports: self
+                        .vite_processes
+                        .contains_key(&project.id)
+                        .then(|| {
+                            Some((
+                                router::port(project, "vite").ok()?,
+                                router::port(project, "vite_https").ok()?,
+                            ))
+                        })
+                        .flatten(),
                 })
             })
             .collect()
@@ -148,6 +165,7 @@ mod tests {
             domain: None,
             parked: None,
             autostart: false,
+            vite: Default::default(),
             path: "/work/shop".into(),
             php: "8.5".into(),
             node: None,

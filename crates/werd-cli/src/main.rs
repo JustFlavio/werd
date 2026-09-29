@@ -73,6 +73,15 @@ enum Command {
         #[arg(default_value = "werd", value_parser = clap::builder::PossibleValuesParser::new(LOG_SOURCES))]
         source: String,
     },
+    /// Manage a site's Vite dev server (the PHP site must already be running).
+    Vite {
+        project: String,
+        #[arg(default_value = "status", value_parser = ["start", "stop", "status"])]
+        action: String,
+        /// Start Vite whenever this site starts.
+        #[arg(long)]
+        autostart: Option<bool>,
+    },
     /// Pick new ports for a stopped project on its next start.
     ResetPorts { project: String },
     /// Show a site: PHP and Node versions, linked services and what is still missing.
@@ -334,6 +343,43 @@ fn run(cli: Cli) -> Result<()> {
         Command::Open { project } => ("open", json!({ "id": resolve(project)? })),
         Command::Env { project } => ("env", json!({ "id": resolve(project)? })),
         Command::Logs { project, source } => ("logs", json!({ "id": resolve(project)?, "service": source })),
+        Command::Vite {
+            project,
+            action,
+            autostart,
+        } => {
+            let id = resolve(project)?;
+            let mut site = if let Some(enabled) = autostart {
+                call("sites.vite.autostart", json!({ "id": id, "autostart": enabled }))?
+            } else {
+                Value::Null
+            };
+            if action != "status" {
+                site = call(&format!("sites.vite.{action}"), json!({ "id": id }))?;
+            } else if site.is_null() {
+                let snapshot: Snapshot = serde_json::from_value(call("sites.list", json!({}))?)?;
+                site = serde_json::to_value(
+                    snapshot
+                        .projects
+                        .iter()
+                        .find(|site| site.id == id)
+                        .context("Site not found")?,
+                )?;
+            }
+            if cli.json {
+                println!("{}", serde_json::to_string_pretty(&site["vite"])?);
+            } else {
+                println!(
+                    "Vite: {} (autostart: {})",
+                    site["vite"]["status"].as_str().unwrap_or("stopped"),
+                    site["vite"]["autostart"]
+                );
+                if let Some(error) = site["vite"]["error"].as_str() {
+                    println!("{error}");
+                }
+            }
+            return Ok(());
+        }
         Command::ResetPorts { project } => ("reset-ports", json!({ "id": resolve(project)? })),
         Command::Info { project } => return sites::info(&resolve(project)?, cli.json),
         Command::Set {
@@ -467,6 +513,7 @@ fn run(cli: Cli) -> Result<()> {
         Command::Completions { .. }
         | Command::Php { .. }
         | Command::Node { .. }
+        | Command::Vite { .. }
         | Command::Runtimes
         | Command::Install { .. }
         | Command::Update { .. }

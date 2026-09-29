@@ -18,4 +18,4 @@ export function instancesFor(category: Category, instances: ServiceInstance[]): 
 }
 
 /** Log sources a site has; services have their own log. */
-export const SITE_LOG_SOURCES = ["werd", "php", "caddy"] as const;
+export const SITE_LOG_SOURCES = ["werd", "php", "caddy", "vite"] as const;

@@ -22,6 +22,7 @@ const projects: Project[] = [
     path: "C:\\Users\\dev\\Developer\\shop",
     php: "8.4",
     node: "22",
+    vite: { available: true, autostart: true, status: "running", url: "https://localhost:52014" },
     links: { database: { instance: "pg", database: "shop" }, cache: { instance: "redis" }, mail: { instance: "mail" } },
     status: "running",
     url: "https://shop.test",
@@ -288,6 +289,7 @@ function addDemoProject(path: string, name?: string, php?: string): Project {
     domain: `${label(siteName)}.test`,
     path,
     php: php ?? settings.default_php ?? "8.5",
+    vite: { available: true, autostart: false, status: "stopped" },
     status: "stopped",
     ports: { site: 52100 + projects.length, fastcgi: 52200 + projects.length },
   };
@@ -353,6 +355,23 @@ export async function demoRpc(method: string, params: Record<string, unknown>): 
   switch (method) {
     case "sites.list":
       return { projects, daemon_version: "0.2.0 (demo)" } satisfies Snapshot;
+    case "sites.start": {
+      const project = findProject(params.id);
+      if (project.requirements?.length) throw new Error("Create missing services first");
+      project.status = "running";
+      project.url = `https://${project.domain}`;
+      project.error = undefined;
+      if (project.vite?.autostart)
+        project.vite = { ...project.vite, status: "running", url: "https://localhost:52014" };
+      return project;
+    }
+    case "sites.stop": {
+      const project = findProject(params.id);
+      project.status = "stopped";
+      project.url = undefined;
+      if (project.vite) project.vite = { ...project.vite, status: "stopped", url: null, error: null };
+      return project;
+    }
     case "sites.logs":
       return [
         `[12:04:10] ${params.id}: starting ${params.service}`,
@@ -408,6 +427,27 @@ export async function demoRpc(method: string, params: Record<string, unknown>): 
     case "sites.autostart":
       findProject(params.id).autostart = Boolean(params.autostart);
       return findProject(params.id);
+    case "sites.vite.start": {
+      const project = findProject(params.id);
+      if (project.status !== "running") throw new Error("Start the site before starting Vite");
+      project.vite = {
+        available: true,
+        autostart: project.vite?.autostart ?? false,
+        status: "running",
+        url: "https://localhost:52014",
+      };
+      return project;
+    }
+    case "sites.vite.stop": {
+      const project = findProject(params.id);
+      project.vite = { available: true, autostart: project.vite?.autostart ?? false, status: "stopped" };
+      return project;
+    }
+    case "sites.vite.autostart": {
+      const project = findProject(params.id);
+      project.vite = { available: true, status: "stopped", ...project.vite, autostart: Boolean(params.autostart) };
+      return project;
+    }
     case "router.logs":
       return [
         '{"level":"info","msg":"serving initial configuration"}',

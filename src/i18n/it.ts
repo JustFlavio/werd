@@ -93,6 +93,13 @@ export const it: Messages = {
     setupFailed: "Non riuscito",
     startup: "Avvio",
     autostart: "Avvia con Werd",
+    viteHint:
+      "Aggiorna il frontend mentre lavori. Si ferma insieme al sito. Con Vite spento, il sito usa l’ultima npm run build.",
+    viteStart: "Avvia Vite",
+    viteStop: "Ferma Vite",
+    viteStartSite: "Avvia prima il sito",
+    viteAutostart: "Avvia Vite insieme al sito",
+    viteLogs: "Log di Vite",
     search: "Cerca siti",
     noMatch: "Nessun sito corrisponde.",
     terminal: "Terminale",

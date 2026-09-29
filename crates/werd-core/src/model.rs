@@ -80,6 +80,20 @@ pub struct Requirement {
     pub extensions: Vec<String>,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct ViteState {
+    #[serde(default)]
+    pub autostart: bool,
+    #[serde(default)]
+    pub available: bool,
+    #[serde(default)]
+    pub status: ProjectStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Project {
     pub id: String,
@@ -105,6 +119,9 @@ pub struct Project {
     /// Start the site whenever Werd starts.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub autostart: bool,
+    /// Managed frontend dev server, independent of the PHP site's status.
+    #[serde(default)]
+    pub vite: ViteState,
     #[serde(default)]
     pub status: ProjectStatus,
     #[serde(skip_serializing_if = "Option::is_none")]

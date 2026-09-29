@@ -41,6 +41,18 @@ pub fn ensure_available(ports: &Ports) -> Result<()> {
     Ok(())
 }
 
+/// Waits for a removed Caddy listener to close after its watched config reloads.
+pub(crate) fn wait_until_available(port: u16) -> Result<()> {
+    let deadline = Instant::now() + STARTUP_TIMEOUT;
+    while Instant::now() < deadline {
+        if TcpListener::bind(("127.0.0.1", port)).is_ok() {
+            return Ok(());
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+    bail!("Port {port} is still in use after stopping Vite; see the Caddy log")
+}
+
 /// Waits until `port` accepts connections, failing early if `child` exits.
 pub fn wait_until_listening(port: u16, child: &mut Child, label: &str) -> Result<()> {
     let deadline = Instant::now() + STARTUP_TIMEOUT;
