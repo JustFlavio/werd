@@ -9,6 +9,8 @@ The README's [official roadmap](../README.md#official-roadmap) defines the gates
 
 The pre-launch experiments using `0.1.1`, `0.3.0-beta.*` and `0.3.0-rc.*` are retired. Their metadata, refs and downloaded assets are archived locally before cleanup; source commits remain in Git history. New development starts at **`0.1.0-alpha.1`**. This is a one-time reset for an unlaunched project, not a policy of rewriting released versions.
 
+The `alpha.1` installer build was cancelled before publication because first-run setup selected PHP RC by default. Its source tag is retained. `0.1.0-alpha.2` supersedes that attempt and includes a stable-PHP default; published source tags are not moved to hide the correction.
+
 | Stage | Meaning | GitHub classification |
 | --- | --- | --- |
 | `0.1.0-alpha.N` | Features and architecture can still change; platform support can be incomplete | Prerelease |

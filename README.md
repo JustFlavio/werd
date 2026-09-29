@@ -7,7 +7,7 @@ Werd is a free, MIT-licensed local development environment for Laravel and PHP. 
 
 A desktop app and a `werd` CLI share one Rust daemon. Sites run their own PHP FastCGI behind one shared Caddy, on `https://<name>.test`, and link to shared services you create once: PostgreSQL (with optional pgvector), MySQL, MariaDB, MongoDB, Redis, Mailpit, RustFS (S3) and Meilisearch.
 
-> **Status: alpha development, preparing `0.1.0-alpha.1`.** This is a new project with no public stable release. Windows x64 is the currently exercised development platform; macOS support is partial and Linux still needs runtime coverage and validation. The first stable release will be gated by the [official roadmap](#official-roadmap), not by a date.
+> **Status: alpha development, preparing `0.1.0-alpha.2`.** This is a new project with no public stable release. Windows x64 is the currently exercised development platform; macOS support is partial and Linux still needs runtime coverage and validation. The first stable release will be gated by the [official roadmap](#official-roadmap), not by a date.
 
 ## Download
 
@@ -78,7 +78,7 @@ Werd keeps its data in `%LOCALAPPDATA%\Werd` on Windows and the equivalent local
 
 ## First project
 
-On its first start Werd downloads Caddy, the newest PHP (made the global version) and Composer in the background; the Dashboard shows the progress. Internet is needed only to download versions and to create new projects; sites and services run offline.
+On its first start Werd downloads Caddy, the newest **stable** PHP available for the platform (made the global version) and Composer in the background; the Dashboard shows the progress. PHP alpha/beta/RC builds remain available for explicit installation. Internet is needed only to download versions and to create new projects; sites and services run offline.
 
 On Windows, Werd installs phpredis and the MongoDB PHP driver with each new PHP version and enables them in `php.ini`, so Laravel can use `REDIS_CLIENT=phpredis`.
 
@@ -86,6 +86,8 @@ On Windows, Werd installs phpredis and the MongoDB PHP driver with each new PHP 
 2. Add the services you need in **Services → Add service** (or `werd service add postgresql@18 --with pgvector`). Building pgvector currently needs Visual Studio Build Tools.
 3. Add the folder in **Sites → Add site** (or `werd add`), link its services, start it, copy the `.env` values from the site page and run your migrations.
 4. To avoid browser warnings, trust the local CA in **General → HTTPS certificate** (or `werd trust-ca`).
+
+For Vite projects, install a compatible Node version from **Node** (or `werd node install 22`), select it for the site and install the project's npm dependencies before starting managed Vite.
 
 Some Laravel packages you will need:
 - **MongoDB:** install `mongodb/laravel-mongodb` to use a MongoDB connection from Laravel.
