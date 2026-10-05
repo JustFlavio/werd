@@ -126,7 +126,7 @@ mod user_path {
         key()?.set_raw_value(
             "Path",
             &RegValue {
-                bytes,
+                bytes: bytes.into(),
                 vtype: winreg::enums::REG_EXPAND_SZ,
             },
         )?;
