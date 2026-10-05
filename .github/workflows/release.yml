@@ -1,7 +1,8 @@
 name: Release
 
 # One version and one app release. Runtime builds live in werd-runtimes.
-# Secrets: TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD.
+# Secrets (environment `release`, owner approval required): TAURI_SIGNING_PRIVATE_KEY
+# and TAURI_SIGNING_PRIVATE_KEY_PASSWORD.
 # RELEASE_PLATFORMS: windows (alpha default), macos, linux; stable requires all.
 on:
   push:
@@ -68,6 +69,8 @@ jobs:
   build:
     name: Build (${{ matrix.platform }})
     needs: plan
+    # Holds the updater signing key; every build waits for the owner's approval.
+    environment: release
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
