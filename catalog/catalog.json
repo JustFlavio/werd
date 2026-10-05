@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated": "2026-09-28T12:09:35.714Z",
+  "generated": "2026-10-05T14:32:13.117Z",
   "products": {
     "cacert": {
       "kind": "tool",
@@ -28,23 +28,23 @@
             "macos-arm64": {
               "format": "tar.gz",
               "marker": "caddy",
-              "sha256": "9efb0af2d6cf09cfb5053c0e51721b9b3d4956d346234f39368d943d25a3c9a7",
-              "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.4/caddy_2.11.4_mac_arm64.tar.gz"
+              "sha256": "cda3030e5d5b13eb9f0b6fb541037f633bddd958c070c5f561d7a5cccb581665",
+              "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.7/caddy_2.11.7_mac_arm64.tar.gz"
             },
             "macos-x64": {
               "format": "tar.gz",
               "marker": "caddy",
-              "sha256": "34bc9e5cceee8d67844ef51da624f5b79e8d070f27236e050c3f0066a2dba534",
-              "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.4/caddy_2.11.4_mac_amd64.tar.gz"
+              "sha256": "110c53e5c093e4cfce6eda787f94f23bef913c309f620fab26b4f678031841ad",
+              "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.7/caddy_2.11.7_mac_amd64.tar.gz"
             },
             "windows-x64": {
               "format": "zip",
               "marker": "caddy.exe",
-              "sha256": "1708333f79e274c7697285afe6d592ab39314e0b131e9ec6bea08ad27df62ebf",
-              "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.4/caddy_2.11.4_windows_amd64.zip"
+              "sha256": "0a1edc0b799512051c57071ce0e798d3f2cf67dc98171366f1d2b326072e3b06",
+              "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.7/caddy_2.11.7_windows_amd64.zip"
             }
           },
-          "latest": "2.11.4"
+          "latest": "2.11.7"
         }
       }
     },
@@ -78,11 +78,11 @@
             "windows-x64": {
               "format": "zip",
               "marker": "mailpit.exe",
-              "sha256": "42c20e5c3254125ea7489847811f10d70e39de573fe41d03a61412c87913e995",
-              "url": "https://github.com/axllent/mailpit/releases/download/v1.31.2/mailpit-windows-amd64.zip"
+              "sha256": "0dd6ec909a6f5b2b66682b22d82abce97ab793e30766bf2f642b691e70a4a16b",
+              "url": "https://github.com/axllent/mailpit/releases/download/v1.31.4/mailpit-windows-amd64.zip"
             }
           },
-          "latest": "1.31.2"
+          "latest": "1.31.4"
         }
       }
     },
@@ -173,11 +173,11 @@
             "windows-x64": {
               "format": "file",
               "marker": "meilisearch.exe",
-              "sha256": "1a3a3f2fa249b2a471eca479d37b1d3bbb9bda1aacae3eaf7839218105810125",
-              "url": "https://github.com/meilisearch/meilisearch/releases/download/v1.54.0/meilisearch-windows-amd64.exe"
+              "sha256": "09266bd2c51747cebe908f7373cc6e2e546e3930886bb8c1427f402a0dc4c2dc",
+              "url": "https://github.com/meilisearch/meilisearch/releases/download/v1.54.3/meilisearch-windows-amd64.exe"
             }
           },
-          "latest": "1.54.0"
+          "latest": "1.54.3"
         }
       }
     },
@@ -232,6 +232,17 @@
             }
           },
           "latest": "8.3.11"
+        },
+        "9.0": {
+          "builds": {
+            "windows-x64": {
+              "format": "zip",
+              "marker": "bin/mongod.exe",
+              "sha256": "2cabba2e80b90bcd1c1096845711975199104148c849a007984cb3ee4d237406",
+              "url": "https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-9.0.2.zip"
+            }
+          },
+          "latest": "9.0.2"
         }
       }
     },
@@ -561,11 +572,11 @@
             "windows-x64": {
               "format": "zip",
               "marker": "Makefile.win",
-              "sha256": "e93a1567219c9ce523ca16473f6c41cc80e01345b2d91ccdee40b473b7c5dd0a",
-              "url": "https://codeload.github.com/pgvector/pgvector/zip/refs/tags/v0.8.6"
+              "sha256": "7b3b8188a5cc0aa96db3c8f3fca1e78a8a612c46545065490c76448705c6b29e",
+              "url": "https://codeload.github.com/pgvector/pgvector/zip/refs/tags/v0.8.7"
             }
           },
-          "latest": "0.8.6"
+          "latest": "0.8.7"
         }
       }
     },
@@ -1125,11 +1136,11 @@
             "windows-x64": {
               "format": "zip",
               "marker": "rustfs.exe",
-              "sha256": "4ccf5858ce8e6f70f01af2394c8cc0e0878ee77faa6c20d3179153476554b7d8",
-              "url": "https://github.com/rustfs/rustfs/releases/download/1.0.0/rustfs-windows-x86_64-v1.0.0.zip"
+              "sha256": "624259622524255d0000131e095f37a11299fd76926aabfd8f831a9dbe6a39f7",
+              "url": "https://github.com/rustfs/rustfs/releases/download/1.0.1/rustfs-windows-x86_64-v1.0.1.zip"
             }
           },
-          "latest": "1.0.0"
+          "latest": "1.0.1"
         }
       }
     }
