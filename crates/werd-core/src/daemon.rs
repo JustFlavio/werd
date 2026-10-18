@@ -167,6 +167,13 @@ fn prepare_instance(
     instance: instances::ServiceInstance,
     start_after: bool,
 ) -> Result<Value> {
+    if daemon.jobs.list().iter().any(|job| {
+        job.product == instance.product
+            && job.line == instance.line
+            && job.state == crate::jobs::JobState::Running
+    }) {
+        bail!("Wait for the current operation on this engine version before preparing the service");
+    }
     let root = daemon.root.clone();
     let catalog = daemon.catalog();
 
@@ -685,6 +692,52 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
             )?)
         }
         "env" => json!(projects::env(root, state, id(params)?)?),
+        "env.preview" => {
+            let project = state.project(id(params)?)?;
+            json!(crate::project_env::preview(
+                Path::new(&project.path),
+                &projects::env(root, state, &project.id)?
+            )?)
+        }
+        "dependencies.install" => {
+            let project = state.project(id(params)?)?;
+            let kind = text(params, "kind")?;
+            let command = crate::project_setup::command(root, project, kind)?;
+            json!(daemon
+                .jobs
+                .start("project-setup", &project.id, kind, move |progress| {
+                    crate::project_setup::run(command, progress)
+                })?)
+        }
+        "env.apply" => {
+            let project = state.project(id(params)?)?;
+            let backup = crate::project_env::apply(
+                Path::new(&project.path),
+                &crate::paths::project_dir(root, &project.id).join("env-backups"),
+                &projects::env(root, state, &project.id)?,
+                text(params, "revision")?,
+            )?;
+            json!({"backup": backup})
+        }
+        "setup" => {
+            let project = state.project(id(params)?)?;
+            let folder = Path::new(&project.path);
+            let env = projects::env(root, state, &project.id)
+                .and_then(|suggested| crate::project_env::preview(folder, &suggested));
+            json!({
+                "env_pending": env.as_ref().ok().map(|preview| preview.changes.len()),
+                "env_exists": env.as_ref().ok().is_some_and(|preview| preview.exists),
+                "env_error": env.err().map(|error| error.to_string()),
+                "vendor_installed": folder.join("vendor/autoload.php").is_file(),
+                "app_key_present": crate::project_env::has_app_key(folder),
+                "configuration_cached": folder.join("bootstrap/cache/config.php").is_file(),
+                "frontend": crate::vite::available(folder),
+                "frontend_installed": folder.join("node_modules/vite/package.json").is_file(),
+                "frontend_built": folder.join("public/build/manifest.json").is_file() || folder.join("public/hot").is_file(),
+                "node_required": crate::vite::requested_node(root, project)?,
+                "node_installed": crate::vite::node_line(root, project).is_ok(),
+            })
+        }
         "doctor" => json!(doctor::run(
             root,
             &daemon.catalog(),
@@ -763,6 +816,10 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
         "services.catalog" => json!(instances::offerings(root, &daemon.catalog())?),
         "services.list" => json!(instances::summaries(root, &state.instances)),
         "services.create" => create_service(daemon, state, params)?,
+        "services.prepare" => {
+            let instance = state.instances.get(id(params)?)?.clone();
+            prepare_instance(daemon, state, instance, true)?
+        }
         "services.start" => json!(instances::start(root, &mut state.instances, id(params)?)?),
         "services.stop" => {
             let instance = state.instances.get(id(params)?)?;
@@ -1160,6 +1217,46 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("id"));
+    }
+
+    #[test]
+    fn project_setup_env_preview_and_apply_round_trip_through_rpc() {
+        let root = tempfile::tempdir().unwrap();
+        let work = tempfile::tempdir().unwrap();
+        std::fs::write(work.path().join("artisan"), "").unwrap();
+        std::fs::write(work.path().join("composer.json"), "{}").unwrap();
+        std::fs::write(
+            work.path().join(".env"),
+            "APP_KEY=keep\nAPP_URL=http://localhost\n",
+        )
+        .unwrap();
+        let daemon = daemon(root.path(), None);
+        let mut state = State::default();
+        let project = projects::add(root.path(), &mut state, &work.path().to_string_lossy()).unwrap();
+        let params = json!({"id":project.id});
+        let status = dispatch(&daemon, &mut state, "sites.setup", &params).unwrap();
+        assert_eq!(status["app_key_present"], true);
+        assert_eq!(status["vendor_installed"], false);
+        let preview = dispatch(&daemon, &mut state, "sites.env.preview", &params).unwrap();
+        let applied = dispatch(
+            &daemon,
+            &mut state,
+            "sites.env.apply",
+            &json!({"id":project.id,"revision":preview["revision"]}),
+        )
+        .unwrap();
+        assert!(Path::new(applied["backup"].as_str().unwrap()).is_file());
+        assert_eq!(
+            dispatch(&daemon, &mut state, "sites.setup", &params).unwrap()["env_pending"],
+            0
+        );
+        assert!(dispatch(
+            &daemon,
+            &mut state,
+            "sites.dependencies.install",
+            &json!({"id":project.id,"kind":"arbitrary-command"})
+        )
+        .is_err());
     }
 
     #[test]

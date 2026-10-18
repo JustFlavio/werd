@@ -50,11 +50,11 @@ pub(crate) fn cleanup_hot(root: &Path, project: &Project) {
 }
 
 /// Same project-file precedence as Werd's Node shim.
-fn node_line(root: &Path, project: &Project) -> Result<String> {
+pub(crate) fn requested_node(root: &Path, project: &Project) -> Result<Option<String>> {
     for folder in Path::new(&project.path).ancestors() {
         let manifest = crate::manifest::Manifest::load(folder)?;
         if let Some(line) = manifest.node {
-            return runtimes::resolve_line(root, "node", Some(&line), "Node.js");
+            return Ok(Some(line));
         }
         for file in [".nvmrc", ".node-version"] {
             if let Ok(value) = fs::read_to_string(folder.join(file)) {
@@ -65,18 +65,17 @@ fn node_line(root: &Path, project: &Project) -> Result<String> {
                     .next()
                     .unwrap_or_default();
                 if !major.is_empty() && major.bytes().all(|byte| byte.is_ascii_digit()) {
-                    return runtimes::resolve_line(root, "node", Some(major), "Node.js");
+                    return Ok(Some(major.to_string()));
                 }
             }
         }
     }
     let settings = Settings::load(root)?;
-    runtimes::resolve_line(
-        root,
-        "node",
-        project.node.as_deref().or(settings.default_node.as_deref()),
-        "Node.js",
-    )
+    Ok(project.node.clone().or(settings.default_node))
+}
+
+pub(crate) fn node_line(root: &Path, project: &Project) -> Result<String> {
+    runtimes::resolve_line(root, "node", requested_node(root, project)?.as_deref(), "Node.js")
 }
 
 fn launch(root: &Path, state: &mut State, id: &str) -> Result<()> {
