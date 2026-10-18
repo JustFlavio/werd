@@ -168,7 +168,8 @@ The goal is to open a project, start its environment and work without keeping se
 - [ ] Add a Laravel log viewer, structured `dump()`/`dd()` inspection and a Mailpit-backed inbox inside Werd with project attribution.
 - [ ] Package and configure Xdebug where the PHP build supports it; verify PhpStorm/VS Code connections. Resolve the current static macOS PHP extension limitation before promising debugger support there.
 - [ ] Strengthen `werd doctor`: runtime/extension requirements from Composer, Node compatibility, occupied ports, CA trust, database connectivity and stale Vite hot files, with concrete remedies and secret redaction.
-- [ ] Add database backup/restore and export/import, test restoration into an isolated instance, and protect data before runtime changes. Service upgrades must respect engine compatibility instead of assuming every new binary accepts old data.
+- [x] Local single-database backup/restore for PostgreSQL, MySQL and MariaDB through GUI/CLI in the current source, with checksums and restore into a new database. [Real Windows acceptance](docs/database-backups.md#verification--2026-10-18) also covers a Laravel HTTPS request to restored PostgreSQL data.
+- [ ] Add export/import workflows, automatic protection before runtime changes and engine-upgrade recovery. Service upgrades must respect engine compatibility instead of assuming every new binary accepts old data. Validate backup/restore on macOS/Linux.
 - [ ] Distribute verified pgvector builds matched to supported PostgreSQL binaries, with checksums and third-party notices.
 
 **Exit criterion:** a clean Windows x64 machine can run a Laravel/Inertia project with Vite, a database, queue, mail and S3; inspect a failure; stop/restart; and restore a backup through the GUI and the equivalent CLI operations. No orphan processes, lost data or manual edits to system configuration are required.
