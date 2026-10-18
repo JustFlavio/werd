@@ -21,6 +21,8 @@ serde_json = "1"
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-autostart = "2"
 tauri-plugin-dialog = "2"
-tauri-plugin-updater = "2"
+# Published 2.14.0 still uses vulnerable zip 4. Pin the official v2 fix until
+# an upstream release includes zip 9; see docs/research/base-workflow-review.md.
+tauri-plugin-updater = { git = "https://github.com/tauri-apps/plugins-workspace", rev = "f36ba7ba48695776bc11cce0bfdc45678ec24f72" }
 tauri-plugin-single-instance = "2"
 werd-core = { path = "../crates/werd-core" }
