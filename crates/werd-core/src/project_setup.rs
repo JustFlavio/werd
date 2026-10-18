@@ -45,6 +45,14 @@ pub(crate) fn command(root: &Path, project: &Project, kind: &str) -> Result<Comm
             command
         }
         "npm" => {
+            let folder = Path::new(&project.path);
+            if !folder.join("package-lock.json").is_file()
+                && ["pnpm-lock.yaml", "yarn.lock", "bun.lockb", "bun.lock"]
+                    .iter()
+                    .any(|name| folder.join(name).is_file())
+            {
+                bail!("This project uses another package manager. Install frontend dependencies with that manager from the project's terminal.");
+            }
             let line = crate::vite::node_line(root, project)?;
             let directory = runtimes::line_dir(root, "node", &line);
             let binary = directory.join(if cfg!(windows) { "node.exe" } else { "bin/node" });
@@ -125,6 +133,20 @@ pub(crate) fn run(command: Command, progress: &Progress) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn npm_does_not_replace_another_package_managers_lockfile() {
+        let root = tempfile::tempdir().unwrap();
+        let project: Project = serde_json::from_value(
+            serde_json::json!({"id":"test","name":"test","path":root.path(),"php":"8.4"}),
+        )
+        .unwrap();
+        std::fs::write(root.path().join("pnpm-lock.yaml"), "lockfileVersion: 9").unwrap();
+        assert!(command(root.path(), &project, "npm")
+            .unwrap_err()
+            .to_string()
+            .contains("another package manager"));
+        assert!(!root.path().join("package-lock.json").exists());
+    }
     #[test]
     fn managed_dependency_jobs_capture_output_and_exit() {
         let jobs = crate::jobs::Jobs::default();
