@@ -152,6 +152,23 @@ fn create_instance(
     let root = daemon.root.clone();
     let catalog = daemon.catalog();
     let instance = instances::create(&root, &mut state.instances, &catalog, request)?;
+    let result = prepare_instance(daemon, state, instance.clone(), start_after);
+    if result.is_err() {
+        // No job was accepted: a retry must not allocate another engine and port.
+        instances::delete(&root, &mut state.instances, &instance.id, false)
+            .context("Cannot roll back the new service after preparation failed")?;
+    }
+    result
+}
+
+fn prepare_instance(
+    daemon: &Daemon,
+    state: &mut State,
+    instance: instances::ServiceInstance,
+    start_after: bool,
+) -> Result<Value> {
+    let root = daemon.root.clone();
+    let catalog = daemon.catalog();
 
     let installed = Installed::load(&root)?;
     let needs_runtime = installed.version(&instance.product, &instance.line).is_none();
@@ -957,6 +974,29 @@ mod tests {
     use super::*;
     use crate::jobs::JobState;
     use crate::runtimes::tests::{fixture, php_extensions_fixture, LocalFetcher};
+
+    #[test]
+    fn rejected_service_jobs_do_not_leave_instances_on_retry() {
+        let root = tempfile::tempdir().unwrap();
+        let daemon = daemon(root.path(), None);
+        let mut state = State::default();
+        let (release, wait) = std::sync::mpsc::channel();
+        daemon
+            .jobs
+            .start("postgresql", "18", "install", move |_| {
+                wait.recv()?;
+                Ok(())
+            })
+            .unwrap();
+        for _ in 0..2 {
+            assert!(
+                create_service(&daemon, &mut state, &json!({"product":"postgresql","line":"18"})).is_err()
+            );
+            assert!(state.instances.list.is_empty());
+            assert!(instances::Instances::load(root.path()).unwrap().list.is_empty());
+        }
+        release.send(()).unwrap();
+    }
 
     #[test]
     fn active_database_jobs_keep_services_and_runtimes_available_while_rpc_still_answers() {

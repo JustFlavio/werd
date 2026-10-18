@@ -56,6 +56,8 @@ export const en = {
     prepare: "Start engine",
     addHint: "Werd creates the engine and connects it to this project. Connection values must be copied to your .env.",
     redisReuse: "Cache and queue use the same Redis engine in this project.",
+    redisConflict:
+      "The linked Redis engine does not satisfy werd.yml. Change the existing cache/queue connection to a compatible engine before continuing.",
     engine: "Engine",
     version: "Version",
     retryLink: "Retry connection",

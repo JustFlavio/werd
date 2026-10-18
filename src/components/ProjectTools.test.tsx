@@ -92,6 +92,19 @@ beforeEach(() => {
 });
 
 describe("project tools", () => {
+  it("does not clear an incompatible Redis requirement by reusing the other connection", async () => {
+    show({
+      ...project,
+      links: { queue: { instance: "redis" } },
+      requirements: [{ category: "cache", product: "redis", line: "9" }],
+    });
+    const dialog = await add();
+    fireEvent.change(dialog.getByRole("combobox", { name: "Category" }), { target: { value: "cache" } });
+    expect(dialog.getByText(/does not satisfy werd.yml/)).toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: "Add to project" })).toBeDisabled();
+    expect(api.linkProject).not.toHaveBeenCalled();
+    expect(api.createService).not.toHaveBeenCalled();
+  });
   it("shows configured tools and warns about sharing without exposing destructive engine actions", () => {
     show(project, [{ ...project, id: "blog", name: "blog" }]);
     expect(screen.getByRole("heading", { name: "Database" })).toBeInTheDocument();

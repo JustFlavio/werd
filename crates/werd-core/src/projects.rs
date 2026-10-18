@@ -407,9 +407,24 @@ pub(crate) fn link(
     if !CATEGORIES.contains(&category) {
         bail!("Unknown category {category}");
     }
-    let service = state.instances.get(instance)?.id.clone();
+    let candidate = state.instances.get(instance)?;
     let index = state.index(id)?;
     let mut project = state.projects[index].clone();
+    if let Some(requirement) = project.requirements.iter().find(|item| item.category == category) {
+        if candidate.product != requirement.product
+            || requirement
+                .line
+                .as_ref()
+                .is_some_and(|line| *line != candidate.line)
+            || requirement
+                .extensions
+                .iter()
+                .any(|extension| !candidate.extensions.contains(extension))
+        {
+            bail!("The selected engine does not satisfy the {category} requirement in werd.yml");
+        }
+    }
+    let service = candidate.id.clone();
     let database = match database {
         Some(name) => Some(database_name(name)?),
         None => default_database(category, &project.name),
@@ -595,6 +610,42 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("already linked"));
+    }
+
+    #[test]
+    fn linking_must_satisfy_pending_product_line_and_extensions() {
+        let root = tempfile::tempdir().unwrap();
+        let work = tempfile::tempdir().unwrap();
+        let mut state = State::default();
+        let project = add(
+            root.path(),
+            &mut state,
+            &laravel_folder(work.path(), "shop", None),
+        )
+        .unwrap();
+        state.projects[0].requirements.push(Requirement {
+            category: "database".into(),
+            product: "postgresql".into(),
+            line: Some("18".into()),
+            extensions: vec!["pgvector".into()],
+        });
+        for candidate in [
+            instance("mysql", "mysql", "18", &["pgvector"]),
+            instance("old", "postgresql", "17", &["pgvector"]),
+            instance("plain", "postgresql", "18", &[]),
+        ] {
+            let id = candidate.id.clone();
+            state.instances.list.push(candidate);
+            assert!(link(root.path(), &mut state, &project.id, "database", &id, None).is_err());
+            assert!(state.projects[0].links.is_empty());
+            assert_eq!(state.projects[0].requirements.len(), 1);
+        }
+        state
+            .instances
+            .list
+            .push(instance("vector", "postgresql", "18", &["pgvector"]));
+        let linked = link(root.path(), &mut state, &project.id, "database", "vector", None).unwrap();
+        assert!(linked.requirements.is_empty());
     }
 
     #[test]
