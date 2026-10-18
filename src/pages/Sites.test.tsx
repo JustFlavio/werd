@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Project, ProjectInfo, RuntimeLine, ServiceInstance } from "../api";
 import { I18nProvider, type Locale } from "../i18n";
 import type { Runtimes } from "../runtimes";
@@ -32,6 +32,10 @@ const api = vi.hoisted(() => ({
   setViteAutostart: vi.fn(),
   projectLogs: vi.fn(),
   serviceLogs: vi.fn(),
+  projectSetup: vi.fn(),
+  certificateStatus: vi.fn(),
+  listJobs: vi.fn(),
+  listRuntimes: vi.fn(),
 }));
 
 vi.mock("../api", async (original) => ({
@@ -88,6 +92,7 @@ function renderSites(projects: Project[], overrides: Partial<SitesProps> = {}, l
         onSelect={noop}
         onAdded={async () => {}}
         onToggle={noop}
+        onStartAndOpen={noop}
         onOpenSite={noop}
         onResetPorts={noop}
         onChanged={async () => {}}
@@ -107,6 +112,25 @@ const blog: Project = {
   status: "stopped",
 };
 
+beforeEach(() => {
+  api.projectSetup.mockResolvedValue({
+    env_pending: 0,
+    env_exists: true,
+    env_error: null,
+    vendor_installed: true,
+    app_key_present: true,
+    configuration_cached: false,
+    frontend: false,
+    frontend_installed: true,
+    frontend_built: true,
+    node_required: null,
+    node_installed: true,
+  });
+  api.certificateStatus.mockResolvedValue({ exists: true, trusted: true });
+  api.listJobs.mockResolvedValue([]);
+  api.listRuntimes.mockResolvedValue(runtimes.rows);
+});
+
 describe("Sites", () => {
   it("shows an empty state with a call to action when there are no sites", () => {
     renderSites([]);
@@ -123,7 +147,7 @@ describe("Sites", () => {
 
   it("shows the PHP version, linked services and a start action", () => {
     const onToggle = vi.fn();
-    renderSites([blog], { selectedId: "blog", onToggle });
+    renderSites([blog], { selectedId: "blog", onStartAndOpen: onToggle });
     expect(screen.getByRole("combobox", { name: "PHP" })).toHaveValue("8.5");
     fireEvent.click(screen.getByRole("tab", { name: "Tools" }));
     expect(screen.getByRole("heading", { name: "Database" })).toBeInTheDocument();
