@@ -339,6 +339,8 @@ impl<'a> Native<'a> {
             }
             std::thread::sleep(Duration::from_millis(50));
         };
+        // Finalize the process tree and unregister it on both success and failure.
+        process.kill();
         if !status.success() {
             let detail = tail_file(&log)?
                 .join("\n")
@@ -432,6 +434,74 @@ mod tests {
     use super::*;
     use std::cell::RefCell;
     use std::collections::BTreeMap;
+
+    #[cfg(unix)]
+    #[test]
+    fn completed_native_tools_are_unregistered_even_on_failure() {
+        const TEST_HOME: &str = "WERD_BACKUP_PROCESS_TEST_HOME";
+        let Some(root) = std::env::var_os(TEST_HOME) else {
+            // Keep the process-wide registry isolated from other unit tests.
+            let root = tempfile::tempdir().unwrap();
+            let output = Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "backups::tests::completed_native_tools_are_unregistered_even_on_failure",
+                    "--nocapture",
+                ])
+                .env(TEST_HOME, root.path())
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "registry regression test failed: {}",
+                String::from_utf8_lossy(&output.stdout)
+            );
+            return;
+        };
+        let root = Path::new(&root);
+        crate::process::stop_leftover_children(root);
+        let instance = instance();
+        let native = Native {
+            context: InstanceContext {
+                root,
+                instance: &instance,
+            },
+            credentials: Credentials {
+                username: "fixture".into(),
+                password: String::new(),
+            },
+        };
+        for code in [0, 1] {
+            let observed = root.join(format!("registered-{code}"));
+            let mut command = Command::new("/bin/sh");
+            // The tool cannot exit before spawn_managed has recorded its PID.
+            command
+                .args([
+                    "-c",
+                    r#"
+                attempt=0
+                while [ "$attempt" -lt 500 ]; do
+                    if grep -q "\"pid\":$$," "$1"; then
+                        touch "$3"
+                        exit "$2"
+                    fi
+                    attempt=$((attempt + 1))
+                    sleep 0.01
+                done
+                exit 99
+            "#,
+                    "backup-fixture",
+                ])
+                .arg(root.join("children.json"))
+                .arg(code.to_string())
+                .arg(&observed);
+            assert_eq!(native.run(command, root, None, None).is_ok(), code == 0);
+            assert!(observed.is_file(), "the fake tool was never registered");
+            let records: serde_json::Value =
+                serde_json::from_slice(&fs::read(root.join("children.json")).unwrap()).unwrap();
+            assert_eq!(records, serde_json::json!([]));
+        }
+    }
 
     #[test]
     fn checksum_matches_standard_sha256_hex_encoding() {
