@@ -36,6 +36,7 @@ Application versions follow one sequence across operating systems: `0.1.0-alpha.
 - See the `.env` values to paste into your project. Updating `APP_URL` in the site wizard is an explicit option; Werd does not silently rewrite service connection settings.
 - Read site and service logs, open the Mailpit inbox, the RustFS console and Meilisearch, see service credentials.
 - Data survives restarts; ports stay stable, so your `.env` keeps working.
+- In the current source, `werd mcp` exposes Werd's own read-only tools for site information, runtimes, services, diagnostics and process logs. It connects to the running Werd daemon; see [MCP setup and data boundaries](docs/mcp.md). The published alpha installer predates this addition.
 
 ## Herd vs Werd
 
@@ -57,7 +58,7 @@ This comparison uses the **2026-09-30** baseline, with Herd 2's dev servers, AI 
 | Queue workers and scheduler | Studio documents a queue listener and project dev processes; dedicated scheduler supervision is not established by the reviewed docs | Redis service linking exists; Artisan workers and scheduler planned | Named supervised processes, logs, restart and per-site lifecycle |
 | Plain PHP and other frameworks | Multiple framework drivers and custom drivers | Laravel-first site detection | Configurable document roots, plain PHP and Symfony validation |
 | GUI and automation | Desktop app and CLI, including service commands | Current: shared daemon, desktop UI and CLI with `--json` | Feature parity between GUI/CLI and actionable diagnostics |
-| AI tool access | Built-in MCP for coding agents | Planned: independent Werd MCP over the daemon API | Werd management and structured diagnostic workflows |
+| AI tool access | Built-in MCP for coding agents | Current source: seven read-only Werd MCP tools through `werd mcp`; no Herd dependency | Extend to Werd's management and structured diagnostic workflows |
 | Isolated development workspaces | Branch copies on subdomains, existing Git worktree detection, shared/cloned/empty databases | Not available | Implement after routing, backup/restore and process lifecycle are dependable |
 | Agent workspace in the browser | Herd Studio: coding agents, preview, terminals, diffs and development tools | Not available | Cover the documented workflows in the full replacement assessment after the stable local environment |
 | Public sharing | Sharing through Expose | Planned, after the stable local workflow | Explicit opt-in temporary links and LAN access |
@@ -129,6 +130,7 @@ werd update [<product>@<line>]  update one line, or everything outdated
 werd domains [sync|enable|disable|port <n>]   .test domains and the hosts file
 werd path enable|disable        put php, composer, node, npm, npx on PATH
 werd trust-ca | doctor          certificate and diagnostics
+werd mcp                        Werd's read-only MCP server over stdio
 werd completions <shell>        shell completion script
 ```
 
@@ -159,6 +161,7 @@ The goal is to open a project, start its environment and work without keeping se
 
 - [x] Native PHP sites, local HTTPS, multiple runtimes, shared services, GUI/CLI and `werd.yml`.
 - [x] Managed Vite with per-site autostart, HTTPS/HMR, logs and independent failure handling in the current source.
+- [x] Independent stdio MCP with read-only site/runtime/service information, diagnostics and process logs in the current source; management and structured application diagnostics remain future work.
 - [ ] Validate Vite against the supported Laravel starter kits, multiple simultaneous sites, built assets and project configuration variations; document unsupported cases.
 - [ ] Supervise `queue:work`, optional project-installed Horizon, `schedule:work` and Reverb. Provide named processes, status, logs and explicit restart after code changes; distinguish linking Redis from running a worker.
 - [ ] Add separate cache/queue service links and reproducible environment suggestions; validate `werd.yml` with useful errors and a documented schema version.

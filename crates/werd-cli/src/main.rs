@@ -3,6 +3,7 @@
 // Printing to stdout is this binary's job.
 #![allow(clippy::print_stdout)]
 
+mod mcp;
 mod runtimes;
 mod services;
 mod sites;
@@ -33,6 +34,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Serve Werd's read-only MCP tools over standard input/output.
+    Mcp,
     /// List linked projects and their status.
     #[command(visible_alias = "status")]
     List,
@@ -275,6 +278,7 @@ fn wait_until_started(project: Project) -> Result<Project> {
 
 fn run(cli: Cli) -> Result<()> {
     let (method, params) = match &cli.command {
+        Command::Mcp => return mcp::run(),
         Command::Completions { shell } => {
             clap_complete::generate(*shell, &mut Cli::command(), "werd", &mut std::io::stdout());
             return Ok(());
@@ -510,7 +514,8 @@ fn run(cli: Cli) -> Result<()> {
                 );
             }
         }
-        Command::Completions { .. }
+        Command::Mcp
+        | Command::Completions { .. }
         | Command::Php { .. }
         | Command::Node { .. }
         | Command::Vite { .. }
