@@ -48,6 +48,7 @@ const projects: Project[] = [
     error: "PHP 8.3 is not installed. Install it from Werd first.",
   },
 ];
+const demoEnv = new Map<string, string>();
 
 function findProject(id: unknown) {
   const project = projects.find((candidate) => candidate.id === id);
@@ -348,6 +349,13 @@ function createDemoProject(params: Record<string, unknown>): Job {
   return { ...job };
 }
 
+if (new URLSearchParams(window.location.search).get("demo") === "first-run") {
+  projects.splice(0);
+  instances.splice(0);
+  for (const key of installed.keys()) if (key.startsWith("node/")) installed.delete(key);
+  settings.default_node = null;
+}
+
 export async function demoRpc(method: string, params: Record<string, unknown>): Promise<unknown> {
   await delay(60);
   const product = String(params.product ?? "");
@@ -355,6 +363,70 @@ export async function demoRpc(method: string, params: Record<string, unknown>): 
   switch (method) {
     case "sites.list":
       return { projects, daemon_version: "0.2.0 (demo)" } satisfies Snapshot;
+    case "sites.setup": {
+      const project = findProject(params.id);
+      const suggested = String(await demoRpc("sites.env", params));
+      return {
+        env_pending: demoEnv.get(project.id) === suggested ? 0 : 1,
+        env_exists: true,
+        env_error: null,
+        vendor_installed: true,
+        app_key_present: true,
+        configuration_cached: false,
+        frontend_built: true,
+        frontend: Boolean(project.vite?.available),
+        frontend_installed: true,
+        node_required: project.node ?? null,
+        node_installed: [...installed.keys()].some((key) => key.startsWith("node/")),
+      };
+    }
+    case "sites.dependencies.install": {
+      findProject(params.id);
+      const job: Job = {
+        id: crypto.randomUUID(),
+        product: "project-setup",
+        line: String(params.id),
+        action: String(params.kind),
+        state: "running",
+        step: "Installing dependencies",
+        downloaded: 0,
+        total: null,
+        error: null,
+        started_at: Date.now() / 1000,
+      };
+      jobs.push(job);
+      window.setTimeout(() => {
+        job.state = "done";
+        job.step = "Done";
+      }, 600);
+      return { ...job };
+    }
+    case "sites.env.preview": {
+      const suggested = String(await demoRpc("sites.env", params));
+      const before = demoEnv.get(String(params.id));
+      return {
+        revision: `${before ?? ""}|${suggested}`,
+        exists: true,
+        changes:
+          before === suggested
+            ? []
+            : suggested
+                .split("\n")
+                .filter((line) => line.includes("="))
+                .map((line) => {
+                  const index = line.indexOf("=");
+                  return { key: line.slice(0, index), before: null, after: line.slice(index + 1) };
+                }),
+      };
+    }
+    case "sites.env.apply": {
+      const project = findProject(params.id);
+      const suggested = String(await demoRpc("sites.env", params));
+      if (params.revision !== `${demoEnv.get(project.id) ?? ""}|${suggested}`)
+        throw new Error("Environment values changed since the preview");
+      demoEnv.set(project.id, suggested);
+      return { backup: "Werd/projects/demo/env-backups/original.env" };
+    }
     case "sites.start": {
       const project = findProject(params.id);
       if (project.requirements?.length) throw new Error("Create missing services first");
@@ -614,6 +686,10 @@ export async function demoRpc(method: string, params: Record<string, unknown>): 
       throw new Error("Online catalog updates are not available yet; update Werd to get newer runtimes");
     case "services.list":
       return instances.map((instance) => ({ ...instance }));
+    case "services.prepare": {
+      const instance = await demoRpc("services.start", params);
+      return { instance, job: null };
+    }
     case "services.catalog":
       return offerings;
     case "services.create": {

@@ -205,6 +205,30 @@ export const setViteAutostart = (id: string, autostart: boolean) =>
 export const resetPorts = (id: string) => rpc<Project>("sites.reset-ports", { id });
 export const openSite = (id: string) => rpc<string>("sites.open", { id });
 export const projectEnv = (id: string) => rpc<string>("sites.env", { id });
+export interface EnvPreview {
+  revision: string;
+  exists: boolean;
+  changes: { key: string; before: string | null; after: string }[];
+}
+export interface ProjectSetup {
+  env_pending: number | null;
+  env_exists: boolean;
+  env_error: string | null;
+  vendor_installed: boolean;
+  app_key_present: boolean;
+  configuration_cached: boolean;
+  frontend: boolean;
+  frontend_installed: boolean;
+  frontend_built: boolean;
+  node_required: string | null;
+  node_installed: boolean;
+}
+export const projectSetup = (id: string) => rpc<ProjectSetup>("sites.setup", { id });
+export const installProjectDependencies = (id: string, kind: "composer" | "npm" | "key" | "config") =>
+  rpc<Job>("sites.dependencies.install", { id, kind });
+export const previewProjectEnv = (id: string) => rpc<EnvPreview>("sites.env.preview", { id });
+export const applyProjectEnv = (id: string, revision: string) =>
+  rpc<{ backup: string | null }>("sites.env.apply", { id, revision });
 export const projectLogs = (id: string, service = "werd") => rpc<string[]>("sites.logs", { id, service });
 export const removeProject = (id: string) => rpc<null>("sites.remove", { id });
 export const setProjectPhp = (id: string, line: string) => rpc<Project>("sites.php", { id, line });
@@ -282,6 +306,8 @@ export const serviceCatalog = () => rpc<ServiceOffering[]>("services.catalog");
 export const createService = (service: NewService) =>
   rpc<{ instance: ServiceInstance; job: Job | null }>("services.create", { ...service });
 export const startService = (id: string) => rpc<ServiceInstance>("services.start", { id });
+export const prepareService = (id: string) =>
+  rpc<{ instance: ServiceInstance; job: Job | null }>("services.prepare", { id });
 export const stopService = (id: string) => rpc<ServiceInstance>("services.stop", { id });
 export const deleteService = (id: string, keepData: boolean) =>
   rpc<null>("services.delete", { id, keep_data: keepData });

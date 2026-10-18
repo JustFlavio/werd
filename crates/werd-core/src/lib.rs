@@ -37,6 +37,8 @@ mod persistence;
 pub mod platform;
 mod ports;
 mod process;
+mod project_env;
+mod project_setup;
 mod projects;
 mod proxy;
 mod router;
