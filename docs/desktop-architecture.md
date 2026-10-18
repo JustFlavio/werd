@@ -35,6 +35,21 @@ On Windows the daemon joins a job object that kills its children when it exits, 
 
 The GUI must always show the daemon's real state, not only the last command sent. Errors and long operations need progress and a visible way to recover.
 
+The overview separates server process state from local project preparation. Missing
+PHP/Node, Composer/npm dependencies, an application key, cached configuration,
+frontend assets, local domains and HTTPS have contextual actions. Configuration and
+maintenance controls remain expandable. Environment updates require a preview and
+explicit confirmation; previews are invalidated when file contents or proposed
+connections change. Existing environment files are backed up outside the project
+under Werd's project data, with private file permissions on Unix. Multiline files,
+duplicate managed keys, symbolic links and database URL overrides require manual
+review. These checks do not imply application HTTP/database health.
+
+The browser demo supports `?demo=first-run` for an empty project list with Node
+absent and base PHP/Composer already prepared. It is a UI fixture, not an installer
+test. Verify native installation, permission dialogs and trust-store behavior on
+clean Windows, macOS and Linux environments before claiming first-install coverage.
+
 ## First usable release
 
 The minimal complete flow covers:

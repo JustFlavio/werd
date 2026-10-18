@@ -30,10 +30,10 @@ Application versions follow one sequence across operating systems: `0.1.0-alpha.
 - **Sites** choose their PHP line and Node version and link a database, cache, queue, mail, storage and search service. An optional [`werd.yml`](docs/werd-yml.md) declares all of this for your team; missing services are created with one click.
 - `php`, `composer`, `node`, `npm` and `npx` on your PATH pick the version of the folder you are in (`werd.yml`, `.nvmrc`, the site settings), or your default.
 - Start a site with one action on `https://<name>.test`, with a local CA you can trust from the app. Werd keeps the domains in the hosts file (Windows asks for administrator approval) and every site also keeps a stable `https://localhost:<port>` address. If another program uses port 443, choose another HTTPS port in **Settings**.
-- Manage Vite per site from **Projects → Overview → Vite**: start, stop, view logs and optionally start it with the site. Assets and hot reload use HTTPS through Caddy. Stopping the site also stops Vite; frontend errors leave PHP available.
+- Manage Vite per site from **Projects → Overview → Environment settings → Vite**: start, stop, view logs and optionally start it with the site. Preparation also offers to enable the live frontend when no built assets are available. Assets and hot reload use HTTPS through Caddy. Stopping the site also stops Vite; frontend errors leave PHP available.
 - Park a folder and every Laravel project inside it becomes a site, like Herd's paths. New projects appear on their own; deleted ones disappear.
 - Werd lives in the tray and can start at login, so services marked to start automatically are ready when you are. If Werd crashes, its PHP, Caddy and service processes stop with it instead of keeping ports busy.
-- See the `.env` values to paste into your project. Updating `APP_URL` in the site wizard is an explicit option; Werd does not silently rewrite service connection settings.
+- Review proposed `.env` connection changes in the project's preparation screen and apply them explicitly, or copy the values manually. Werd keeps an original backup in its data folder, preserves unrelated values and refuses stale previews. Updating `APP_URL` in the project wizard remains an explicit option.
 - Read site and service logs, open the Mailpit inbox, the RustFS console and Meilisearch, see service credentials.
 - Data survives restarts; ports stay stable, so your `.env` keeps working.
 - In the current source, `werd mcp` exposes Werd's own read-only tools for site information, runtimes, services, diagnostics and process logs. It connects to the running Werd daemon; see [MCP setup and data boundaries](docs/mcp.md). The published alpha installer predates this addition.
@@ -88,12 +88,12 @@ On its first start Werd downloads Caddy, the newest **stable** PHP available for
 
 On Windows, Werd installs phpredis and the MongoDB PHP driver with each new PHP version and enables them in `php.ini`, so Laravel can use `REDIS_CLIENT=phpredis`.
 
-1. Add the folder in **Projects → Add project** (or `werd add`). If it needs another PHP version, install it from **Settings → Advanced settings and diagnostics → PHP** (or `werd php install 8.4`).
-2. Open **Tools → Add to project** to create and connect its dependencies. Under **Connections and environment values**, reuse existing engines or copy the suggested `.env` values. Building pgvector currently needs Visual Studio Build Tools.
-3. Start the project and run your migrations. Starting it starts its dependencies; stopping it stops PHP and Vite while leaving shared engines available. The project's **Logs** tab includes only that project and its linked engines; shared engine logs and Caddy logs can include other projects.
-4. To avoid browser warnings, trust the local CA in **Settings → HTTPS certificate** (or `werd trust-ca`).
+1. Use **Add project** from Home or Projects to create a Laravel app or connect an existing folder. New-project creation asks for name and location; **Customize** exposes authentication, testing, PHP and other options. Missing PHP is installed in the wizard. For a new app with npm enabled, missing Node.js is prepared automatically from a supported LTS catalog line.
+2. Follow **Overview → Project preparation** for missing dependencies, application key, local addresses, HTTPS and environment changes. Dependency buttons run the project's Composer/npm installers or the selected Artisan action as supervised background jobs; those commands can execute the project's package scripts. The HTTPS action can request system permission.
+3. Add dependencies in **Tools → Add to project**. Werd returns to preparation so you can review and apply their `.env` values. Existing engines and manual environment values remain under **Connections and environment values**. Building pgvector currently needs Visual Studio Build Tools.
+4. Use **Start and open**, then run your project's migrations when needed. Starting starts linked dependencies; stopping stops PHP and Vite while leaving shared engines available. **Server running** reports process state; preparation checks local files/configuration and does not execute HTTP or database health checks. Logs remain in the project's **Logs** tab; shared engine logs and Caddy logs can include other projects.
 
-For Vite projects, install a compatible Node version from **Settings → Advanced settings and diagnostics → Node.js** (or `werd node install 22`), select it for the project and install the project's npm dependencies before starting managed Vite.
+For imported Vite projects, preparation offers the missing Node line selected by Werd's existing project-file precedence and installs npm dependencies on request. All Node versions remain available from **Settings → Advanced settings and diagnostics → Node.js** (or `werd node install 22`).
 
 Some Laravel packages you will need:
 - **MongoDB:** install `mongodb/laravel-mongodb` to use a MongoDB connection from Laravel.
