@@ -309,7 +309,7 @@ export const en = {
     pickProject: "Choose a Laravel project folder",
     pickLocation: "Choose where to create the project",
     path: "Project path",
-    name: "Site name",
+    name: "Project name",
     domainPreview: (name: string) =>
       `Served at https://${
         name
@@ -321,6 +321,19 @@ export const en = {
     willInstall: "will be installed",
     notLaravel: "This folder does not look like a Laravel project: artisan and composer.json are missing.",
     noKit: "No starter kit",
+    kitGuide:
+      "Not sure yet? Keep No starter kit for a minimal Laravel application. React, Vue, Svelte and Livewire provide a starting interface with login screens.",
+    kitHints: {
+      none: "Minimal Laravel, without prebuilt login screens.",
+      react: "An interactive interface built with React components.",
+      vue: "An interactive interface built with Vue components.",
+      svelte: "An interactive interface built with Svelte components.",
+      livewire: "Build interactive screens mainly with PHP and Blade.",
+      custom: "Use a starter package you already know.",
+    },
+    linkGuide:
+      "Choose your Laravel project folder. Werd will show the dependencies and configuration to prepare on its project page.",
+    linkPhp: (line: string) => `PHP ${line} selected. You can change the version in Customize.`,
     customKit: "Custom starter kit",
     projectName: "Project name",
     nameRule: "Use letters, digits, dashes, dots or underscores.",
@@ -356,8 +369,8 @@ export const en = {
     updateBoostHint:
       "Regenerates the AI guideline and skill files Boost manages (CLAUDE.md, AGENTS.md, .ai/skills, …) for your installed packages.",
     envUpdated: (domain: string) => `Updated APP_URL in .env to https://${domain}`,
-    createdMessage: "Your application was created. Build something great!",
-    linkedMessage: "Your site is linked and ready to start.",
+    createdMessage: "Your project was created. Continue to check its preparation and open it.",
+    linkedMessage: "Your project is linked. Continue to complete its preparation.",
     showOutput: "Show console output",
     notStarted: "The site did not start. Open its page to see why.",
     openInBrowser: "Open in browser",

@@ -87,7 +87,7 @@ export function AddSiteWizard({
   const [info, setInfo] = useState<ProjectInfo | null>(null);
   const [name, setName] = useState("");
   const [php, setPhp] = useState("");
-  const [updateEnv, setUpdateEnv] = useState(true);
+  const [updateEnv, setUpdateEnv] = useState(false);
   const [updateBoost, setUpdateBoost] = useState(false);
   const usesBoost = info?.php_packages.some((item) => item.name === "laravel/boost") ?? false;
 
@@ -319,6 +319,7 @@ export function AddSiteWizard({
 
         {step === "link" && (
           <div className="form-grid">
+            <p className="form-span muted">{w.linkGuide}</p>
             <label htmlFor="wizard-path">{w.path}</label>
             <div className="inline-form">
               <input
@@ -351,56 +352,77 @@ export function AddSiteWizard({
               {name.trim() && <p className="field-hint">{w.domainPreview(name)}</p>}
             </div>
 
-            <span>{w.extras}</span>
-            <div className="checkbox-stack">
-              <label className="checkbox">
-                <input type="checkbox" checked={updateEnv} onChange={(event) => setUpdateEnv(event.target.checked)} />
-                {w.updateEnv}
-              </label>
-              {usesBoost && (
-                <label className="checkbox">
-                  <input
-                    type="checkbox"
-                    checked={updateBoost}
-                    onChange={(event) => setUpdateBoost(event.target.checked)}
-                  />
-                  {w.updateBoost}
-                </label>
-              )}
-              {usesBoost && <p className="field-hint">{w.updateBoostHint}</p>}
-            </div>
+            {php && <p className="form-span muted">{w.linkPhp(php)}</p>}
+            <details className="advanced-panel form-span">
+              <summary>{w.customize}</summary>
+              <div className="form-grid">
+                <span>{w.extras}</span>
+                <div className="checkbox-stack">
+                  <label className="checkbox">
+                    <input
+                      type="checkbox"
+                      checked={updateEnv}
+                      onChange={(event) => setUpdateEnv(event.target.checked)}
+                    />
+                    {w.updateEnv}
+                  </label>
+                  {usesBoost && (
+                    <label className="checkbox">
+                      <input
+                        type="checkbox"
+                        checked={updateBoost}
+                        onChange={(event) => setUpdateBoost(event.target.checked)}
+                      />
+                      {w.updateBoost}
+                    </label>
+                  )}
+                  {usesBoost && <p className="field-hint">{w.updateBoostHint}</p>}
+                </div>
 
-            <label htmlFor="wizard-php">PHP</label>
-            <div>
-              <select id="wizard-php" className="select" value={php} onChange={(event) => setPhp(event.target.value)}>
-                {phpRows.map((row) => (
-                  <option key={row.line} value={row.line}>
-                    PHP {row.line}
-                    {row.installed ? "" : ` — ${w.willInstall}`}
-                  </option>
-                ))}
-              </select>
-              {info?.php_constraint && <p className="field-hint">{w.requires(info.php_constraint)}</p>}
-            </div>
+                <label htmlFor="wizard-php">PHP</label>
+                <div>
+                  <select
+                    id="wizard-php"
+                    className="select"
+                    value={php}
+                    onChange={(event) => setPhp(event.target.value)}
+                  >
+                    {phpRows.map((row) => (
+                      <option key={row.line} value={row.line}>
+                        PHP {row.line}
+                        {row.installed ? "" : ` — ${w.willInstall}`}
+                      </option>
+                    ))}
+                  </select>
+                  {info?.php_constraint && <p className="field-hint">{w.requires(info.php_constraint)}</p>}
+                </div>
+              </div>
+            </details>
           </div>
         )}
 
         {step === "kit" && (
-          <div className="choice-grid choice-grid-3">
-            {kits.map((option) => (
-              <button
-                type="button"
-                key={option.id ?? "none"}
-                className={`choice-card ${kit === option.id ? "selected" : ""}`}
-                aria-pressed={kit === option.id}
-                onClick={() => setKit(option.id)}
-                onDoubleClick={() => go("options")}
-              >
-                {option.icon}
-                <strong>{option.label}</strong>
-              </button>
-            ))}
-          </div>
+          <>
+            <p className="muted">{w.kitGuide}</p>
+            <div className="choice-grid choice-grid-3">
+              {kits.map((option) => (
+                <button
+                  type="button"
+                  key={option.id ?? "none"}
+                  className={`choice-card ${kit === option.id ? "selected" : ""}`}
+                  aria-pressed={kit === option.id}
+                  aria-label={option.label}
+                  aria-describedby={`kit-${option.id ?? "none"}-hint`}
+                  onClick={() => setKit(option.id)}
+                  onDoubleClick={() => go("options")}
+                >
+                  {option.icon}
+                  <strong>{option.label}</strong>
+                  <small id={`kit-${option.id ?? "none"}-hint`}>{w.kitHints[option.id ?? "none"]}</small>
+                </button>
+              ))}
+            </div>
+          </>
         )}
 
         {step === "options" && (

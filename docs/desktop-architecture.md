@@ -45,6 +45,18 @@ under Werd's project data, with private file permissions on Unix. Multiline file
 duplicate managed keys, symbolic links and database URL overrides require manual
 review. These checks do not imply application HTTP/database health.
 
+Home and project details use the same preparation checks. The primary project
+action leads to missing preparation steps before offering to start or open the
+application, and opening rechecks the current state. The first server start can
+generate the HTTPS certificate before the user explicitly trusts it. Live frontend
+controls are visible in the overview and can be enabled for the next project start.
+
+The creation wizard explains each starter kit and defaults to minimal Laravel.
+Importing shows the selected PHP version, with overrides under Customize. The
+standard import leaves the environment file unchanged for review on the project
+page; the advanced APP_URL checkbox explicitly opts into the legacy immediate
+update. Both wizards continue to the project's preparation page after completion.
+
 The browser demo supports `?demo=first-run` for an empty project list with Node
 absent and base PHP/Composer already prepared. It is a UI fixture, not an installer
 test. Verify native installation, permission dialogs and trust-store behavior on

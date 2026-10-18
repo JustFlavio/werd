@@ -115,7 +115,7 @@ describe("first project wizard", () => {
     const dialog = await wizard();
     expect(dialog.getByText("Customize").closest("details")).not.toHaveAttribute("open");
     fireEvent.click(dialog.getByRole("button", { name: "Create project" }));
-    await dialog.findByText("Your application was created. Build something great!");
+    await dialog.findByText("Your project was created. Continue to check its preparation and open it.");
     expect(api.installRuntime).toHaveBeenCalledWith("node", "24");
     expect(api.createProject).toHaveBeenCalledWith(
       expect.objectContaining({ name: "my-app", directory: "/work", npm: true, php: "8.4" }),

@@ -205,14 +205,21 @@ describe("Sites", () => {
     const path = within(dialog).getByRole("textbox", { name: "Project path" });
     fireEvent.change(path, { target: { value: "/work/fleet-desk" } });
     fireEvent.blur(path);
-    await waitFor(() => expect(within(dialog).getByRole("textbox", { name: "Site name" })).toHaveValue("fleet-desk"));
+    await waitFor(() =>
+      expect(within(dialog).getByRole("textbox", { name: "Project name" })).toHaveValue("fleet-desk"),
+    );
+    expect(within(dialog).getByText("Customize").closest("details")).not.toHaveAttribute("open");
+    expect(within(dialog).getByText("PHP 8.4 selected. You can change the version in Customize.")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByText("Customize"));
     expect(within(dialog).getByRole("combobox", { name: "PHP" })).toHaveValue("8.4");
     expect(within(dialog).getByText("composer.json requires PHP ^8.2")).toBeInTheDocument();
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Add project" }));
     await waitFor(() => expect(onAdded).toHaveBeenCalledWith("fleet"));
-    expect(api.addProject).toHaveBeenCalledWith("/work/fleet-desk", "fleet-desk", "8.4", true);
-    expect(await within(dialog).findByText("Your site is linked and ready to start.")).toBeInTheDocument();
+    expect(api.addProject).toHaveBeenCalledWith("/work/fleet-desk", "fleet-desk", "8.4", false);
+    expect(
+      await within(dialog).findByText("Your project is linked. Continue to complete its preparation."),
+    ).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Continue to project" })).toBeInTheDocument();
   });
 
@@ -223,6 +230,10 @@ describe("Sites", () => {
     for (const kit of ["No starter kit", "React", "Vue", "Svelte", "Livewire", "Custom starter kit"]) {
       expect(screen.getByRole("button", { name: kit })).toBeInTheDocument();
     }
+    expect(screen.getByRole("button", { name: "No starter kit" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Livewire" })).toHaveAccessibleDescription(
+      "Build interactive screens mainly with PHP and Blade.",
+    );
   });
 
   it("shows the project stack on the Information tab", async () => {

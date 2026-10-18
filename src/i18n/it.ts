@@ -312,7 +312,7 @@ export const it: Messages = {
     pickProject: "Scegli la cartella di un progetto Laravel",
     pickLocation: "Scegli dove creare il progetto",
     path: "Percorso del progetto",
-    name: "Nome del sito",
+    name: "Nome del progetto",
     domainPreview: (name: string) =>
       `Servito su https://${
         name
@@ -324,6 +324,19 @@ export const it: Messages = {
     willInstall: "verrà installato",
     notLaravel: "Questa cartella non sembra un progetto Laravel: mancano artisan e composer.json.",
     noKit: "Nessuno starter kit",
+    kitGuide:
+      "Non sai ancora cosa scegliere? Lascia Nessuno starter kit per partire da Laravel essenziale. React, Vue, Svelte e Livewire offrono un’interfaccia iniziale con schermate di accesso.",
+    kitHints: {
+      none: "Laravel essenziale, senza schermate di accesso già pronte.",
+      react: "Un’interfaccia interattiva con componenti React.",
+      vue: "Un’interfaccia interattiva con componenti Vue.",
+      svelte: "Un’interfaccia interattiva con componenti Svelte.",
+      livewire: "Schermate interattive principalmente con PHP e Blade.",
+      custom: "Usa un pacchetto iniziale che conosci già.",
+    },
+    linkGuide:
+      "Scegli la cartella del tuo progetto Laravel. Werd mostrerà le dipendenze e la configurazione da preparare nella pagina del progetto.",
+    linkPhp: (line: string) => `PHP ${line} selezionato. Puoi cambiare versione in Personalizza.`,
     customKit: "Starter kit personalizzato",
     projectName: "Nome del progetto",
     nameRule: "Usa lettere, numeri, trattini, punti o underscore.",
@@ -359,8 +372,8 @@ export const it: Messages = {
     updateBoostHint:
       "Rigenera i file di linee guida e skill per l’AI gestiti da Boost (CLAUDE.md, AGENTS.md, .ai/skills, …) per i pacchetti installati.",
     envUpdated: (domain: string) => `APP_URL nel .env aggiornato a https://${domain}`,
-    createdMessage: "La tua applicazione è stata creata. Costruisci qualcosa di grande!",
-    linkedMessage: "Il sito è collegato e pronto per essere avviato.",
+    createdMessage: "Il progetto è stato creato. Continua per verificarne la preparazione e aprirlo.",
+    linkedMessage: "Il progetto è collegato. Continua per completarne la preparazione.",
     showOutput: "Mostra output console",
     notStarted: "Il sito non è partito. Apri la sua pagina per vedere perché.",
     openInBrowser: "Apri nel browser",
