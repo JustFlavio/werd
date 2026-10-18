@@ -132,13 +132,7 @@ impl State {
     /// Writes `state.json` through a temporary file so a crash never leaves it half-written.
     pub fn save(&self, root: &Path) -> Result<()> {
         let path = state_file(root);
-        let temporary = root.join("state.json.tmp");
-        fs::write(&temporary, serde_json::to_vec_pretty(&self.projects)?)?;
-        if path.exists() {
-            fs::remove_file(&path)?;
-        }
-        fs::rename(temporary, path)?;
-        Ok(())
+        crate::persistence::replace(&path, &serde_json::to_vec_pretty(&self.projects)?)
     }
 
     pub fn index(&self, id: &str) -> Result<usize> {

@@ -32,6 +32,7 @@ mod migrations;
 pub mod model;
 mod parks;
 mod paths;
+mod persistence;
 pub mod platform;
 mod ports;
 mod process;
