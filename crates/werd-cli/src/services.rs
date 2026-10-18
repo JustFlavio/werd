@@ -54,6 +54,19 @@ pub enum ServiceAction {
         service: String,
         name: String,
     },
+    /// Create a logical backup of a database in a running SQL service.
+    Backup {
+        service: String,
+        database: String,
+    },
+    /// List completed database backups stored by Werd.
+    Backups,
+    /// Restore a backup into a NEW database; existing databases are refused.
+    Restore {
+        service: String,
+        backup: String,
+        database: String,
+    },
     /// Delete an instance.
     #[command(visible_alias = "rm")]
     Remove {
@@ -253,6 +266,55 @@ pub fn run(action: Option<ServiceAction>, json_output: bool) -> Result<()> {
                 json!({ "id": resolve(&service)?, "name": name }),
             )?;
             println!("Database {} is ready", created.as_str().unwrap_or_default());
+        }
+        ServiceAction::Backups => {
+            let records = call("backups.list", json!({}))?;
+            if json_output {
+                return print(&records);
+            }
+            for backup in records.as_array().into_iter().flatten() {
+                println!(
+                    "{}  {} {}  {}  {} bytes",
+                    backup["id"].as_str().unwrap_or_default(),
+                    backup["product"].as_str().unwrap_or_default(),
+                    backup["line"].as_str().unwrap_or_default(),
+                    backup["database"].as_str().unwrap_or_default(),
+                    backup["bytes"]
+                );
+            }
+        }
+        ServiceAction::Backup { service, database } => {
+            let job = call(
+                "backups.create",
+                json!({ "id": resolve(&service)?, "database": database }),
+            )?;
+            let job = wait(serde_json::from_value(job)?)?;
+            let id = job
+                .result
+                .ok_or_else(|| anyhow::anyhow!("Backup job returned no id"))?;
+            let backup = call("backups.info", json!({ "id": id }))?;
+            if json_output {
+                return print(&backup);
+            }
+            println!(
+                "Backup {id} created in {}",
+                werd_core::home()?.join("backups").join(&id).display()
+            );
+        }
+        ServiceAction::Restore {
+            service,
+            backup,
+            database,
+        } => {
+            let job = call(
+                "backups.restore",
+                json!({ "id": resolve(&service)?, "backup": backup, "database": database }),
+            )?;
+            let job = wait(serde_json::from_value(job)?)?;
+            if json_output {
+                return print(&json!({ "database": job.result }));
+            }
+            println!("Restored into new database {}", job.result.unwrap_or(database));
         }
         ServiceAction::Remove { service, keep_data } => {
             call(
