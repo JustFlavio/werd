@@ -1,7 +1,6 @@
 import {
   Check,
   Code2,
-  ExternalLink,
   FlaskConical,
   FolderOpen,
   Loader2,
@@ -49,6 +48,7 @@ import { ProjectPreparation } from "../components/ProjectPreparation";
 import { ProjectTools } from "../components/ProjectTools";
 import { Progress } from "../components/RuntimeTable";
 import { useT } from "../i18n";
+import { needsPreparationBeforeStart, useProjectPreparation } from "../projectPreparation";
 import type { Runtimes } from "../runtimes";
 import { CopyButton, EmptyState, Modal, PageHeader, Section, StatusDot } from "../ui";
 import { Logs } from "./Logs";
@@ -188,6 +188,25 @@ function SiteDetail({
   const [removing, setRemoving] = useState(false);
   const [setup, setSetup] = useState<SetupRow[] | null>(null);
   const [setupDone, setSetupDone] = useState(false);
+  const checks = useProjectPreparation(project, runtimes, domains);
+  const preparationRef = useRef<HTMLDivElement>(null);
+  const requirementsRef = useRef<HTMLDivElement>(null);
+  const [showPreparation, setShowPreparation] = useState(0);
+  const prepare = () => {
+    setTab("general");
+    setShowPreparation((value) => value + 1);
+  };
+  useEffect(() => {
+    if (!showPreparation) return;
+    const panel = requirementsRef.current ?? preparationRef.current;
+    panel?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+    (panel?.querySelector<HTMLButtonElement>("button:not(:disabled)") ?? panel)?.focus();
+  }, [showPreparation]);
+  const needsPreparation =
+    Boolean(checks.error) ||
+    (project.status === "running"
+      ? checks.issues.length > 0
+      : needsPreparationBeforeStart(checks.issues, checks.certificate));
   const running = project.status === "running";
   const pending = project.requirements ?? [];
   const action = (name: string) => void siteAction(project.id, name).catch(onError);
@@ -200,34 +219,37 @@ function SiteDetail({
           <StatusDot status={project.status} label={t.preparation.serverStatus[project.status]} />
         </div>
         <div className="button-row">
-          {running && (
-            <button type="button" className="button" onClick={() => onOpenSite(project)}>
-              <ExternalLink size={14} /> {t.common.open}
-            </button>
-          )}
           <button
             type="button"
-            className={`button ${running ? "" : "button-primary"}`}
+            className="button button-primary"
             disabled={
+              checks.loading ||
+              checks.working ||
               busy === project.id ||
-              pending.length > 0 ||
               project.status === "starting" ||
               (setup !== null && !setupDone)
             }
-            title={pending.length > 0 ? t.sites.resolveFirst : undefined}
-            onClick={() => (running ? onToggle(project) : onStartAndOpen(project))}
+            onClick={() => (needsPreparation ? prepare() : running ? onOpenSite(project) : onStartAndOpen(project))}
           >
-            {running ? (
-              <>
-                <Square size={13} /> {t.sites.stop}
-              </>
-            ) : (
-              <>
-                <Play size={13} />{" "}
-                {busy === project.id || project.status === "starting" ? t.sites.starting : t.preparation.startAndOpen}
-              </>
-            )}
+            {checks.working
+              ? t.preparation.preparing
+              : busy === project.id || project.status === "starting"
+                ? t.sites.starting
+                : checks.loading
+                  ? t.preparation.checking
+                  : needsPreparation
+                    ? t.preparation.continueSetup
+                    : running
+                      ? t.common.open
+                      : !checks.certificate?.exists
+                        ? t.preparation.startForHttps
+                        : t.preparation.startAndOpen}
           </button>
+          {running && (
+            <button type="button" className="button" disabled={busy === project.id} onClick={() => onToggle(project)}>
+              <Square size={13} /> {t.sites.stop}
+            </button>
+          )}
         </div>
       </div>
 
@@ -259,7 +281,7 @@ function SiteDetail({
       )}
 
       {pending.length > 0 && (
-        <div className="callout callout-warn">
+        <div className="callout callout-warn" ref={requirementsRef} tabIndex={-1}>
           <p>{t.sites.pendingIntro}</p>
           <ul className="pending-list">
             {pending.map((requirement) => (
@@ -327,13 +349,15 @@ function SiteDetail({
 
       {tab === "general" && (
         <>
-          <ProjectPreparation
-            project={project}
-            runtimes={runtimes}
-            domains={domains}
-            onUpdateHosts={onUpdateHosts}
-            onChanged={onChanged}
-          />
+          <div id={`project-preparation-${project.id}`} ref={preparationRef} tabIndex={-1}>
+            <ProjectPreparation
+              project={project}
+              runtimes={runtimes}
+              onUpdateHosts={onUpdateHosts}
+              onChanged={onChanged}
+              checks={checks}
+            />
+          </div>
           <GeneralTab
             project={project}
             runtimes={runtimes}

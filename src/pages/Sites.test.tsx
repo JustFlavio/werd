@@ -145,9 +145,10 @@ describe("Sites", () => {
     expect(onSelect).toHaveBeenCalledWith("blog");
   });
 
-  it("shows the PHP version, linked services and a start action", () => {
+  it("shows the PHP version, linked services and a start action", async () => {
     const onToggle = vi.fn();
     renderSites([blog], { selectedId: "blog", onStartAndOpen: onToggle });
+    fireEvent.click(screen.getByText("Environment settings"));
     expect(screen.getByRole("combobox", { name: "PHP" })).toHaveValue("8.5");
     fireEvent.click(screen.getByRole("tab", { name: "Tools" }));
     expect(screen.getByRole("heading", { name: "Database" })).toBeInTheDocument();
@@ -156,16 +157,18 @@ describe("Sites", () => {
     expect(screen.getByRole("combobox", { name: "Database" })).toHaveValue("pg");
     expect(screen.getByRole("combobox", { name: "Cache" })).toHaveValue("");
     expect(screen.getByText("blog", { selector: "td" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Start/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Start and open" }));
     expect(onToggle).toHaveBeenCalledWith(blog);
   });
 
-  it("blocks starting while werd.yml asks for missing services", () => {
+  it("guides preparation while werd.yml asks for missing services", async () => {
     const pending: Project = { ...blog, requirements: [{ category: "search", product: "meilisearch" }] };
     renderSites([pending], { selectedId: "blog" });
     expect(screen.getByText(/asks for services you do not have yet/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create missing services" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Start/ })).toBeDisabled();
+    fireEvent.click(await screen.findByRole("button", { name: "Complete preparation" }));
+    expect(screen.getByRole("button", { name: "Create missing services" })).toHaveFocus();
+    expect(screen.queryByRole("button", { name: "Start and open" })).not.toBeInTheDocument();
   });
 
   it("keeps project logs inside the detail and excludes unrelated projects and engines", async () => {
@@ -210,7 +213,7 @@ describe("Sites", () => {
     await waitFor(() => expect(onAdded).toHaveBeenCalledWith("fleet"));
     expect(api.addProject).toHaveBeenCalledWith("/work/fleet-desk", "fleet-desk", "8.4", true);
     expect(await within(dialog).findByText("Your site is linked and ready to start.")).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: /Open in browser/ })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Continue to project" })).toBeInTheDocument();
   });
 
   it("offers the starter kits for a new project", () => {
@@ -237,11 +240,30 @@ describe("Sites", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("renders in Italian", () => {
+  it("renders in Italian", async () => {
     renderSites([blog], { selectedId: "blog" }, "it");
     expect(screen.getByRole("heading", { name: "Progetti" })).toBeInTheDocument();
     expect(screen.getByText("Disponibile dopo l’avvio")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Avvia/ })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Avvia e apri" })).toBeInTheDocument();
+  });
+
+  it("leads to the missing dependency instead of starting an incomplete project", async () => {
+    api.projectSetup.mockResolvedValue({
+      env_exists: true,
+      vendor_installed: true,
+      app_key_present: true,
+      frontend: true,
+      frontend_built: true,
+      frontend_installed: true,
+      node_installed: false,
+      node_required: "24",
+    });
+    const onStartAndOpen = vi.fn();
+    renderSites([blog], { selectedId: "blog", onStartAndOpen });
+    fireEvent.click(await screen.findByRole("button", { name: "Complete preparation" }));
+    expect(screen.queryByRole("button", { name: "Start and open" })).not.toBeInTheDocument();
+    expect(onStartAndOpen).not.toHaveBeenCalled();
+    expect(screen.getByText("Node.js 24 is needed for the frontend.")).toBeInTheDocument();
   });
 
   it("starts Vite and enables autostart independently of PHP", async () => {

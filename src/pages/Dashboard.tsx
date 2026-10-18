@@ -3,6 +3,7 @@ import { type Project, runSetup } from "../api";
 import { CATEGORIES } from "../categories";
 import { Progress } from "../components/RuntimeTable";
 import { useT } from "../i18n";
+import { useProjectPreparation } from "../projectPreparation";
 import type { Runtimes } from "../runtimes";
 import { EmptyState, PageHeader, StatusDot } from "../ui";
 
@@ -87,14 +88,7 @@ export function Dashboard({
                       <span key={category}>{t.services.categories[category]}</span>
                     ))}
                   </span>
-                  {(project.error ||
-                    (project.requirements?.length ?? 0) > 0 ||
-                    (project.domain && missingDomains.includes(project.domain))) && (
-                    <span className="project-attention">
-                      <TriangleAlert size={14} />
-                      {project.error ? t.preparation.startFailed : t.workspace.needsSetup}
-                    </span>
-                  )}
+                  <ProjectAttention project={project} runtimes={runtimes} missingDomains={missingDomains} />
                   <span className="project-card-footer">
                     {t.workspace.openProject}
                     <ArrowRight size={15} />
@@ -106,5 +100,35 @@ export function Dashboard({
         )}
       </div>
     </>
+  );
+}
+
+function ProjectAttention({
+  project,
+  runtimes,
+  missingDomains,
+}: {
+  project: Project;
+  runtimes: Runtimes;
+  missingDomains: string[];
+}) {
+  const t = useT();
+  const checks = useProjectPreparation(project, runtimes, { missing: missingDomains });
+  const knownIssue =
+    project.error || project.requirements?.length || (project.domain && missingDomains.includes(project.domain));
+  if (!knownIssue && !checks.error && !checks.loading && !checks.working && checks.issues.length === 0) return null;
+  return (
+    <span className="project-attention">
+      <TriangleAlert size={14} />
+      {checks.working
+        ? t.preparation.preparing
+        : project.error
+          ? t.preparation.startFailed
+          : knownIssue || checks.issues.length > 0
+            ? t.workspace.needsSetup
+            : checks.error
+              ? t.preparation.checkFailed
+              : t.preparation.checking}
+    </span>
   );
 }

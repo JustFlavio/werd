@@ -73,6 +73,12 @@ export const en = {
     error: "Error",
   },
   preparation: {
+    checking: "Checking preparation…",
+    preparing: "Preparing project…",
+    checkFailed: "Preparation check unavailable",
+    continueSetup: "Complete preparation",
+    startForHttps: "Start and configure HTTPS",
+    beforeOpen: "Complete project preparation before opening the application.",
     serverStatus: {
       running: "Server running",
       starting: "Server starting…",
@@ -344,6 +350,7 @@ export const en = {
     showOutput: "Show console output",
     notStarted: "The site did not start. Open its page to see why.",
     openInBrowser: "Open in browser",
+    goToProject: "Continue to project",
   },
   php: {
     title: "PHP",

@@ -63,10 +63,10 @@ const job: Job = {
   total: null,
   error: null,
 };
-async function wizard() {
+async function wizard(onClose = vi.fn()) {
   render(
     <I18nProvider locale="en">
-      <AddSiteWizard runtimes={runtimes} onClose={vi.fn()} onDone={async () => {}} />
+      <AddSiteWizard runtimes={runtimes} onClose={onClose} onDone={async () => {}} />
     </I18nProvider>,
   );
   fireEvent.click(screen.getByRole("button", { name: /New Laravel project/ }));
@@ -84,7 +84,7 @@ beforeEach(() => {
   localStorage.clear();
 });
 describe("first project wizard", () => {
-  it("requests HTTPS trust explicitly before opening an untrusted local site", async () => {
+  it("continues to project preparation without starting or opening the app from the wizard", async () => {
     api.listRuntimes.mockResolvedValue([php, { ...node, installed: "24.0.0" }]);
     api.listJobs.mockResolvedValue([{ ...job, id: "app-created", product: "laravel", result: "app" }]);
     api.createProject.mockResolvedValue({ ...job, id: "app-created", product: "laravel", result: "app" });
@@ -95,14 +95,14 @@ describe("first project wizard", () => {
       .mockResolvedValue({ exists: true, trusted: true });
     api.trustCa.mockResolvedValue("Trusted");
     api.openSite.mockResolvedValue("https://app.test");
-    const dialog = await wizard();
+    const onClose = vi.fn();
+    const dialog = await wizard(onClose);
     fireEvent.click(dialog.getByRole("button", { name: "Create project" }));
-    fireEvent.click(await dialog.findByRole("button", { name: "Open in browser" }));
-    const configure = await dialog.findByRole("button", { name: "Configure HTTPS and open" });
+    fireEvent.click(await dialog.findByRole("button", { name: "Continue to project" }));
     expect(api.trustCa).not.toHaveBeenCalled();
     expect(api.openSite).not.toHaveBeenCalled();
-    fireEvent.click(configure);
-    await waitFor(() => expect(api.openSite).toHaveBeenCalledWith("app"));
+    expect(api.startProject).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledOnce();
   });
   it("installs Node before creating the app and keeps advanced choices collapsed", async () => {
     api.installRuntime.mockResolvedValue(job);

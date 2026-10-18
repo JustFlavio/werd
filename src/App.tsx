@@ -8,13 +8,16 @@ import {
   enablePath,
   getSettings,
   launchAtLogin,
+  listJobs,
   listProjects,
+  listRuntimes,
   listServices,
   onRuntimesChanged,
   openSite,
   openUrl,
   type Project,
   parkFolder,
+  projectSetup,
   refreshCatalog,
   resetPorts,
   type ServiceInstance,
@@ -43,6 +46,7 @@ import { Node } from "./pages/Node";
 import { Php } from "./pages/Php";
 import { Services } from "./pages/Services";
 import { Sites } from "./pages/Sites";
+import { needsPreparationBeforeStart, preparationIssues, preparationRunning } from "./projectPreparation";
 import { useRuntimes } from "./runtimes";
 
 export type Page = "dashboard" | "sites" | "php" | "node" | "services" | "logs" | "general" | "about";
@@ -164,21 +168,40 @@ export default function App() {
     });
 
   const open = (url: string) => void openUrl(url).catch(fail);
+  const checkPreparation = async (project: Project) => {
+    const [setup, ca, hosts, rows, jobs] = await Promise.all([
+      projectSetup(project.id),
+      certificateStatus(),
+      domainsStatus(),
+      listRuntimes(),
+      listJobs(),
+    ]);
+    return {
+      issues: preparationIssues(project, setup, ca, rows, hosts),
+      ca,
+      working: preparationRunning(project, setup, jobs),
+    };
+  };
+  const showPreparation = (project: Project) => {
+    setSelectedId(project.id);
+    setPage("sites");
+    setToast({ tone: "info", text: t.preparation.beforeOpen });
+  };
   const openPrepared = async (project: Project) => {
-    const hosts = await domainsStatus();
-    if (project.domain && hosts.missing.includes(project.domain)) {
-      setToast({ tone: "info", text: t.preparation.domainsBeforeOpen });
-      return;
-    }
-    const ca = await certificateStatus();
-    if (!ca.trusted) {
-      setToast({ tone: "info", text: t.preparation.httpsBeforeOpen });
+    const checks = await checkPreparation(project);
+    if (checks.issues.length > 0 || checks.working) {
+      showPreparation(project);
       return;
     }
     await openSite(project.id);
   };
   const startAndOpen = (project: Project) =>
     void run(project.id, async () => {
+      const { issues, ca, working } = await checkPreparation(project);
+      if (working || needsPreparationBeforeStart(issues, ca)) {
+        showPreparation(project);
+        return;
+      }
       let current = await startProject(project.id);
       const deadline = Date.now() + 180_000;
       while (current.status === "starting" && Date.now() < deadline) {

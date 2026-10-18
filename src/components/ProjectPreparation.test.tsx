@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Project, ProjectSetup } from "../api";
 import { I18nProvider } from "../i18n";
+import { useProjectPreparation } from "../projectPreparation";
 import type { Runtimes } from "../runtimes";
 import { ProjectPreparation } from "./ProjectPreparation";
 
@@ -54,10 +55,14 @@ const runtimes: Runtimes = {
   track: vi.fn(),
   refresh: async () => {},
 };
+function Preparation() {
+  const checks = useProjectPreparation(project, runtimes);
+  return <ProjectPreparation project={project} runtimes={runtimes} checks={checks} onChanged={async () => {}} />;
+}
 const show = () =>
   render(
     <I18nProvider locale="en">
-      <ProjectPreparation project={project} runtimes={runtimes} onChanged={async () => {}} />
+      <Preparation />
     </I18nProvider>,
   );
 beforeEach(() => {

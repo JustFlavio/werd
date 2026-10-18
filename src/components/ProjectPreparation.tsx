@@ -1,22 +1,19 @@
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useState } from "react";
 import {
   applyProjectEnv,
   certificateStatus,
-  type DomainsStatus,
   type EnvPreview,
   installProjectDependencies,
   installRuntime,
-  openSite,
   openUrl,
   type Project,
-  type ProjectSetup,
   previewProjectEnv,
-  projectSetup,
   setViteAutostart,
   startVite,
   trustCa,
 } from "../api";
 import { useT } from "../i18n";
+import type { ProjectPreparationState } from "../projectPreparation";
 import type { Runtimes } from "../runtimes";
 import { Modal, Section } from "../ui";
 import { Progress } from "./RuntimeTable";
@@ -24,31 +21,23 @@ import { Progress } from "./RuntimeTable";
 export function ProjectPreparation({
   project,
   runtimes,
-  domains,
   onUpdateHosts,
   onChanged,
+  checks,
 }: {
   project: Project;
   runtimes: Runtimes;
-  domains?: DomainsStatus | null;
   onUpdateHosts?: () => Promise<void>;
   onChanged: () => Promise<void>;
+  checks: ProjectPreparationState;
 }) {
   const t = useT();
   const p = t.preparation;
-  const [setup, setSetup] = useState<ProjectSetup | null>(null);
-  const [certificate, setCertificate] = useState<{ exists: boolean; trusted: boolean } | null>(null);
+  const { setup, certificate, reload, issues, error: checkError } = checks;
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<EnvPreview | null>(null);
   const [backup, setBackup] = useState<string | null>(null);
-  const reload = useCallback(async () => {
-    const [status, ca] = await Promise.all([projectSetup(project.id), certificateStatus()]);
-    setSetup(status);
-    setCertificate(ca);
-  }, [project.id]);
-  const links = JSON.stringify(project.links);
-  const inventory = runtimes.rows.map((row) => `${row.product}:${row.line}:${row.installed ?? ""}`).join("|");
   const job = runtimes.jobFor("project-setup", project.id);
   const phpJob = runtimes.jobFor("php", project.php);
   const nodeRow = setup?.node_required
@@ -60,25 +49,6 @@ export function ProjectPreparation({
         .sort((a, b) => b.line.localeCompare(a.line, undefined, { numeric: true }))[0];
   const nodeJob = nodeRow ? runtimes.jobFor("node", nodeRow.line) : undefined;
   const active = [job, phpJob, nodeJob].find((job) => job?.state === "running");
-  // Inventory and connection changes invalidate these local checks.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: derived snapshots deliberately trigger a reload.
-  useEffect(() => {
-    let alive = true;
-    void Promise.all([projectSetup(project.id), certificateStatus()])
-      .then(([status, ca]) => {
-        if (alive) {
-          setSetup(status);
-          setCertificate(ca);
-          setError(null);
-        }
-      })
-      .catch((cause) => {
-        if (alive) setError(String(cause));
-      });
-    return () => {
-      alive = false;
-    };
-  }, [project.id, project.status, links, inventory, job?.state]);
   const run = async (action: () => Promise<unknown>) => {
     setBusy(true);
     setError(null);
@@ -92,24 +62,11 @@ export function ProjectPreparation({
       setBusy(false);
     }
   };
-  const phpMissing =
-    runtimes.rows.length > 0 &&
-    !runtimes.rows.some((row) => row.product === "php" && row.line === project.php && row.installed);
-  const hostsMissing = Boolean(project.domain && domains?.missing.includes(project.domain));
+  const phpMissing = issues.includes("php");
+  const hostsMissing = issues.includes("hosts");
   const environmentPending = setup && (!setup.env_exists || (setup.env_pending ?? 0) > 0);
-  const frontendPreviewMissing = setup?.frontend && !setup.frontend_built && project.vite?.status !== "running";
-  const needsWork =
-    phpMissing ||
-    hostsMissing ||
-    !certificate?.trusted ||
-    !setup ||
-    !setup.vendor_installed ||
-    !setup.app_key_present ||
-    setup.configuration_cached ||
-    environmentPending ||
-    setup.env_error ||
-    frontendPreviewMissing ||
-    (setup.frontend && (!setup.frontend_installed || !setup.node_installed));
+  const frontendPreviewMissing = issues.includes("assets");
+  const needsWork = !setup || issues.length > 0;
   const install = (product: string, line: string) =>
     run(async () => runtimes.track(await installRuntime(product, line)));
   const dependencies = (kind: "composer" | "npm" | "key" | "config") =>
@@ -169,7 +126,6 @@ export function ProjectPreparation({
                   void run(async () => {
                     await trustCa();
                     if (!(await certificateStatus()).trusted) throw new Error(t.wizard.trustIncomplete);
-                    if (project.status === "running" && !hostsMissing) await openSite(project.id);
                   })
                 }
               >
@@ -294,9 +250,9 @@ export function ProjectPreparation({
           </details>
         </div>
       )}
-      {error && !preview && (
+      {(error || checkError) && !preview && (
         <div role="alert" className="callout callout-error">
-          <p>{error}</p>
+          <p>{error || checkError}</p>
           <button type="button" className="button button-small" disabled={disabled} onClick={() => void run(reload)}>
             {t.common.retry}
           </button>

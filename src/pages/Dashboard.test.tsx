@@ -1,12 +1,15 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { Project } from "../api";
+import type { Project, ProjectSetup, RuntimeLine } from "../api";
 import { I18nProvider } from "../i18n";
 import type { Runtimes } from "../runtimes";
 import { Dashboard } from "./Dashboard";
 
+const api = vi.hoisted(() => ({ projectSetup: vi.fn(), certificateStatus: vi.fn() }));
+vi.mock("../api", async (original) => ({ ...(await original<typeof import("../api")>()), ...api }));
+
 const runtimes: Runtimes = {
-  rows: [],
+  rows: [{ product: "php", line: "8.4", installed: "8.4.1" } as RuntimeLine],
   jobs: [],
   jobFor: () => undefined,
   install: vi.fn(),
@@ -27,6 +30,29 @@ const project: Project = {
 };
 
 describe("project home", () => {
+  it("shows incomplete application preparation even when the server is running", async () => {
+    api.projectSetup.mockResolvedValue({
+      env_pending: 0,
+      env_exists: true,
+      env_error: null,
+      vendor_installed: true,
+      app_key_present: true,
+      configuration_cached: false,
+      frontend: true,
+      frontend_built: true,
+      frontend_installed: true,
+      node_installed: false,
+      node_required: "24",
+    } satisfies ProjectSetup);
+    api.certificateStatus.mockResolvedValue({ exists: true, trusted: true });
+    render(
+      <I18nProvider locale="en">
+        <Dashboard projects={[project]} runtimes={runtimes} onSelect={vi.fn()} onAdd={vi.fn()} onError={vi.fn()} />
+      </I18nProvider>,
+    );
+    expect(await screen.findByText("Setup required")).toBeInTheDocument();
+    expect(screen.getByText("Server running")).toBeInTheDocument();
+  });
   it("opens the selected project and shows only its configured capabilities", () => {
     const onSelect = vi.fn();
     render(
