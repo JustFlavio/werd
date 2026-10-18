@@ -366,6 +366,15 @@ pub(crate) fn spawn_logged(log_dir: &Path, name: &str, mut command: Command) -> 
     } else {
         Stdio::null()
     };
+    command
+        .stdin(Stdio::null())
+        .stdout(stdout)
+        .stderr(Stdio::from(log));
+    spawn_managed(name, command)
+}
+
+/// Owns a process tree while preserving the caller's configured I/O streams.
+pub(crate) fn spawn_managed(name: &str, mut command: Command) -> Result<ManagedChild> {
     #[cfg(unix)]
     std::os::unix::process::CommandExt::process_group(&mut command, 0);
     #[cfg(windows)]
@@ -376,12 +385,7 @@ pub(crate) fn spawn_logged(log_dir: &Path, name: &str, mut command: Command) -> 
         command.creation_flags(CREATE_NO_WINDOW | CREATE_SUSPENDED);
         job
     };
-    let child = command
-        .stdin(Stdio::null())
-        .stdout(stdout)
-        .stderr(Stdio::from(log))
-        .spawn()
-        .with_context(|| format!("Cannot start {name}"))?;
+    let child = command.spawn().with_context(|| format!("Cannot start {name}"))?;
     #[cfg(windows)]
     let child = {
         let mut child = child;
