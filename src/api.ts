@@ -290,6 +290,22 @@ export const setServiceAutostart = (id: string, autostart: boolean) =>
 export const serviceDetails = (id: string) => rpc<ServiceDetails>("services.details", { id });
 export const renameService = (id: string, name: string) => rpc<ServiceInstance>("services.rename", { id, name });
 export const serviceLogs = (id: string) => rpc<string[]>("services.logs", { id });
+export interface DatabaseBackup {
+  schema: number;
+  id: string;
+  instance: string;
+  service_name: string;
+  product: string;
+  line: string;
+  database: string;
+  created_at: number;
+  bytes: number;
+  sha256: string;
+}
+export const databaseBackups = () => rpc<DatabaseBackup[]>("backups.list");
+export const backupDatabase = (id: string, database: string) => rpc<Job>("backups.create", { id, database });
+export const restoreDatabase = (id: string, backup: string, database: string) =>
+  rpc<Job>("backups.restore", { id, backup, database });
 /** The last lines of the shared Caddy's log. */
 export const routerLogs = () => rpc<string[]>("router.logs");
 

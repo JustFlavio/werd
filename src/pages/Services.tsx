@@ -15,6 +15,7 @@ import {
   startService,
   stopService,
 } from "../api";
+import { DatabaseBackups } from "../components/DatabaseBackups";
 import { RuntimeTable } from "../components/RuntimeTable";
 import { useT } from "../i18n";
 import type { Runtimes } from "../runtimes";
@@ -41,6 +42,7 @@ export function Services({
   const [removing, setRemoving] = useState<ServiceInstance | null>(null);
   const [renaming, setRenaming] = useState<ServiceInstance | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [backups, setBackups] = useState<ServiceInstance | null>(null);
 
   const act = (id: string, action: () => Promise<unknown>) => {
     setBusy(id);
@@ -115,6 +117,11 @@ export function Services({
                       </td>
                       <td className="cell-action">
                         <div className="button-row button-row-end">
+                          {["postgresql", "mysql", "mariadb"].includes(instance.product) && (
+                            <button type="button" className="button button-small" onClick={() => setBackups(instance)}>
+                              {t.backups.title}
+                            </button>
+                          )}
                           {instance.web_ui && running && (
                             <button
                               type="button"
@@ -198,6 +205,7 @@ export function Services({
         />
       )}
       {details && <DetailsModal details={details} onClose={() => setDetails(null)} />}
+      {backups && <DatabaseBackups instance={backups} onClose={() => setBackups(null)} />}
       {renaming && (
         <RenameModal
           instance={renaming}
