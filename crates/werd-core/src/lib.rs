@@ -19,6 +19,7 @@
 
 pub mod actions;
 mod artisan;
+mod backups;
 pub mod catalog;
 mod create;
 mod daemon;

@@ -484,6 +484,57 @@ fn dispatch_unlocked(
     }))
 }
 
+fn ensure_no_database_job(daemon: &Daemon, product: &str, line: &str) -> Result<()> {
+    if daemon.jobs.list().iter().any(|job| {
+        job.state == crate::jobs::JobState::Running
+            && job.product == product
+            && job.line == line
+            && matches!(job.action.as_str(), "backup" | "restore")
+    }) {
+        bail!("Wait for the database backup or restore to finish before stopping, deleting or changing this runtime");
+    }
+    Ok(())
+}
+
+fn database_job(daemon: &Daemon, state: &State, params: &Value, restore: bool) -> Result<Value> {
+    let instance = state.instances.get(id(params)?)?.clone();
+    if !crate::backups::supported(&instance.product) {
+        bail!("Database backups are not supported for {}", instance.product);
+    }
+    if instance.status != ProjectStatus::Running || !state.instances.processes.contains_key(&instance.id) {
+        bail!("Start {} before creating or restoring a backup", instance.name);
+    }
+    let database = text(params, "database")?.to_string();
+    crate::backups::database_name(&database)?;
+    let backup_id = if restore {
+        let backup = crate::backups::load(&daemon.root, text(params, "backup")?)?;
+        if backup.product != instance.product || backup.line != instance.line {
+            bail!("Restore requires {} {}", backup.product, backup.line);
+        }
+        Some(backup.id)
+    } else {
+        None
+    };
+    let root = daemon.root.clone();
+    let (product, line) = (instance.product.clone(), instance.line.clone());
+    let job = daemon.jobs.start(
+        &product,
+        &line,
+        if restore { "restore" } else { "backup" },
+        move |progress| {
+            if let Some(id) = backup_id {
+                crate::backups::restore(&root, &instance, &id, &database, progress)?;
+                progress.result(&database);
+            } else {
+                let backup = crate::backups::create(&root, &instance, &database, progress)?;
+                progress.result(&backup.id);
+            }
+            Ok(())
+        },
+    )?;
+    Ok(json!(job))
+}
+
 /// Executes one RPC method. `sites.*` names and the 0.1 names are both accepted.
 fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) -> Result<Value> {
     let root = daemon.root.as_path();
@@ -682,6 +733,7 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
         "runtimes.update" => start_install(daemon, state, params, true)?,
         "runtimes.uninstall" => {
             let (product, line) = (text(params, "product")?, text(params, "line")?);
+            ensure_no_database_job(daemon, product, line)?;
             let users = runtime_users(state, product, line);
             if !users.is_empty() {
                 bail!("Stop {} before removing {product} {line}", users.join(", "));
@@ -695,8 +747,14 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
         "services.list" => json!(instances::summaries(root, &state.instances)),
         "services.create" => create_service(daemon, state, params)?,
         "services.start" => json!(instances::start(root, &mut state.instances, id(params)?)?),
-        "services.stop" => json!(instances::stop(root, &mut state.instances, id(params)?)?),
+        "services.stop" => {
+            let instance = state.instances.get(id(params)?)?;
+            ensure_no_database_job(daemon, &instance.product, &instance.line)?;
+            json!(instances::stop(root, &mut state.instances, id(params)?)?)
+        }
         "services.delete" => {
+            let instance = state.instances.get(id(params)?)?;
+            ensure_no_database_job(daemon, &instance.product, &instance.line)?;
             let keep_data = params["keep_data"].as_bool().unwrap_or(false);
             instances::delete(root, &mut state.instances, id(params)?, keep_data)?;
             json!(null)
@@ -718,6 +776,10 @@ fn dispatch(daemon: &Daemon, state: &mut State, method: &str, params: &Value) ->
         )?),
         "services.details" => instances::details(root, &state.instances, id(params)?)?,
         "services.logs" => json!(instances::logs(root, &state.instances, id(params)?)?),
+        "backups.list" => json!(crate::backups::list(root)?),
+        "backups.info" => json!(crate::backups::load(root, id(params)?)?),
+        "backups.create" => database_job(daemon, state, params, false)?,
+        "backups.restore" => database_job(daemon, state, params, true)?,
         "services.database" => {
             json!(instances::create_database(
                 root,
@@ -895,6 +957,62 @@ mod tests {
     use super::*;
     use crate::jobs::JobState;
     use crate::runtimes::tests::{fixture, php_extensions_fixture, LocalFetcher};
+
+    #[test]
+    fn active_database_jobs_keep_services_and_runtimes_available_while_rpc_still_answers() {
+        let root = tempfile::tempdir().unwrap();
+        let daemon = daemon(root.path(), None);
+        let mut state = State::default();
+        state.instances.list.push(instances::ServiceInstance {
+            id: "pg".into(),
+            name: "PostgreSQL".into(),
+            product: "postgresql".into(),
+            line: "18".into(),
+            port: 5432,
+            extra_ports: Default::default(),
+            autostart: false,
+            extensions: vec![],
+            status: ProjectStatus::Stopped,
+            error: None,
+        });
+        let (release, wait) = std::sync::mpsc::channel();
+        daemon
+            .jobs
+            .start("postgresql", "18", "backup", move |_| {
+                wait.recv()?;
+                Ok(())
+            })
+            .unwrap();
+        for (method, params) in [
+            ("services.stop", json!({"id":"pg"})),
+            ("services.delete", json!({"id":"pg"})),
+            ("runtimes.uninstall", json!({"product":"postgresql", "line":"18"})),
+        ] {
+            assert!(dispatch(&daemon, &mut state, method, &params)
+                .unwrap_err()
+                .to_string()
+                .contains("Wait for"));
+        }
+        assert!(dispatch(&daemon, &mut state, "ping", &json!({})).is_ok());
+        assert_eq!(
+            dispatch(&daemon, &mut state, "services.list", &json!({}))
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(dispatch(
+            &daemon,
+            &mut state,
+            "backups.create",
+            &json!({"id":"pg", "database":"shop"})
+        )
+        .unwrap_err()
+        .to_string()
+        .contains("Start"));
+        release.send(()).unwrap();
+    }
 
     fn daemon(root: &Path, catalog: Option<(Catalog, LocalFetcher)>) -> Daemon {
         let (catalog, fetcher): (Option<Arc<Catalog>>, Arc<dyn Fetcher>) = match catalog {
