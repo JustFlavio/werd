@@ -408,7 +408,7 @@ mod tests {
             "seven",
             "signature",
         ] {
-            assert!(!output.contains(secret), "leaked {secret}");
+            assert!(!output.contains(secret), "credential redaction failed");
         }
         assert!(output.contains("localhost:5432/app"));
         assert!(output.contains("PHP failed to bind port 9000"));
