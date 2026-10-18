@@ -110,8 +110,8 @@ const blog: Project = {
 describe("Sites", () => {
   it("shows an empty state with a call to action when there are no sites", () => {
     renderSites([]);
-    expect(screen.getByRole("heading", { name: "No sites" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Add site/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "No projects" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Add project/ })).toBeInTheDocument();
   });
 
   it("lists sites and reports the selection", () => {
@@ -125,7 +125,7 @@ describe("Sites", () => {
     const onToggle = vi.fn();
     renderSites([blog], { selectedId: "blog", onToggle });
     expect(screen.getByRole("combobox", { name: "PHP" })).toHaveValue("8.5");
-    fireEvent.click(screen.getByRole("tab", { name: "Services" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Tools" }));
     expect(screen.getByRole("combobox", { name: "Database" })).toHaveValue("pg");
     expect(screen.getByRole("combobox", { name: "Cache" })).toHaveValue("");
     expect(screen.getByText("blog", { selector: "td" })).toBeInTheDocument();
@@ -147,7 +147,7 @@ describe("Sites", () => {
     api.domainsStatus.mockResolvedValue({ missing: [] });
     const onAdded = vi.fn(async () => {});
     renderSites([], { onAdded });
-    fireEvent.click(screen.getByRole("button", { name: /Add site/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Add project/ }));
     fireEvent.click(screen.getByRole("button", { name: /Link existing project/ }));
 
     const dialog = screen.getByRole("dialog", { name: "Link existing project" });
@@ -158,7 +158,7 @@ describe("Sites", () => {
     expect(within(dialog).getByRole("combobox", { name: "PHP" })).toHaveValue("8.4");
     expect(within(dialog).getByText("composer.json requires PHP ^8.2")).toBeInTheDocument();
 
-    fireEvent.click(within(dialog).getByRole("button", { name: "Add site" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add project" }));
     await waitFor(() => expect(onAdded).toHaveBeenCalledWith("fleet"));
     expect(api.addProject).toHaveBeenCalledWith("/work/fleet-desk", "fleet-desk", "8.4", true);
     expect(await within(dialog).findByText("Your site is linked and ready to start.")).toBeInTheDocument();
@@ -167,7 +167,7 @@ describe("Sites", () => {
 
   it("offers the starter kits for a new project", () => {
     renderSites([]);
-    fireEvent.click(screen.getByRole("button", { name: /Add site/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Add project/ }));
     fireEvent.click(screen.getByRole("button", { name: /New Laravel project/ }));
     for (const kit of ["No starter kit", "React", "Vue", "Svelte", "Livewire", "Custom starter kit"]) {
       expect(screen.getByRole("button", { name: kit })).toBeInTheDocument();
@@ -184,14 +184,14 @@ describe("Sites", () => {
 
   it("closes the add dialog with Escape", () => {
     renderSites([]);
-    fireEvent.click(screen.getByRole("button", { name: /Add site/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Add project/ }));
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("renders in Italian", () => {
     renderSites([blog], { selectedId: "blog" }, "it");
-    expect(screen.getByRole("heading", { name: "Siti" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Progetti" })).toBeInTheDocument();
     expect(screen.getByText("Disponibile dopo l’avvio")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Avvia/ })).toBeInTheDocument();
   });

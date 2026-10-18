@@ -15,14 +15,51 @@ export const it: Messages = {
   },
   nav: {
     label: "Navigazione principale",
-    dashboard: "Dashboard",
-    sites: "Siti",
+    dashboard: "Home",
+    sites: "Progetti",
     php: "PHP",
     node: "Node.js",
     services: "Servizi",
     logs: "Log",
-    general: "Generale",
+    general: "Impostazioni",
     about: "Informazioni",
+  },
+  workspace: {
+    home: "Home",
+    yourProjects: "I tuoi progetti",
+    summary: (total: number, running: number) =>
+      `${total} ${total === 1 ? "progetto" : "progetti"} · ${running} in esecuzione`,
+    openProject: "Apri progetto",
+    needsSetup: "Configurazione da completare",
+    domainsMissing: (domains: string[]) =>
+      `Indirizzi locali da configurare: ${domains.join(", ")}. È richiesta l’autorizzazione di amministratore.`,
+    advanced: "Impostazioni avanzate e diagnostica",
+    advancedHint:
+      "Gestisci runtime installati, infrastruttura condivisa e log di sistema. Le modifiche qui possono riguardare più progetti.",
+    infrastructure: "Infrastruttura condivisa",
+    backToSettings: "← Impostazioni",
+    tools: "Strumenti del progetto",
+    toolsHint:
+      "Avvia il progetto per avviare le sue dipendenze. I motori condivisi restano disponibili quando lo fermi.",
+    addTool: "Aggiungi al progetto",
+    noTools: "Nessuno strumento collegato",
+    noToolsHint: "Aggiungi un database, cache, casella mail o un altro strumento quando serve al progetto.",
+    connections: "Collegamenti e valori di ambiente",
+    connectionsHint:
+      "Qui puoi scegliere motori esistenti. Cambiare un collegamento riguarda solo questo progetto; i dati vengono conservati.",
+    shared: (names: string) =>
+      `Condiviso con ${names}. Stato del motore, caselle mail e log del motore possono includere questi progetti.`,
+    missingEngine: "Il motore collegato non è disponibile. Scegli un sostituto nei collegamenti.",
+    prepare: "Avvia motore",
+    addHint: "Werd crea il motore e lo collega a questo progetto. I valori di collegamento vanno copiati nel tuo .env.",
+    redisReuse: "Cache e coda usano lo stesso motore Redis in questo progetto.",
+    engine: "Motore",
+    version: "Versione",
+    retryLink: "Riprova collegamento",
+    engineBusy:
+      "Questa versione del motore è occupata con un’altra operazione. Attendi prima di avviare un backup o ripristino.",
+    logHint:
+      "Log del progetto e dei motori collegati. I log dei motori condivisi possono includere altri progetti; quelli di Caddy riguardano tutti i progetti.",
   },
   status: {
     running: "Attivo",
@@ -73,9 +110,9 @@ export const it: Messages = {
     manageSites: "Gestisci siti",
   },
   sites: {
-    title: "Siti",
-    add: "Aggiungi sito",
-    emptyTitle: "Nessun sito",
+    title: "Progetti",
+    add: "Aggiungi progetto",
+    emptyTitle: "Nessun progetto",
     emptyDescription: "Collega la cartella di un progetto Laravel per servirlo in HTTPS con i suoi servizi.",
     selectHint: "Seleziona un sito per vederne i dettagli.",
     start: "Avvia",
@@ -104,7 +141,7 @@ export const it: Messages = {
     noMatch: "Nessun sito corrisponde.",
     terminal: "Terminale",
     folderAction: "Cartella",
-    tabs: { general: "Generale", services: "Servizi", information: "Informazioni" },
+    tabs: { general: "Panoramica", services: "Strumenti", information: "Informazioni", logs: "Log" },
     stack: "Stack",
     phpRequired: "PHP richiesto",
     phpPackages: "Pacchetti PHP",
@@ -146,7 +183,7 @@ export const it: Messages = {
     no: "No",
     parkedIn: "Cartella parcheggiata",
     removeParked:
-      "Questo sito viene da una cartella parcheggiata. Togli il parcheggio in Generale, o sposta il progetto fuori dalla cartella.",
+      "Questo sito viene da una cartella parcheggiata. Togli il parcheggio in Impostazioni, o sposta il progetto fuori dalla cartella.",
     browse: "Sfoglia…",
     folderPick: "Scegli la cartella di un progetto Laravel",
     services: "Servizi",
@@ -174,7 +211,7 @@ export const it: Messages = {
     folderPlaceholder: "C:\\Users\\nome\\Developer\\progetto",
   },
   wizard: {
-    title: "Aggiungi sito",
+    title: "Aggiungi progetto",
     linkTitle: "Collega progetto esistente",
     newTitle: "Nuovo progetto Laravel",
     newProject: "Nuovo progetto Laravel",
@@ -224,7 +261,7 @@ export const it: Messages = {
     failed: "Qualcosa è andato storto. Controlla l’output, torna indietro e riprova.",
     previous: "Indietro",
     next: "Avanti",
-    addSite: "Aggiungi sito",
+    addSite: "Aggiungi progetto",
     create: "Crea progetto",
     updateEnv: "Imposta APP_URL nel .env sull’indirizzo del sito",
     updateBoost: "Aggiorna le linee guida di Laravel Boost (php artisan boost:update)",
@@ -379,7 +416,7 @@ export const it: Messages = {
     gotIt: "Ho capito",
   },
   general: {
-    title: "Generale",
+    title: "Impostazioni",
     language: "Lingua",
     languageHint: "Lingua dell’interfaccia di Werd.",
     certificate: "Certificato HTTPS",

@@ -72,6 +72,122 @@ h2 {
 
 /* ---------- Shell ---------- */
 
+.workspace-home {
+  width: 100%;
+  max-width: 1180px;
+}
+.workspace-intro {
+  padding: 26px 0 12px;
+}
+.workspace-intro h2 {
+  font-size: 22px;
+}
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+}
+.project-card,
+.project-tool {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  text-align: left;
+}
+.project-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.project-card:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+.project-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.project-card-head strong {
+  font-size: 17px;
+  color: var(--text-strong);
+}
+.project-card-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.project-address,
+.project-attention,
+.project-tool p {
+  overflow-wrap: anywhere;
+}
+.project-capabilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.project-capabilities > span {
+  padding: 3px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  font-size: 12px;
+}
+.project-card-footer,
+.project-attention {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  font-size: 12px;
+}
+.project-card-footer {
+  margin-top: auto;
+  padding-top: 6px;
+  justify-content: space-between;
+}
+.project-tools {
+  display: grid;
+  gap: 12px;
+}
+.project-log-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+}
+.tool-database {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-strong);
+}
+.shared-notice {
+  color: var(--muted);
+  font-size: 12px;
+}
+.advanced-panel {
+  margin: 20px 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.advanced-panel > summary {
+  cursor: pointer;
+  color: var(--text-strong);
+}
+.advanced-back {
+  padding: 12px 28px 0;
+}
+.tool-fields {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
 .shell {
   display: flex;
   height: 100vh;
