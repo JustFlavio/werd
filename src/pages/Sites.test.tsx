@@ -266,7 +266,7 @@ describe("Sites", () => {
     expect(screen.getByText("Node.js 24 is needed for the frontend.")).toBeInTheDocument();
   });
 
-  it("starts Vite and enables autostart independently of PHP", async () => {
+  it("offers live updates in the overview and enables them for future starts", async () => {
     const site: Project = {
       ...blog,
       status: "running",
@@ -276,18 +276,21 @@ describe("Sites", () => {
     api.setViteAutostart.mockResolvedValue(site);
     const onChanged = vi.fn(async () => {});
     renderSites([site], { selectedId: "blog", onChanged });
-    fireEvent.click(screen.getByRole("button", { name: "Start Vite" }));
+    expect(screen.getByRole("heading", { name: "Live frontend" }).closest("details")).toBeNull();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Enable live updates" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Enable live updates" }));
     await waitFor(() => expect(api.startVite).toHaveBeenCalledWith("blog"));
-    await waitFor(() => expect(screen.getByRole("checkbox", { name: "Start Vite with this site" })).toBeEnabled());
-    fireEvent.click(screen.getByRole("checkbox", { name: "Start Vite with this site" }));
     await waitFor(() => expect(api.setViteAutostart).toHaveBeenCalledWith("blog", true));
     expect(onChanged).toHaveBeenCalled();
   });
 
-  it("requires a running site before starting Vite", () => {
+  it("can schedule live updates before the project is started", async () => {
+    api.setViteAutostart.mockResolvedValue(blog);
     renderSites([{ ...blog, vite: { available: true, status: "stopped", autostart: false } }], { selectedId: "blog" });
-    expect(screen.getByRole("button", { name: "Start Vite" })).toBeDisabled();
-    expect(screen.getByRole("checkbox", { name: "Start Vite with this site" })).toBeEnabled();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Enable on project start" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Enable on project start" }));
+    await waitFor(() => expect(api.setViteAutostart).toHaveBeenCalledWith("blog", true));
+    expect(api.startVite).not.toHaveBeenCalled();
   });
 
   it("stops Vite and opens its dedicated log", async () => {
@@ -295,9 +298,9 @@ describe("Sites", () => {
     api.stopVite.mockResolvedValue(site);
     api.projectLogs.mockResolvedValue(["Vite ready: https://localhost:8445"]);
     renderSites([site], { selectedId: "blog" });
-    fireEvent.click(screen.getByRole("button", { name: "Stop Vite" }));
+    fireEvent.click(screen.getByRole("button", { name: "Stop live updates" }));
     await waitFor(() => expect(api.stopVite).toHaveBeenCalledWith("blog"));
-    fireEvent.click(screen.getByRole("button", { name: "Vite logs" }));
+    fireEvent.click(screen.getByRole("button", { name: "Frontend logs" }));
     expect(await screen.findByText("Vite ready: https://localhost:8445")).toBeInTheDocument();
     expect(api.projectLogs).toHaveBeenCalledWith("blog", "vite");
   });
