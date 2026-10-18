@@ -649,7 +649,7 @@ fn extract(path: &Path, destination: &Path) -> Result<()> {
     for index in 0..archive.len() {
         let entry = archive.by_index(index)?;
         let Some(enclosed) = entry.enclosed_name() else {
-            bail!("Unsafe path in ZIP archive: {}", entry.name())
+            bail!("Unsafe path in ZIP archive: {}", entry.name()?)
         };
         names.push(enclosed.to_string_lossy().replace('\\', "/"));
     }
@@ -1175,6 +1175,33 @@ pub(crate) mod tests {
         zip_with(&archive, &[("../evil.txt", "boom")]);
         assert!(extract(&archive, &directory.path().join("out")).is_err());
         assert!(!directory.path().join("evil.txt").exists());
+    }
+
+    #[test]
+    fn zip_symlink_targets_are_never_followed() {
+        let root = tempfile::tempdir().unwrap();
+        let archive = root.path().join("links.zip");
+        let outside = root.path().join("outside");
+        fs::write(&outside, "keep").unwrap();
+        let mut writer = zip::ZipWriter::new(File::create(&archive).unwrap());
+        writer
+            .add_symlink("link", "../outside", SimpleFileOptions::default())
+            .unwrap();
+        writer.finish().unwrap();
+        let destination = root.path().join("extracted");
+        fs::create_dir(&destination).unwrap();
+        extract(&archive, &destination).unwrap();
+        // Werd's manual ZIP extractor materializes link contents as a regular
+        // file; it does not create symlinks or chmod their external targets.
+        assert!(!fs::symlink_metadata(destination.join("link"))
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        assert_eq!(
+            fs::read_to_string(destination.join("link")).unwrap(),
+            "../outside"
+        );
+        assert_eq!(fs::read_to_string(outside).unwrap(), "keep");
     }
 
     #[test]
