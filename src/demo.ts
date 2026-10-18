@@ -457,7 +457,21 @@ export async function demoRpc(method: string, params: Record<string, unknown>): 
       const project = findProject(params.id);
       const raw = String(params.domain).trim().toLowerCase();
       const domain = raw.endsWith(".test") ? raw : `${raw}.test`;
-      if (!/^[a-z0-9-]+(.[a-z0-9-]+)*.test$/.test(domain)) throw new Error(`${domain} is not a valid .test domain`);
+      if (
+        domain.length > 253 ||
+        !domain
+          .slice(0, -5)
+          .split(".")
+          .every(
+            (label) =>
+              label.length > 0 &&
+              label.length <= 63 &&
+              !label.startsWith("-") &&
+              !label.endsWith("-") &&
+              /^[a-z0-9-]+$/.test(label),
+          )
+      )
+        throw new Error(`${domain} is not a valid .test domain`);
       project.domain = domain;
       if (project.status === "running") project.url = `https://${domain}`;
       return project;
