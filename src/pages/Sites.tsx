@@ -48,7 +48,11 @@ import { ProjectPreparation } from "../components/ProjectPreparation";
 import { ProjectTools } from "../components/ProjectTools";
 import { Progress } from "../components/RuntimeTable";
 import { useT } from "../i18n";
-import { needsPreparationBeforeStart, useProjectPreparation } from "../projectPreparation";
+import {
+  needsPreparationBeforeStart,
+  type ProjectPreparationState,
+  useProjectPreparation,
+} from "../projectPreparation";
 import type { Runtimes } from "../runtimes";
 import { CopyButton, EmptyState, Modal, PageHeader, Section, StatusDot } from "../ui";
 import { Logs } from "./Logs";
@@ -358,6 +362,13 @@ function SiteDetail({
               checks={checks}
             />
           </div>
+          <ViteSection
+            project={project}
+            checks={checks}
+            busy={busy === project.id}
+            onChanged={onChanged}
+            onError={onError}
+          />
           <GeneralTab
             project={project}
             runtimes={runtimes}
@@ -651,8 +662,6 @@ function GeneralTab({
             )}
           </dl>
         </Section>
-
-        <ViteSection project={project} busy={busy === project.id} onChanged={onChanged} onError={onError} />
       </details>
 
       <details className="advanced-panel">
@@ -689,11 +698,13 @@ function GeneralTab({
 
 function ViteSection({
   project,
+  checks,
   busy,
   onChanged,
   onError,
 }: {
   project: Project;
+  checks: ProjectPreparationState;
   busy: boolean;
   onChanged: () => Promise<void>;
   onError: (cause: unknown) => void;
@@ -733,35 +744,62 @@ function ViteSection({
   };
   if (!vite?.available && !vite?.autostart && !running && !vite?.error) return null;
   return (
-    <Section title="Vite" description={t.sites.viteHint}>
+    <Section title={t.preparation.liveTitle} description={t.preparation.liveHint}>
       <div className="button-row">
-        <StatusDot status={vite?.status ?? "stopped"} label />
+        <StatusDot
+          status={vite?.status ?? "stopped"}
+          label={
+            running
+              ? t.preparation.liveOn
+              : vite?.autostart && project.status !== "running"
+                ? t.preparation.liveScheduled
+                : t.preparation.liveOff
+          }
+        />
         <button
           type="button"
           className="button"
-          disabled={busy || pending || (!running && (project.status !== "running" || !vite?.available))}
-          title={project.status !== "running" ? t.sites.viteStartSite : undefined}
-          onClick={() => void change(() => (running ? stopVite(project.id) : startVite(project.id)))}
+          disabled={
+            busy ||
+            pending ||
+            checks.working ||
+            (!running &&
+              (!vite?.available ||
+                !checks.setup?.node_installed ||
+                !checks.setup.frontend_installed ||
+                (project.status !== "running" && Boolean(vite.autostart))))
+          }
+          onClick={() =>
+            void change(async () => {
+              if (running) return stopVite(project.id);
+              await setViteAutostart(project.id, true);
+              if (project.status === "running") await startVite(project.id);
+            })
+          }
         >
           {pending ? <Loader2 size={14} className="spin" /> : running ? <Square size={13} /> : <Play size={13} />}
-          {running ? t.sites.viteStop : t.sites.viteStart}
+          {running
+            ? t.preparation.liveStop
+            : project.status === "running"
+              ? t.preparation.liveStart
+              : t.preparation.liveEnable}
         </button>
         <button type="button" className="button" onClick={() => setShowLogs(true)}>
-          {t.sites.viteLogs}
+          {t.preparation.liveLogs}
         </button>
       </div>
       <label className="checkbox">
         <input
           type="checkbox"
           checked={vite?.autostart ?? false}
-          disabled={pending || busy}
+          disabled={pending || busy || checks.working}
           onChange={(event) => void change(() => setViteAutostart(project.id, event.target.checked))}
         />
-        {t.sites.viteAutostart}
+        {t.preparation.liveAutostart}
       </label>
       {vite?.error && <div className="callout callout-error">{vite.error}</div>}
       {showLogs && (
-        <Modal title={t.sites.viteLogs} onClose={() => setShowLogs(false)} wide>
+        <Modal title={t.preparation.liveLogs} onClose={() => setShowLogs(false)} wide>
           <pre className="log-box mono">{lines.length ? lines.join("\n") : t.logs.empty}</pre>
         </Modal>
       )}

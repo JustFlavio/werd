@@ -72,6 +72,17 @@ export const it: Messages = {
   preparation: {
     checking: "Verifica preparazione…",
     preparing: "Preparazione in corso…",
+    liveTitle: "Frontend live",
+    liveHint:
+      "Vedi le modifiche al frontend nel browser mentre lavori sui file. Quando è disattivato, l’applicazione usa gli ultimi asset compilati.",
+    liveOn: "Aggiornamento live attivo",
+    liveOff: "Aggiornamento live disattivato",
+    liveScheduled: "Attivo al prossimo avvio",
+    liveStart: "Attiva aggiornamento live",
+    liveEnable: "Attiva all’avvio del progetto",
+    liveStop: "Ferma aggiornamento live",
+    liveAutostart: "Attiva aggiornamento live all’avvio del progetto",
+    liveLogs: "Log frontend",
     checkFailed: "Verifica preparazione non disponibile",
     continueSetup: "Completa preparazione",
     startForHttps: "Avvia e configura HTTPS",

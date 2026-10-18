@@ -75,6 +75,17 @@ export const en = {
   preparation: {
     checking: "Checking preparation…",
     preparing: "Preparing project…",
+    liveTitle: "Live frontend",
+    liveHint:
+      "See frontend changes in the browser as you edit files. When disabled, the application uses its last built assets.",
+    liveOn: "Live updates on",
+    liveOff: "Live updates off",
+    liveScheduled: "Enabled for the next start",
+    liveStart: "Enable live updates",
+    liveEnable: "Enable on project start",
+    liveStop: "Stop live updates",
+    liveAutostart: "Enable live updates when the project starts",
+    liveLogs: "Frontend logs",
     checkFailed: "Preparation check unavailable",
     continueSetup: "Complete preparation",
     startForHttps: "Start and configure HTTPS",
