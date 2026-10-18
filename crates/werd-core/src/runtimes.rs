@@ -16,11 +16,33 @@ use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 use zip::ZipArchive;
 
 const MAX_ARCHIVE_BYTES: u64 = 3 * 1024 * 1024 * 1024;
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(900);
+
+// The daemon schedules installs concurrently. Protect short registry merges,
+// separately from the potentially long install of a given product/line.
+static REGISTRY_WRITE: Mutex<()> = Mutex::new(());
+type RuntimeKey = (PathBuf, String, String);
+type RuntimeLocks = BTreeMap<RuntimeKey, Weak<Mutex<()>>>;
+static RUNTIME_LOCKS: Mutex<RuntimeLocks> = Mutex::new(BTreeMap::new());
+
+fn runtime_lock(root: &Path, product: &str, line: &str) -> Result<Arc<Mutex<()>>> {
+    let mut locks = RUNTIME_LOCKS
+        .lock()
+        .map_err(|_| anyhow::anyhow!("Runtime lock poisoned"))?;
+    locks.retain(|_, lock| lock.strong_count() > 0);
+    let key = (root.canonicalize()?, product.into(), line.into());
+    if let Some(lock) = locks.get(&key).and_then(Weak::upgrade) {
+        return Ok(lock);
+    }
+    let lock = Arc::new(Mutex::new(()));
+    locks.insert(key, Arc::downgrade(&lock));
+    Ok(lock)
+}
 
 /// PHP extensions enabled when their DLL ships with the build.
 const PHP_EXTENSIONS: &[&str] = &[
@@ -78,10 +100,17 @@ impl Installed {
     pub fn save(&self, root: &Path) -> Result<()> {
         let path = Self::path(root);
         fs::create_dir_all(path.parent().context("Invalid runtimes path")?)?;
-        let temporary = path.with_extension("json.tmp");
-        fs::write(&temporary, serde_json::to_vec_pretty(self)?)?;
-        fs::rename(temporary, path)?;
-        Ok(())
+        crate::persistence::replace(&path, &serde_json::to_vec_pretty(self)?)
+    }
+
+    fn update(root: &Path, change: impl FnOnce(&mut Self)) -> Result<Self> {
+        let _guard = REGISTRY_WRITE
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Runtime registry lock poisoned"))?;
+        let mut installed = Self::load(root)?;
+        change(&mut installed);
+        installed.save(root)?;
+        Ok(installed)
     }
 
     pub fn version(&self, product: &str, line: &str) -> Option<&str> {
@@ -267,7 +296,7 @@ fn download(
     if archive.is_file() && verify_sha256(&archive, sha256)? {
         return Ok(archive);
     }
-    let partial = downloads.join(format!("{sha256}.part"));
+    let partial = downloads.join(format!("{sha256}.{}.part", uuid::Uuid::new_v4()));
     progress.step("Downloading");
     {
         let mut file = File::create(&partial)?;
@@ -294,6 +323,11 @@ pub fn install(
     line: &str,
     progress: &Progress,
 ) -> Result<String> {
+    fs::create_dir_all(root)?;
+    let lock = runtime_lock(root, product, line)?;
+    let _guard = lock
+        .lock()
+        .map_err(|_| anyhow::anyhow!("Runtime install lock poisoned"))?;
     let (entry, build) = catalog.build(product, line)?;
     if build.format == Format::Unsupported
         || build.extra.iter().any(|part| part.format == Format::Unsupported)
@@ -322,9 +356,9 @@ pub fn install(
     progress.step("Installing");
     install_files(&archives, &destination, build)?;
 
-    let mut installed = Installed::load(root)?;
-    installed.set(product, line, entry.latest_here());
-    installed.save(root)?;
+    let installed = Installed::update(root, |installed| {
+        installed.set(product, line, entry.latest_here())
+    })?;
 
     match product {
         "php" => {
@@ -362,7 +396,11 @@ pub fn install(
 }
 
 pub fn uninstall(root: &Path, product: &str, line: &str) -> Result<()> {
-    let mut installed = Installed::load(root)?;
+    let lock = runtime_lock(root, product, line)?;
+    let _guard = lock
+        .lock()
+        .map_err(|_| anyhow::anyhow!("Runtime install lock poisoned"))?;
+    let installed = Installed::load(root)?;
     if installed.version(product, line).is_none() {
         bail!("{product} {line} is not installed");
     }
@@ -372,7 +410,6 @@ pub fn uninstall(root: &Path, product: &str, line: &str) -> Result<()> {
                 uninstall(root, extension, line)?;
             }
         }
-        installed = Installed::load(root)?;
     }
     let directory = line_dir(root, product, line);
     if directory.exists() {
@@ -383,8 +420,7 @@ pub fn uninstall(root: &Path, product: &str, line: &str) -> Result<()> {
             )
         })?;
     }
-    installed.remove(product, line);
-    installed.save(root)?;
+    Installed::update(root, |installed| installed.remove(product, line))?;
     if PHP_PECL_EXTENSIONS.iter().any(|(id, _)| *id == product) {
         write_php_ini(root, line, &Settings::load(root)?)?;
     }
@@ -886,6 +922,79 @@ pub(crate) mod tests {
         assert!(!binary.exists());
         assert!(Installed::load(root.path()).unwrap().lines("tool").is_empty());
         assert!(uninstall(root.path(), "tool", "1").is_err());
+    }
+
+    #[test]
+    fn concurrent_registry_changes_preserve_other_lines_and_removals() {
+        let root = tempfile::tempdir().unwrap();
+        let mut installed = Installed::default();
+        installed.set("old", "1", "1.0");
+        installed.save(root.path()).unwrap();
+        let barrier = std::sync::Barrier::new(17);
+        std::thread::scope(|scope| {
+            for index in 0..16 {
+                let barrier = &barrier;
+                let root = root.path();
+                scope.spawn(move || {
+                    barrier.wait();
+                    Installed::update(root, |installed| {
+                        installed.set("tool", &index.to_string(), "1.0");
+                    })
+                    .unwrap();
+                });
+            }
+            barrier.wait();
+            Installed::update(root.path(), |installed| installed.remove("old", "1")).unwrap();
+        });
+        let installed = Installed::load(root.path()).unwrap();
+        assert_eq!(installed.lines("tool").len(), 16);
+        assert!(installed.lines("old").is_empty());
+        assert_eq!(fs::read_dir(root.path().join("runtimes")).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn parallel_installs_can_download_the_same_archive_without_losing_registry_entries() {
+        struct ConcurrentFetcher {
+            inner: LocalFetcher,
+            barrier: std::sync::Barrier,
+        }
+        impl Fetcher for ConcurrentFetcher {
+            fn fetch(
+                &self,
+                url: &str,
+                output: &mut dyn Write,
+                progress: &dyn Fn(u64, Option<u64>),
+            ) -> Result<u64> {
+                // Both downloads have opened their partial file before writing.
+                self.barrier.wait();
+                self.inner.fetch(url, output, progress)
+            }
+        }
+        let root = tempfile::tempdir().unwrap();
+        let (mut catalog, fetcher) = fixture(root.path(), &[("1", "1.0.0")]);
+        let product = catalog.products.get_mut("tool").unwrap();
+        product.lines.insert("2".into(), product.lines["1"].clone());
+        let fetcher = ConcurrentFetcher {
+            inner: fetcher,
+            barrier: std::sync::Barrier::new(2),
+        };
+        std::thread::scope(|scope| {
+            for line in ["1", "2"] {
+                let (root, catalog, fetcher) = (root.path(), &catalog, &fetcher);
+                scope.spawn(move || {
+                    install(root, catalog, fetcher, "tool", line, &Progress::detached()).unwrap()
+                });
+            }
+        });
+        let installed = Installed::load(root.path()).unwrap();
+        for line in ["1", "2"] {
+            assert_eq!(installed.version("tool", line), Some("1.0.0"));
+            assert_eq!(
+                fs::read_to_string(line_dir(root.path(), "tool", line).join("tool.exe")).unwrap(),
+                "1.0.0"
+            );
+        }
+        assert_eq!(fs::read_dir(root.path().join("downloads")).unwrap().count(), 1);
     }
 
     #[test]
