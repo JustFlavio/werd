@@ -59,3 +59,9 @@ cargo clippy --locked -p werd-cli -p werd-core --all-targets -- -D warnings
 ```
 
 Tests cover stdio initialization/discovery, authenticated loopback calls, missing-daemon recovery, parameter rejection, site selection, public response fields, bounded logs and credential filtering. They use temporary data and a fixture RPC endpoint; no Herd installation or real services are involved. Platform runtime support remains the support matrix in the README, independently of MCP availability.
+
+### Verification on 2026-10-17
+
+On Windows x64, all 122 Rust workspace tests and workspace Clippy with warnings denied passed after dependency and core-workflow maintenance. An additional run used the official TypeScript MCP client 2.3.1 against the rebuilt server and a real Werd daemon in a temporary data directory. All seven tools returned successfully, the fixture environment file stayed unchanged, and no runtimes were downloaded. This does not establish macOS/Linux runtime support or complete Herd replacement.
+
+The dependency audit now passes advisories, licenses, bans and sources. The baseline `rustls`/`zip` vulnerabilities and yanked `yoke-derive` version were replaced without advisory exceptions. The updater temporarily uses a pinned official Tauri commit to eliminate its vulnerable ZIP dependency. See the [base workflow review](research/base-workflow-review.md) for versions, source provenance, fixes and validation limits. Detailed local audit output is kept in the ignored `.cache/deny.jsonl`.
