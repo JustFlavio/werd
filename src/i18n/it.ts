@@ -53,6 +53,8 @@ export const it: Messages = {
     prepare: "Avvia motore",
     addHint: "Werd crea il motore e lo collega a questo progetto. I valori di collegamento vanno copiati nel tuo .env.",
     redisReuse: "Cache e coda usano lo stesso motore Redis in questo progetto.",
+    redisConflict:
+      "Il motore Redis collegato non soddisfa werd.yml. Scegli un motore compatibile per il collegamento cache/coda esistente prima di continuare.",
     engine: "Motore",
     version: "Versione",
     retryLink: "Riprova collegamento",

@@ -178,8 +178,14 @@ function AddProjectTool({ project, instances, runtimes, onChanged, onClose }: Pr
   const redisLink =
     category === "cache" ? project.links?.queue : category === "queue" ? project.links?.cache : undefined;
   const redis = instances.find((instance) => instance.id === redisLink?.instance && instance.product === "redis");
+  const redisConflict =
+    redis &&
+    requirement &&
+    (redis.product !== requirement.product ||
+      (requirement.line && redis.line !== requirement.line) ||
+      requirement.extensions?.some((extension) => !redis.extensions?.includes(extension)));
   const submit = async () => {
-    if (saving || (!created && !redis && (!offering || !version))) return;
+    if (saving || redisConflict || (!created && !redis && (!offering || !version))) return;
     setSaving(true);
     setError(null);
     try {
@@ -248,7 +254,9 @@ function AddProjectTool({ project, instances, runtimes, onChanged, onClose }: Pr
             </select>
           </label>
           {redis ? (
-            <p>{t.workspace.redisReuse}</p>
+            <p className={redisConflict ? "callout callout-warn" : undefined}>
+              {redisConflict ? t.workspace.redisConflict : t.workspace.redisReuse}
+            </p>
           ) : offerings === null ? (
             <p>{t.common.loading}</p>
           ) : (
@@ -312,7 +320,11 @@ function AddProjectTool({ project, instances, runtimes, onChanged, onClose }: Pr
           <button type="button" className="button" disabled={saving} onClick={onClose}>
             {t.common.cancel}
           </button>
-          <button type="submit" className="button button-primary" disabled={saving || (!created && !redis && !version)}>
+          <button
+            type="submit"
+            className="button button-primary"
+            disabled={saving || Boolean(redisConflict) || (!created && !redis && !version)}
+          >
             {created ? t.workspace.retryLink : t.workspace.addTool}
           </button>
         </div>
