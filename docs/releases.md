@@ -31,7 +31,7 @@ One application version applies to every OS. Do not create macOS-only applicatio
 6. After all builds succeed, verify the updater version, all intended installers, bundle URLs and signature assets. Only then publish the draft. Alpha/beta/RC use `prerelease=true` and `latest=false`; stable releases can become Latest.
 7. Advance the appropriate channel manifest. If a build fails, the draft stays unpublished. Retry from the same tag; if the code needs changes, create a new version. Published app releases are immutable.
 
-The app workflow uses the source repository's `GITHUB_TOKEN`; no cross-repository release token is needed. Tauri signing keys remain repository secrets. Tauri updater signatures and OS installer signing/notarization are different requirements; passing one does not prove the other.
+The app workflow uses the source repository's `GITHUB_TOKEN`; no cross-repository release token is needed. Keep `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` only in the protected `release` environment, which requires owner approval and accepts `main` and `v*` tags. Each installer build waits for that approval before it can access the signing secrets. Tauri updater signatures and OS installer signing/notarization are different requirements; passing one does not prove the other.
 
 ## Update channels
 
