@@ -13,14 +13,23 @@ import { Modal } from "../ui";
 
 const validName = (name: string) => /^[a-z][a-z0-9_]{0,62}$/.test(name);
 
-export function DatabaseBackups({ instance, onClose }: { instance: ServiceInstance; onClose: () => void }) {
+export function DatabaseBackups({
+  instance,
+  projectDatabase,
+  onClose,
+}: {
+  instance: ServiceInstance;
+  projectDatabase?: string;
+  onClose: () => void;
+}) {
   const t = useT();
   const [records, setRecords] = useState<DatabaseBackup[] | null>(null);
-  const [database, setDatabase] = useState("");
+  const [database, setDatabase] = useState(projectDatabase ?? "");
   const [selected, setSelected] = useState("");
   const [target, setTarget] = useState("");
   const [job, setJob] = useState<Job | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [engineBusy, setEngineBusy] = useState(projectDatabase !== undefined);
   const [error, setError] = useState<string | null>(null);
   const watchedJob = job?.id;
 
@@ -31,19 +40,33 @@ export function DatabaseBackups({ instance, onClose }: { instance: ServiceInstan
       try {
         const jobs = await listJobs();
         if (alive) {
+          // Jobs have no instance/database identity. Block concurrent engine work without
+          // presenting another project's job as this project's backup or restore.
+          setEngineBusy(
+            projectDatabase !== undefined &&
+              jobs.some(
+                (candidate) =>
+                  candidate.product === instance.product &&
+                  candidate.line === instance.line &&
+                  candidate.state === "running" &&
+                  candidate.id !== watchedJob,
+              ),
+          );
           setJob((current) => {
             // Ignore inventory requested before this operation was selected.
             if (current?.id !== watchedJob) return current;
             return current
               ? (jobs.find((candidate) => candidate.id === current.id) ??
                   (current.state === "running" ? { ...current, state: "failed", error: t.backups.lost } : current))
-              : (jobs.find(
-                  (candidate) =>
-                    candidate.product === instance.product &&
-                    candidate.line === instance.line &&
-                    ["backup", "restore"].includes(candidate.action) &&
-                    candidate.state === "running",
-                ) ?? null);
+              : projectDatabase !== undefined
+                ? null
+                : (jobs.find(
+                    (candidate) =>
+                      candidate.product === instance.product &&
+                      candidate.line === instance.line &&
+                      ["backup", "restore"].includes(candidate.action) &&
+                      candidate.state === "running",
+                  ) ?? null);
           });
         }
       } catch (cause) {
@@ -57,11 +80,11 @@ export function DatabaseBackups({ instance, onClose }: { instance: ServiceInstan
       alive = false;
       clearTimeout(timer);
     };
-  }, [instance.product, instance.line, watchedJob, t.backups.lost]);
+  }, [instance.product, instance.line, projectDatabase, watchedJob, t.backups.lost]);
 
   const state = job?.state;
   useEffect(() => {
-    if (state === "running") return;
+    if (state === "running" || engineBusy) return;
     let alive = true;
     void databaseBackups()
       .then((backups) => {
@@ -73,13 +96,16 @@ export function DatabaseBackups({ instance, onClose }: { instance: ServiceInstan
     return () => {
       alive = false;
     };
-  }, [state]);
+  }, [state, engineBusy]);
 
   const compatible = (records ?? []).filter(
-    (record) => record.product === instance.product && record.line === instance.line,
+    (record) =>
+      record.product === instance.product &&
+      record.line === instance.line &&
+      (projectDatabase === undefined || (record.instance === instance.id && record.database === projectDatabase)),
   );
   const choice = compatible.find((record) => record.id === selected) ?? compatible[0];
-  const busy = submitting || job?.state === "running";
+  const busy = submitting || job?.state === "running" || engineBusy;
   const stopped = instance.status !== "running";
   const start = async (restore: boolean) => {
     setSubmitting(true);
@@ -111,6 +137,7 @@ export function DatabaseBackups({ instance, onClose }: { instance: ServiceInstan
           <input
             className="input"
             value={database}
+            readOnly={projectDatabase !== undefined}
             disabled={busy}
             onChange={(event) => setDatabase(event.target.value)}
           />
@@ -160,7 +187,7 @@ export function DatabaseBackups({ instance, onClose }: { instance: ServiceInstan
           </button>
         </form>
       )}
-      {busy && <p role="status">{t.backups.working}</p>}
+      {busy && <p role="status">{engineBusy ? t.workspace.engineBusy : t.backups.working}</p>}
       {job?.state === "done" && (
         <p role="status">{job.action === "restore" ? t.backups.restored(job.result ?? target) : t.backups.created}</p>
       )}
