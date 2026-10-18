@@ -45,12 +45,10 @@ fn initial_php(root: &Path, requested: Option<String>) -> String {
 }
 
 /// Links pending requirements to existing instances that satisfy them.
-pub(crate) fn auto_link(state: &mut State, index: usize) {
-    let instances = &state.instances.list;
-    let project = &mut state.projects[index];
+fn auto_link(instances: &instances::Instances, project: &mut Project) -> Result<()> {
     let mut pending = Vec::new();
     for requirement in std::mem::take(&mut project.requirements) {
-        let found = instances.iter().find(|instance| {
+        let found = instances.list.iter().find(|instance| {
             instance.product == requirement.product
                 && requirement
                     .line
@@ -76,6 +74,22 @@ pub(crate) fn auto_link(state: &mut State, index: usize) {
         }
     }
     project.requirements = pending;
+    validate_redis_links(instances, project)
+}
+
+/// Laravel's standard environment has one Redis endpoint for cache and queue.
+fn validate_redis_links(instances: &instances::Instances, project: &Project) -> Result<()> {
+    if let (Some(cache), Some(queue)) = (project.links.get("cache"), project.links.get("queue")) {
+        if cache.instance != queue.instance
+            && instances.get(&cache.instance)?.product == "redis"
+            && instances.get(&queue.instance)?.product == "redis"
+        {
+            bail!(
+                "Cache and queue must use the same Redis instance: Laravel's standard REDIS_* environment cannot represent separate endpoints. Link both to the same service, or unlink one category and configure its connection in your application"
+            );
+        }
+    }
+    Ok(())
 }
 
 /// Links a Laravel project folder. `werd.yml` is read when present, never written.
@@ -117,7 +131,7 @@ pub(crate) fn add_with(
     let mut site_ports = crate::model::Ports::new();
     ports::assign(&mut site_ports, "site")?;
     ports::assign(&mut site_ports, "fastcgi")?;
-    state.projects.push(Project {
+    let mut project = Project {
         id: Uuid::new_v4().to_string(),
         name,
         domain: Some(domain),
@@ -139,9 +153,10 @@ pub(crate) fn add_with(
         services: Vec::new(),
         versions: Default::default(),
         extensions: Vec::new(),
-    });
+    };
+    auto_link(&state.instances, &mut project)?;
+    state.projects.push(project);
     let index = state.projects.len() - 1;
-    auto_link(state, index);
     state.save(root)?;
     Ok(state.projects[index].clone())
 }
@@ -171,6 +186,7 @@ pub(crate) fn remove_parked(root: &Path, state: &mut State, id: &str) -> Result<
 /// adds the site to the router.
 pub(crate) fn start(root: &Path, state: &mut State, id: &str) -> Result<Project> {
     let index = state.index(id)?;
+    validate_redis_links(&state.instances, &state.projects[index])?;
     if state.projects[index].status == ProjectStatus::Running {
         return Ok(state.projects[index].clone());
     }
@@ -393,7 +409,7 @@ pub(crate) fn link(
     }
     let service = state.instances.get(instance)?.id.clone();
     let index = state.index(id)?;
-    let project = &mut state.projects[index];
+    let mut project = state.projects[index].clone();
     let database = match database {
         Some(name) => Some(database_name(name)?),
         None => default_database(category, &project.name),
@@ -405,6 +421,7 @@ pub(crate) fn link(
             database,
         },
     );
+    validate_redis_links(&state.instances, &project)?;
     project
         .requirements
         .retain(|requirement| requirement.category != category);
@@ -415,6 +432,7 @@ pub(crate) fn link(
         project.error = None;
     }
     let updated = project.clone();
+    state.projects[index] = project;
     state.save(root)?;
     Ok(updated)
 }
@@ -436,6 +454,7 @@ pub(crate) fn open(state: &State, id: &str) -> Result<String> {
 /// The `.env` block for a site: its URL plus every linked service.
 pub(crate) fn env(root: &Path, state: &State, id: &str) -> Result<String> {
     let project = state.project(id)?;
+    validate_redis_links(&state.instances, project)?;
     let mut lines: Vec<String> = site_url(root, project)
         .iter()
         .map(|url| format!("APP_URL={url}"))
@@ -698,5 +717,86 @@ mod tests {
 
         remove(root.path(), &mut state, &project.id).unwrap();
         assert!(state.projects.is_empty());
+    }
+
+    #[test]
+    fn different_redis_links_are_rejected_without_mutating_the_site() {
+        for (first, second) in [("cache", "queue"), ("queue", "cache")] {
+            let root = tempfile::tempdir().unwrap();
+            let work = tempfile::tempdir().unwrap();
+            let mut state = State::default();
+            state.instances.list.push(instance("r1", "redis", "7.2", &[]));
+            state.instances.list.push(instance("r2", "redis", "8.2", &[]));
+            let site = add(root.path(), &mut state, &laravel_folder(work.path(), "api", None)).unwrap();
+            link(root.path(), &mut state, &site.id, first, "r1", None).unwrap();
+            state.projects[0].requirements.push(Requirement {
+                category: second.into(),
+                product: "redis".into(),
+                line: Some("8.2".into()),
+                extensions: vec![],
+            });
+            state.projects[0].status = ProjectStatus::Error;
+            state.projects[0].error = Some("previous failure".into());
+            state.save(root.path()).unwrap();
+            let before = serde_json::to_value(&state.projects[0]).unwrap();
+            let persisted = fs::read(crate::paths::state_file(root.path())).unwrap();
+            let error = link(root.path(), &mut state, &site.id, second, "r2", None).unwrap_err();
+            assert!(error.to_string().contains("same Redis instance"), "{error:#}");
+            assert_eq!(serde_json::to_value(&state.projects[0]).unwrap(), before);
+            assert_eq!(
+                fs::read(crate::paths::state_file(root.path())).unwrap(),
+                persisted
+            );
+        }
+    }
+
+    #[test]
+    fn persisted_conflicting_redis_links_cannot_start_or_produce_env_suggestions() {
+        let root = tempfile::tempdir().unwrap();
+        let work = tempfile::tempdir().unwrap();
+        let mut state = State::default();
+        state.instances.list.push(instance("r1", "redis", "7.2", &[]));
+        state.instances.list.push(instance("r2", "redis", "8.2", &[]));
+        let site = add(root.path(), &mut state, &laravel_folder(work.path(), "api", None)).unwrap();
+        link(root.path(), &mut state, &site.id, "cache", "r1", None).unwrap();
+        state.projects[0].links.insert(
+            "queue".into(),
+            Link {
+                instance: "r2".into(),
+                database: None,
+            },
+        );
+        state.instances.save(root.path()).unwrap();
+        state.save(root.path()).unwrap();
+        let mut loaded = State::load(root.path()).unwrap();
+        let error = env(root.path(), &loaded, &site.id).unwrap_err();
+        assert!(error.to_string().contains("same Redis instance"), "{error:#}");
+        let error = start(root.path(), &mut loaded, &site.id).unwrap_err();
+        assert!(error.to_string().contains("same Redis instance"), "{error:#}");
+        assert!(loaded.instances.processes.is_empty());
+        assert!(loaded.processes.is_empty());
+        // A repaired link can use the standard environment again.
+        link(root.path(), &mut loaded, &site.id, "queue", "r1", None).unwrap();
+        assert!(env(root.path(), &loaded, &site.id)
+            .unwrap()
+            .contains("QUEUE_CONNECTION=redis"));
+    }
+
+    #[test]
+    fn conflicting_manifest_redis_requirements_do_not_register_a_site() {
+        let root = tempfile::tempdir().unwrap();
+        let work = tempfile::tempdir().unwrap();
+        let mut state = State::default();
+        state.instances.list.push(instance("r1", "redis", "7.2", &[]));
+        state.instances.list.push(instance("r2", "redis", "8.2", &[]));
+        let folder = laravel_folder(
+            work.path(),
+            "api",
+            Some("services:\n  cache: redis@7.2\n  queue: redis@8.2\n"),
+        );
+        let error = add(root.path(), &mut state, &folder).unwrap_err();
+        assert!(error.to_string().contains("same Redis instance"), "{error:#}");
+        assert!(state.projects.is_empty());
+        assert!(!crate::paths::state_file(root.path()).exists());
     }
 }
