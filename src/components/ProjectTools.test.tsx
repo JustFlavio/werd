@@ -10,6 +10,7 @@ const api = vi.hoisted(() => ({
   linkProject: vi.fn(),
   serviceCatalog: vi.fn(),
   startService: vi.fn(),
+  prepareService: vi.fn(),
   openUrl: vi.fn(),
 }));
 vi.mock("../api", async (original) => ({ ...(await original<typeof import("../api")>()), ...api }));
@@ -92,6 +93,14 @@ beforeEach(() => {
 });
 
 describe("project tools", () => {
+  it("retries preparation on the same engine instead of creating another instance", async () => {
+    api.prepareService.mockResolvedValue({ instance: pg, job: { id: "retry-download" } });
+    show(project, [], [{ ...pg, status: "stopped" }]);
+    fireEvent.click(screen.getByRole("button", { name: "Start engine" }));
+    await waitFor(() => expect(api.prepareService).toHaveBeenCalledWith("pg"));
+    expect(api.createService).not.toHaveBeenCalled();
+    expect(runtimes.track).toHaveBeenCalledWith({ id: "retry-download" });
+  });
   it("does not clear an incompatible Redis requirement by reusing the other connection", async () => {
     show({
       ...project,

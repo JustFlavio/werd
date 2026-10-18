@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type AboutReport,
   type Category,
+  type DomainsStatus,
   type Editor,
   type Job,
   linkProject,
@@ -44,6 +45,7 @@ import {
 } from "../api";
 import { CATEGORIES, instancesFor } from "../categories";
 import { AddSiteWizard } from "../components/AddSiteWizard";
+import { ProjectPreparation } from "../components/ProjectPreparation";
 import { ProjectTools } from "../components/ProjectTools";
 import { Progress } from "../components/RuntimeTable";
 import { useT } from "../i18n";
@@ -61,6 +63,9 @@ export interface SitesProps {
   /** A site was added or created: select it and refresh. */
   onAdded: (id: string) => Promise<void>;
   onToggle: (project: Project) => void;
+  onStartAndOpen: (project: Project) => void;
+  domains?: DomainsStatus | null;
+  onUpdateHosts?: () => Promise<void>;
   onOpenSite: (project: Project) => void;
   onResetPorts: (project: Project) => void;
   onChanged: () => Promise<void>;
@@ -169,6 +174,9 @@ function SiteDetail({
   runtimes,
   busy,
   onToggle,
+  onStartAndOpen,
+  domains,
+  onUpdateHosts,
   onOpenSite,
   onResetPorts,
   onChanged,
@@ -189,7 +197,7 @@ function SiteDetail({
       <div className="detail-head">
         <div>
           <h2>{project.name}</h2>
-          <StatusDot status={project.status} label />
+          <StatusDot status={project.status} label={t.preparation.serverStatus[project.status]} />
         </div>
         <div className="button-row">
           {running && (
@@ -207,7 +215,7 @@ function SiteDetail({
               (setup !== null && !setupDone)
             }
             title={pending.length > 0 ? t.sites.resolveFirst : undefined}
-            onClick={() => onToggle(project)}
+            onClick={() => (running ? onToggle(project) : onStartAndOpen(project))}
           >
             {running ? (
               <>
@@ -216,7 +224,7 @@ function SiteDetail({
             ) : (
               <>
                 <Play size={13} />{" "}
-                {busy === project.id || project.status === "starting" ? t.sites.starting : t.sites.start}
+                {busy === project.id || project.status === "starting" ? t.sites.starting : t.preparation.startAndOpen}
               </>
             )}
           </button>
@@ -240,7 +248,15 @@ function SiteDetail({
         </button>
       </div>
 
-      {project.error && <div className="callout callout-error">{project.error}</div>}
+      {project.error && (
+        <div className="callout callout-error">
+          <strong>{t.preparation.startFailed}</strong>
+          <details>
+            <summary>{t.preparation.details}</summary>
+            <p>{project.error}</p>
+          </details>
+        </div>
+      )}
 
       {pending.length > 0 && (
         <div className="callout callout-warn">
@@ -310,16 +326,26 @@ function SiteDetail({
       </div>
 
       {tab === "general" && (
-        <GeneralTab
-          project={project}
-          runtimes={runtimes}
-          busy={busy}
-          onChanged={onChanged}
-          onError={onError}
-          onShowLogs={() => setTab("logs")}
-          onResetPorts={onResetPorts}
-          onRemove={() => setRemoving(true)}
-        />
+        <>
+          <ProjectPreparation
+            project={project}
+            runtimes={runtimes}
+            domains={domains}
+            onUpdateHosts={onUpdateHosts}
+            onChanged={onChanged}
+          />
+          <GeneralTab
+            project={project}
+            runtimes={runtimes}
+            busy={busy}
+            onChanged={onChanged}
+            onError={onError}
+            onShowLogs={() => setTab("logs")}
+            onResetPorts={onResetPorts}
+            onRemove={() => setRemoving(true)}
+            onOpenSite={onOpenSite}
+          />
+        </>
       )}
       {tab === "services" && (
         <>
@@ -330,6 +356,7 @@ function SiteDetail({
             runtimes={runtimes}
             onChanged={onChanged}
             onError={onError}
+            onConnected={() => setTab("general")}
           />
           <details className="advanced-panel">
             <summary>{t.workspace.connections}</summary>
@@ -481,6 +508,7 @@ function GeneralTab({
   onShowLogs,
   onResetPorts,
   onRemove,
+  onOpenSite,
 }: {
   project: Project;
   runtimes: Runtimes;
@@ -490,6 +518,7 @@ function GeneralTab({
   onShowLogs: (project: Project) => void;
   onResetPorts: (project: Project) => void;
   onRemove: () => void;
+  onOpenSite: (project: Project) => void;
 }) {
   const t = useT();
   const [domain, setDomain] = useState(project.domain ?? "");
@@ -501,118 +530,135 @@ function GeneralTab({
 
   return (
     <>
-      <Section title={t.sites.general}>
-        <dl className="fields">
-          <dt>{t.sites.domain}</dt>
-          <dd>
-            <form
-              className="inline-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                change(() => setProjectDomain(project.id, domain));
-              }}
-            >
-              <input
-                className="input mono"
-                value={domain}
-                aria-label={t.sites.domain}
-                onChange={(event) => setDomain(event.target.value)}
-              />
-              {domain.trim() && domain !== project.domain && (
-                <button type="submit" className="button button-small">
-                  {t.common.save}
-                </button>
-              )}
-            </form>
-          </dd>
-          <dt>{t.sites.url}</dt>
-          <dd className="mono">{project.url ?? <span className="muted">{t.sites.urlPending}</span>}</dd>
-          <dt>PHP</dt>
-          <dd>
-            <select
-              className="select"
-              value={project.php}
-              aria-label="PHP"
-              onChange={(event) => change(() => setProjectPhp(project.id, event.target.value))}
-            >
-              {!phpLines.some((row) => row.line === project.php) && (
-                <option value={project.php}>
-                  PHP {project.php} ({t.sites.notInstalled})
-                </option>
-              )}
-              {phpLines.map((row) => (
-                <option key={row.line} value={row.line}>
-                  PHP {row.line}
-                </option>
-              ))}
-            </select>
-            {running && <span className="muted">{t.sites.nextStart}</span>}
-          </dd>
-          <dt>Node.js</dt>
-          <dd>
-            <select
-              className="select"
-              value={project.node ?? ""}
-              aria-label="Node.js"
-              onChange={(event) => change(() => setProjectNode(project.id, event.target.value || null))}
-            >
-              <option value="">{t.sites.nodeDefault}</option>
-              {nodeLines.map((row) => (
-                <option key={row.line} value={row.line}>
-                  Node {row.line}
-                </option>
-              ))}
-            </select>
-          </dd>
-          <dt>{t.sites.startup}</dt>
-          <dd>
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={project.autostart ?? false}
-                onChange={(event) => change(() => setProjectAutostart(project.id, event.target.checked))}
-              />
-              {t.sites.autostart}
-            </label>
-          </dd>
-          <dt>{t.sites.path}</dt>
-          <dd className="mono">{project.path}</dd>
-          {project.parked && (
-            <>
-              <dt>{t.sites.parkedIn}</dt>
-              <dd className="mono">{project.parked}</dd>
-            </>
-          )}
-        </dl>
+      <Section title={t.preparation.address}>
+        {running && project.url ? (
+          <button type="button" className="link project-url" onClick={() => onOpenSite(project)}>
+            {project.url}
+          </button>
+        ) : (
+          <p className="muted">{t.sites.urlPending}</p>
+        )}
+        <p className="muted">
+          PHP {project.php}
+          {project.node ? ` · Node.js ${project.node}` : ""}
+        </p>
       </Section>
+      <details className="advanced-panel">
+        <summary>{t.preparation.configure}</summary>
+        <Section title={t.sites.general}>
+          <dl className="fields">
+            <dt>{t.sites.domain}</dt>
+            <dd>
+              <form
+                className="inline-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  change(() => setProjectDomain(project.id, domain));
+                }}
+              >
+                <input
+                  className="input mono"
+                  value={domain}
+                  aria-label={t.sites.domain}
+                  onChange={(event) => setDomain(event.target.value)}
+                />
+                {domain.trim() && domain !== project.domain && (
+                  <button type="submit" className="button button-small">
+                    {t.common.save}
+                  </button>
+                )}
+              </form>
+            </dd>
+            <dt>PHP</dt>
+            <dd>
+              <select
+                className="select"
+                value={project.php}
+                aria-label="PHP"
+                onChange={(event) => change(() => setProjectPhp(project.id, event.target.value))}
+              >
+                {!phpLines.some((row) => row.line === project.php) && (
+                  <option value={project.php}>
+                    PHP {project.php} ({t.sites.notInstalled})
+                  </option>
+                )}
+                {phpLines.map((row) => (
+                  <option key={row.line} value={row.line}>
+                    PHP {row.line}
+                  </option>
+                ))}
+              </select>
+              {running && <span className="muted">{t.sites.nextStart}</span>}
+            </dd>
+            <dt>Node.js</dt>
+            <dd>
+              <select
+                className="select"
+                value={project.node ?? ""}
+                aria-label="Node.js"
+                onChange={(event) => change(() => setProjectNode(project.id, event.target.value || null))}
+              >
+                <option value="">{t.sites.nodeDefault}</option>
+                {nodeLines.map((row) => (
+                  <option key={row.line} value={row.line}>
+                    Node {row.line}
+                  </option>
+                ))}
+              </select>
+            </dd>
+            <dt>{t.sites.startup}</dt>
+            <dd>
+              <label className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={project.autostart ?? false}
+                  onChange={(event) => change(() => setProjectAutostart(project.id, event.target.checked))}
+                />
+                {t.sites.autostart}
+              </label>
+            </dd>
+            <dt>{t.sites.path}</dt>
+            <dd className="mono">{project.path}</dd>
+            {project.parked && (
+              <>
+                <dt>{t.sites.parkedIn}</dt>
+                <dd className="mono">{project.parked}</dd>
+              </>
+            )}
+          </dl>
+        </Section>
 
-      <ViteSection project={project} busy={busy === project.id} onChanged={onChanged} onError={onError} />
+        <ViteSection project={project} busy={busy === project.id} onChanged={onChanged} onError={onError} />
+      </details>
 
-      <Section title={t.sites.maintenance}>
-        <div className="button-row">
-          <button type="button" className="button" onClick={() => onShowLogs(project)}>
-            {t.sites.viewLogs}
-          </button>
-          <button
-            type="button"
-            className="button"
-            disabled={running || busy === project.id}
-            title={running ? t.sites.stopFirst : undefined}
-            onClick={() => onResetPorts(project)}
-          >
-            {t.sites.resetPorts}
-          </button>
-          <button
-            type="button"
-            className="button"
-            disabled={Boolean(project.parked)}
-            title={project.parked ? t.sites.removeParked : undefined}
-            onClick={onRemove}
-          >
-            <Trash2 size={14} /> {t.sites.remove}
-          </button>
-        </div>
-      </Section>
+      <details className="advanced-panel">
+        <summary>{t.sites.maintenance}</summary>
+        <Section title={t.sites.maintenance}>
+          <div className="button-row">
+            <button type="button" className="button" onClick={() => onShowLogs(project)}>
+              {t.sites.viewLogs}
+            </button>
+            <button
+              type="button"
+              className="button"
+              disabled={running || busy === project.id}
+              title={running ? t.sites.stopFirst : undefined}
+              onClick={() => onResetPorts(project)}
+            >
+              {t.sites.resetPorts}
+            </button>
+            <button
+              type="button"
+              className="button"
+              disabled={Boolean(project.parked)}
+              title={project.parked ? t.sites.removeParked : undefined}
+              onClick={onRemove}
+            >
+              <Trash2 size={14} /> {t.sites.remove}
+            </button>
+          </div>
+        </Section>
+      </details>
     </>
   );
 }

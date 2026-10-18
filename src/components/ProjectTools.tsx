@@ -6,10 +6,10 @@ import {
   linkProject,
   openUrl,
   type Project,
+  prepareService,
   type ServiceInstance,
   type ServiceOffering,
   serviceCatalog,
-  startService,
 } from "../api";
 import { CATEGORIES } from "../categories";
 import { useT } from "../i18n";
@@ -25,6 +25,7 @@ interface Props {
   runtimes: Runtimes;
   onChanged: () => Promise<void>;
   onError: (cause: unknown) => void;
+  onConnected?: () => void;
 }
 
 /** Project actions never stop or delete a shared engine. Connections live in the advanced section. */
@@ -88,8 +89,11 @@ export function ProjectTools(props: Props) {
                             disabled={busy !== null || instance.status === "starting" || job?.state === "running"}
                             onClick={() => {
                               setBusy(instance.id);
-                              void startService(instance.id)
-                                .then(onChanged)
+                              void prepareService(instance.id)
+                                .then(({ job }) => {
+                                  if (job) runtimes.track(job);
+                                  return onChanged();
+                                })
                                 .catch(onError)
                                 .finally(() => setBusy(null));
                             }}
@@ -142,7 +146,14 @@ export function ProjectTools(props: Props) {
   );
 }
 
-function AddProjectTool({ project, instances, runtimes, onChanged, onClose }: Props & { onClose: () => void }) {
+function AddProjectTool({
+  project,
+  instances,
+  runtimes,
+  onChanged,
+  onClose,
+  onConnected,
+}: Props & { onClose: () => void }) {
   const t = useT();
   const available = CATEGORIES.filter((category) => !project.links?.[category]);
   const [category, setCategory] = useState<Category>(available[0] ?? "database");
@@ -208,6 +219,7 @@ function AddProjectTool({ project, instances, runtimes, onChanged, onClose }: Pr
       await linkProject(project.id, category, instance.id);
       await onChanged();
       onClose();
+      onConnected?.();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {

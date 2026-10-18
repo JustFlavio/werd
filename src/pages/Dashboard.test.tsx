@@ -67,7 +67,7 @@ describe("project home", () => {
       </I18nProvider>,
     );
     expect(screen.getByText("Setup required")).toBeInTheDocument();
-    expect(screen.getByText("Stopped")).toBeInTheDocument();
+    expect(screen.getByText("Server stopped")).toBeInTheDocument();
     expect(screen.queryByText("Running")).not.toBeInTheDocument();
   });
 });

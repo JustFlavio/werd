@@ -37,7 +37,7 @@ export function Section({
   );
 }
 
-export function StatusDot({ status, label }: { status: ProjectStatus | "ok" | "fail"; label?: boolean }) {
+export function StatusDot({ status, label }: { status: ProjectStatus | "ok" | "fail"; label?: boolean | string }) {
   const t = useT();
   const tone =
     status === "running" || status === "ok"
@@ -50,7 +50,7 @@ export function StatusDot({ status, label }: { status: ProjectStatus | "ok" | "f
   return (
     <span className={`status status-${tone}`}>
       <i aria-hidden />
-      {label && status !== "ok" && status !== "fail" && t.status[status]}
+      {typeof label === "string" ? label : label && status !== "ok" && status !== "fail" && t.status[status]}
     </span>
   );
 }

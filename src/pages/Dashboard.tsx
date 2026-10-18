@@ -12,12 +12,14 @@ export function Dashboard({
   onSelect,
   onAdd,
   onError,
+  missingDomains = [],
 }: {
   projects: Project[];
   runtimes: Runtimes;
   onSelect: (project: Project) => void;
   onAdd: () => void;
   onError: (cause: unknown) => void;
+  missingDomains?: string[];
 }) {
   const t = useT();
   const running = projects.filter((project) => project.status === "running").length;
@@ -75,7 +77,7 @@ export function Dashboard({
                 <button type="button" className="project-card" key={project.id} onClick={() => onSelect(project)}>
                   <span className="project-card-head">
                     <strong>{project.name}</strong>
-                    <StatusDot status={project.status} label />
+                    <StatusDot status={project.status} label={t.preparation.serverStatus[project.status]} />
                   </span>
                   <span className="muted project-address">{project.domain ?? project.path}</span>
                   <span className="project-capabilities">
@@ -85,10 +87,12 @@ export function Dashboard({
                       <span key={category}>{t.services.categories[category]}</span>
                     ))}
                   </span>
-                  {(project.error || (project.requirements?.length ?? 0) > 0) && (
+                  {(project.error ||
+                    (project.requirements?.length ?? 0) > 0 ||
+                    (project.domain && missingDomains.includes(project.domain))) && (
                     <span className="project-attention">
                       <TriangleAlert size={14} />
-                      {project.error ?? t.workspace.needsSetup}
+                      {project.error ? t.preparation.startFailed : t.workspace.needsSetup}
                     </span>
                   )}
                   <span className="project-card-footer">

@@ -164,6 +164,31 @@ export default function App() {
     });
 
   const open = (url: string) => void openUrl(url).catch(fail);
+  const openPrepared = async (project: Project) => {
+    const hosts = await domainsStatus();
+    if (project.domain && hosts.missing.includes(project.domain)) {
+      setToast({ tone: "info", text: t.preparation.domainsBeforeOpen });
+      return;
+    }
+    const ca = await certificateStatus();
+    if (!ca.trusted) {
+      setToast({ tone: "info", text: t.preparation.httpsBeforeOpen });
+      return;
+    }
+    await openSite(project.id);
+  };
+  const startAndOpen = (project: Project) =>
+    void run(project.id, async () => {
+      let current = await startProject(project.id);
+      const deadline = Date.now() + 180_000;
+      while (current.status === "starting" && Date.now() < deadline) {
+        await new Promise((resolve) => window.setTimeout(resolve, 1000));
+        await refresh();
+        current = (await listProjects()).projects.find((candidate) => candidate.id === project.id) ?? current;
+      }
+      if (current.status !== "running") throw new Error(current.error ?? t.preparation.startTimeout);
+      await openPrepared(current);
+    });
 
   return (
     <div className="shell">
@@ -209,7 +234,7 @@ export default function App() {
           </div>
         )}
 
-        {domains && domains.missing.length > 0 && (
+        {page === "general" && domains && domains.missing.length > 0 && (
           <div className="banner banner-warn" role="status">
             <span>{t.workspace.domainsMissing(domains.missing)}</span>
             <button
@@ -247,6 +272,7 @@ export default function App() {
                 }}
                 onAdd={() => setCreating(true)}
                 onError={fail}
+                missingDomains={domains?.missing}
               />
             )}
             {page === "sites" && (
@@ -264,7 +290,13 @@ export default function App() {
                   await refresh();
                 }}
                 onToggle={toggle}
-                onOpenSite={(project) => void openSite(project.id).catch(fail)}
+                onStartAndOpen={startAndOpen}
+                domains={domains}
+                onUpdateHosts={async () => {
+                  await syncHosts();
+                  await refresh();
+                }}
+                onOpenSite={(project) => void run(project.id, () => openPrepared(project))}
                 onResetPorts={(project) =>
                   void run(project.id, async () => {
                     await resetPorts(project.id);
