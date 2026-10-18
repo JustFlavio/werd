@@ -155,6 +155,8 @@ Closing the window does not stop your sites: the daemon owns the processes. More
 
 This is the authoritative milestone plan. Unchecked items are commitments to investigate and implement, not shipped features. Milestones advance when their exit criteria are met; there are no promised release dates. The first stable version is **`0.1.0`**. Broader Herd feature parity remains the longer-term goal for **`1.0.0`**.
 
+The [base workflow review](docs/research/base-workflow-review.md) records dependency repairs, existing workflow defects corrected in the current source, and the real-system checks that remain open.
+
 ### 1. Alpha — finish the daily development loop
 
 The goal is to open a project, start its environment and work without keeping several terminals alive.
