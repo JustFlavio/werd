@@ -48,6 +48,18 @@ The pre-commit hook runs Biome, `tsc` and `rustfmt` on staged files.
 
 To save CI minutes, pull requests are checked on Linux only and pushes to `main` on Linux and Windows. macOS and the metrics report run when the CI workflow is started by hand (**Actions → CI → Run workflow**). Do that before a release.
 
+## Branches
+
+Use `<type>/<short-kebab-case-description>` for working branches. Choose a type
+that describes the change, such as `feat`, `fix`, `docs`, `refactor`, `test` or
+`chore`.
+
+Examples: `feat/database-backups`, `fix/windows-process-cleanup` and
+`docs/herd-comparison`.
+
+This is Werd's branch naming convention. Conventional Commits governs commit
+messages separately.
+
 ## Commits
 
 We use [Conventional Commits](https://www.conventionalcommits.org/). The commit-msg hook validates them.
