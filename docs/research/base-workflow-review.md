@@ -28,6 +28,28 @@ passing this check is not a claim that the software has no vulnerabilities.
 `npm audit` reports zero known vulnerabilities after the lockfile update.
 Local audit logs live in ignored `.cache/deny.jsonl` and `.cache/npm-audit.json`.
 
+### Remaining GTK dependency advisory
+
+As verified on 2026-10-18, Dependabot alert
+[#1](https://github.com/JustFlavio/werd/security/dependabot/1) remains open for
+`glib` 0.18.5 in `Cargo.lock`. The Linux Tauri/GTK3 dependency graph requires
+`glib ^0.18`; `cargo tree --locked -i glib --target x86_64-unknown-linux-gnu`
+shows the GTK, WebKit and tray dependencies that constrain it.
+
+[RUSTSEC-2024-0429](https://rustsec.org/advisories/RUSTSEC-2024-0429.html)
+identifies an invalid immutable out-pointer in `VariantStrIter::impl_get` and
+lists 0.20.0 as the first patched version. The
+[upstream fix](https://github.com/gtk-rs/gtk-rs-core/pull/1343) is absent from
+the current [0.18 source](https://github.com/gtk-rs/gtk-rs-core/blob/0.18/glib/src/variant_iter.rs).
+Updating only `glib` to 0.20 cannot satisfy the existing GTK3 requirements.
+
+The dependency alert is not resolved by the CodeQL fixes. A compatible
+upstream backport or a separately reviewed backport maintained by Werd is
+needed until Tauri's GTK stack moves to a patched release. Validate that
+change on Linux, including optimized iterator tests and the desktop build.
+No alert dismissal or advisory exception is added. A passing `cargo deny`
+check does not clear this separate Dependabot finding.
+
 ## Existing behavior corrected
 
 | Finding | Previous failure | Correction and regression evidence |
