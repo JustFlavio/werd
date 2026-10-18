@@ -47,9 +47,9 @@ describe("locale selection", () => {
         <Probe />
       </I18nProvider>,
     );
-    const button = screen.getByRole("button", { name: "Sites" });
+    const button = screen.getByRole("button", { name: "Projects" });
     act(() => button.click());
-    expect(screen.getByRole("button", { name: "Siti" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Progetti" })).toBeInTheDocument();
     expect(localStorage.getItem("werd.locale")).toBe("it");
     expect(document.documentElement.lang).toBe("it");
   });

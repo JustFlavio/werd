@@ -1,15 +1,4 @@
-import {
-  Boxes,
-  Cpu,
-  Globe,
-  Hexagon,
-  Info,
-  LayoutDashboard,
-  Loader2,
-  ScrollText,
-  Settings as SettingsIcon,
-  X,
-} from "lucide-react";
+import { Globe, LayoutDashboard, Loader2, Settings as SettingsIcon, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
   certificateStatus,
@@ -35,13 +24,13 @@ import {
   setTrayLabels,
   startProject,
   stopProject,
-  stopService,
   syncHosts,
   systemInfo,
   trustCa,
   unparkFolder,
   updateSettings,
 } from "./api";
+import { AddSiteWizard } from "./components/AddSiteWizard";
 import { UpdateButton } from "./components/UpdateButton";
 import { WhatsNew } from "./components/WhatsNew";
 import { useT } from "./i18n";
@@ -61,13 +50,10 @@ export type Page = "dashboard" | "sites" | "php" | "node" | "services" | "logs" 
 const NAV: { id: Page; icon: typeof Globe }[] = [
   { id: "dashboard", icon: LayoutDashboard },
   { id: "sites", icon: Globe },
-  { id: "php", icon: Cpu },
-  { id: "node", icon: Hexagon },
-  { id: "services", icon: Boxes },
-  { id: "logs", icon: ScrollText },
   { id: "general", icon: SettingsIcon },
-  { id: "about", icon: Info },
 ];
+
+const ADVANCED: Page[] = ["php", "node", "services", "logs", "about"];
 
 type Toast = { tone: "error" | "info"; text: string };
 
@@ -76,6 +62,7 @@ const message = (cause: unknown) => (cause instanceof Error ? cause.message : St
 export default function App() {
   const t = useT();
   const [page, setPage] = useState<Page>("dashboard");
+  const [creating, setCreating] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [instances, setInstances] = useState<ServiceInstance[]>([]);
   const [daemonVersion, setDaemonVersion] = useState("—");
@@ -176,12 +163,6 @@ export default function App() {
       setToast({ tone: "info", text: t.shell.hostsUpdated });
     });
 
-  const stopAll = () =>
-    void run("stop-all", async () => {
-      for (const project of projects.filter((item) => item.status === "running")) await stopProject(project.id);
-      for (const instance of instances.filter((item) => item.status === "running")) await stopService(instance.id);
-    });
-
   const open = (url: string) => void openUrl(url).catch(fail);
 
   return (
@@ -196,8 +177,8 @@ export default function App() {
             <button
               type="button"
               key={id}
-              className={`nav-item ${page === id ? "active" : ""}`}
-              aria-current={page === id ? "page" : undefined}
+              className={`nav-item ${page === id || (id === "general" && ADVANCED.includes(page)) ? "active" : ""}`}
+              aria-current={page === id || (id === "general" && ADVANCED.includes(page)) ? "page" : undefined}
               // Narrow windows hide the label and keep only the icon.
               aria-label={t.nav[id]}
               title={t.nav[id]}
@@ -230,7 +211,7 @@ export default function App() {
 
         {domains && domains.missing.length > 0 && (
           <div className="banner banner-warn" role="status">
-            <span>{t.shell.hostsMissing(domains.missing)}</span>
+            <span>{t.workspace.domainsMissing(domains.missing)}</span>
             <button
               type="button"
               className="button button-small"
@@ -249,15 +230,23 @@ export default function App() {
           </div>
         ) : (
           <>
+            {ADVANCED.includes(page) && (
+              <div className="advanced-back">
+                <button type="button" className="link" onClick={() => setPage("general")}>
+                  {t.workspace.backToSettings}
+                </button>
+              </div>
+            )}
             {page === "dashboard" && (
               <Dashboard
                 projects={projects}
-                instances={instances}
                 runtimes={runtimes}
-                busy={busy === "stop-all"}
-                onStopAll={stopAll}
-                onNavigate={setPage}
-                onOpenUrl={open}
+                onSelect={(project) => {
+                  setSelectedId(project.id);
+                  setPage("sites");
+                }}
+                onAdd={() => setCreating(true)}
+                onError={fail}
               />
             )}
             {page === "sites" && (
@@ -276,16 +265,16 @@ export default function App() {
                 }}
                 onToggle={toggle}
                 onOpenSite={(project) => void openSite(project.id).catch(fail)}
+                onShowLogs={(project) => {
+                  setSelectedId(project.id);
+                  setPage("logs");
+                }}
                 onResetPorts={(project) =>
                   void run(project.id, async () => {
                     await resetPorts(project.id);
                     setToast({ tone: "info", text: t.shell.portsReset });
                   })
                 }
-                onShowLogs={(project) => {
-                  setSelectedId(project.id);
-                  setPage("logs");
-                }}
               />
             )}
             {page === "php" && (
@@ -310,63 +299,78 @@ export default function App() {
               <Logs projects={projects} instances={instances} projectId={selectedId} onProjectChange={setSelectedId} />
             )}
             {page === "general" && (
-              <General
-                system={system}
-                settings={settings}
-                domains={domains}
-                busy={busy}
-                onSaveDomains={(changes) =>
-                  void run("domains", async () => {
-                    setSettings(await updateSettings(changes));
-                    if (changes.domains) {
-                      const hosts = await domainsStatus();
-                      if (hosts.missing.length > 0) await syncHosts();
-                    }
-                  })
-                }
-                onUpdateHosts={() => void updateHosts()}
-                onPark={(path) =>
-                  void run("parks", async () => {
-                    const parked = await parkFolder(path);
-                    setSettings((current) => (current ? { ...current, parked } : current));
-                    await refresh();
-                    await syncNewDomains();
-                  })
-                }
-                onUnpark={(path) =>
-                  void run("parks", async () => {
-                    const parked = await unparkFolder(path);
-                    setSettings((current) => (current ? { ...current, parked } : current));
-                  })
-                }
-                launchAtLogin={atLogin}
-                onToggleLaunchAtLogin={(enabled) =>
-                  void run("login", async () => setAtLogin(await setLaunchAtLogin(enabled)))
-                }
-                onTogglePath={(enable) =>
-                  void run("path", async () => {
-                    await (enable ? enablePath() : disablePath());
-                    setSystem(await systemInfo());
-                    setToast({ tone: "info", text: enable ? t.general.cliEnabledToast : t.general.cliDisabledToast });
-                  })
-                }
-                onRefreshCatalog={() =>
-                  void run("catalog", async () => {
-                    await refreshCatalog();
-                    setSystem(await systemInfo());
-                    await runtimes.refresh();
-                  })
-                }
-                certificate={certificate}
-                onTrustCa={() =>
-                  void trustCa()
-                    .then(async (text) => {
-                      setToast({ tone: "info", text });
-                      setCertificate(await certificateStatus());
+              <>
+                <General
+                  system={system}
+                  settings={settings}
+                  domains={domains}
+                  busy={busy}
+                  onSaveDomains={(changes) =>
+                    void run("domains", async () => {
+                      setSettings(await updateSettings(changes));
+                      if (changes.domains) {
+                        const hosts = await domainsStatus();
+                        if (hosts.missing.length > 0) await syncHosts();
+                      }
                     })
-                    .catch(fail)
-                }
-              />
+                  }
+                  onUpdateHosts={() => void updateHosts()}
+                  onPark={(path) =>
+                    void run("parks", async () => {
+                      const parked = await parkFolder(path);
+                      setSettings((current) => (current ? { ...current, parked } : current));
+                      await refresh();
+                      await syncNewDomains();
+                    })
+                  }
+                  onUnpark={(path) =>
+                    void run("parks", async () => {
+                      const parked = await unparkFolder(path);
+                      setSettings((current) => (current ? { ...current, parked } : current));
+                    })
+                  }
+                  launchAtLogin={atLogin}
+                  onToggleLaunchAtLogin={(enabled) =>
+                    void run("login", async () => setAtLogin(await setLaunchAtLogin(enabled)))
+                  }
+                  onTogglePath={(enable) =>
+                    void run("path", async () => {
+                      await (enable ? enablePath() : disablePath());
+                      setSystem(await systemInfo());
+                      setToast({ tone: "info", text: enable ? t.general.cliEnabledToast : t.general.cliDisabledToast });
+                    })
+                  }
+                  onRefreshCatalog={() =>
+                    void run("catalog", async () => {
+                      await refreshCatalog();
+                      setSystem(await systemInfo());
+                      await runtimes.refresh();
+                    })
+                  }
+                  certificate={certificate}
+                  onTrustCa={() =>
+                    void trustCa()
+                      .then(async (text) => {
+                        setToast({ tone: "info", text });
+                        setCertificate(await certificateStatus());
+                      })
+                      .catch(fail)
+                  }
+                />
+                <div className="page-body">
+                  <details className="advanced-panel">
+                    <summary>{t.workspace.advanced}</summary>
+                    <p className="muted">{t.workspace.advancedHint}</p>
+                    <div className="button-row">
+                      {ADVANCED.map((id) => (
+                        <button type="button" className="button" key={id} onClick={() => setPage(id)}>
+                          {id === "services" ? t.workspace.infrastructure : t.nav[id]}
+                        </button>
+                      ))}
+                    </div>
+                  </details>
+                </div>
+              </>
             )}
             {page === "about" && <About daemonVersion={daemonVersion} onOpenUrl={open} onError={fail} />}
           </>
@@ -374,6 +378,18 @@ export default function App() {
       </main>
 
       <WhatsNew />
+      {creating && (
+        <AddSiteWizard
+          runtimes={runtimes}
+          onClose={() => setCreating(false)}
+          onDone={async (id) => {
+            setSelectedId(id);
+            await refresh();
+            setCreating(false);
+            setPage("sites");
+          }}
+        />
+      )}
 
       {toast && (
         <div className={`toast toast-${toast.tone}`} role={toast.tone === "error" ? "alert" : "status"}>
