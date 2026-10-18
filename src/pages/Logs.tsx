@@ -12,11 +12,13 @@ export function Logs({
   instances,
   projectId,
   onProjectChange,
+  embedded = false,
 }: {
   projects: Project[];
   instances: ServiceInstance[];
   projectId: string | null;
   onProjectChange: (id: string) => void;
+  embedded?: boolean;
 }) {
   const t = useT();
   const [source, setSource] = useState<string>("werd");
@@ -58,57 +60,64 @@ export function Logs({
       </>
     );
 
-  return (
+  const controls = (
     <>
-      <PageHeader title={t.logs.title}>
-        <select
-          className="select"
-          value={target}
-          aria-label={t.logs.site}
-          onChange={(event) => {
-            const [kind, id] = event.target.value.split(/:(.*)/s);
-            if (kind === "service") {
-              setService(id);
-            } else {
-              setService(null);
-              onProjectChange(id);
-            }
-          }}
-        >
-          {projects.length > 0 && (
-            <optgroup label={t.logs.sites}>
-              {projects.map((project) => (
-                <option key={project.id} value={`site:${project.id}`}>
-                  {project.name}
-                </option>
-              ))}
-            </optgroup>
-          )}
-          {instances.length > 0 && (
-            <optgroup label={t.logs.services}>
-              {instances.map((instance) => (
-                <option key={instance.id} value={`service:${instance.id}`}>
-                  {instance.name}
-                </option>
-              ))}
-            </optgroup>
-          )}
-        </select>
-        {!service && (
-          <select
-            className="select"
-            value={source}
-            onChange={(event) => setSource(event.target.value)}
-            aria-label={t.logs.source}
-          >
-            {SITE_LOG_SOURCES.map((name) => (
-              <option key={name} value={name}>
-                {name}
+      <select
+        className="select"
+        value={target}
+        aria-label={t.logs.site}
+        onChange={(event) => {
+          const [kind, id] = event.target.value.split(/:(.*)/s);
+          if (kind === "service") {
+            setService(id);
+          } else {
+            setService(null);
+            onProjectChange(id);
+          }
+        }}
+      >
+        {projects.length > 0 && (
+          <optgroup label={t.logs.sites}>
+            {projects.map((project) => (
+              <option key={project.id} value={`site:${project.id}`}>
+                {project.name}
               </option>
             ))}
-          </select>
+          </optgroup>
         )}
-      </PageHeader>
+        {instances.length > 0 && (
+          <optgroup label={t.logs.services}>
+            {instances.map((instance) => (
+              <option key={instance.id} value={`service:${instance.id}`}>
+                {instance.name}
+              </option>
+            ))}
+          </optgroup>
+        )}
+      </select>
+      {!service && (
+        <select
+          className="select"
+          value={source}
+          onChange={(event) => setSource(event.target.value)}
+          aria-label={t.logs.source}
+        >
+          {SITE_LOG_SOURCES.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
+      )}
+    </>
+  );
+  return (
+    <>
+      {embedded ? (
+        <div className="project-log-controls">{controls}</div>
+      ) : (
+        <PageHeader title={t.logs.title}>{controls}</PageHeader>
+      )}
       <pre ref={viewer} className="log-viewer">
         {lines.length ? lines.join("\n") : <span className="muted">{t.logs.empty}</span>}
       </pre>

@@ -59,6 +59,42 @@ beforeEach(() => {
 });
 
 describe("DatabaseBackups", () => {
+  it("limits a project backup to its linked database and engine", async () => {
+    api.databaseBackups.mockResolvedValue([
+      backup,
+      { ...backup, id: "other-db", database: "billing" },
+      { ...backup, id: "other-engine", instance: "pg-other" },
+    ]);
+    api.listJobs.mockResolvedValue([]);
+    api.backupDatabase.mockResolvedValue({ ...job, state: "done" });
+    render(
+      <I18nProvider locale="en">
+        <DatabaseBackups instance={instance} projectDatabase="shop" onClose={() => {}} />
+      </I18nProvider>,
+    );
+    await screen.findByRole("option", { name: /shop/ });
+    expect(screen.getAllByRole("option")).toHaveLength(1);
+    expect(screen.getByLabelText("Database to back up")).toHaveValue("shop");
+    expect(screen.getByLabelText("Database to back up")).toHaveAttribute("readonly");
+    expect(screen.queryByText(/operation continues/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Create backup" }));
+    await waitFor(() => expect(api.backupDatabase).toHaveBeenCalledWith("pg", "shop"));
+  });
+
+  it("blocks concurrent engine work without attributing another project's operation to this project", async () => {
+    api.listJobs.mockResolvedValue([job]);
+    render(
+      <I18nProvider locale="en">
+        <DatabaseBackups instance={instance} projectDatabase="shop" onClose={() => {}} />
+      </I18nProvider>,
+    );
+    await screen.findByText(/busy with another operation/);
+    expect(screen.getByRole("button", { name: "Create backup" })).toBeDisabled();
+    expect(screen.queryByText(/operation continues/)).not.toBeInTheDocument();
+    api.listJobs.mockResolvedValue([]);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Create backup" })).toBeEnabled());
+  });
+
   it("shows a new backup only after its job has completed", async () => {
     api.databaseBackups.mockResolvedValueOnce([]).mockResolvedValue([backup]);
     api.backupDatabase.mockImplementation(async () => {

@@ -31,6 +31,7 @@ const api = vi.hoisted(() => ({
   stopVite: vi.fn(),
   setViteAutostart: vi.fn(),
   projectLogs: vi.fn(),
+  serviceLogs: vi.fn(),
 }));
 
 vi.mock("../api", async (original) => ({
@@ -89,7 +90,6 @@ function renderSites(projects: Project[], overrides: Partial<SitesProps> = {}, l
         onToggle={noop}
         onOpenSite={noop}
         onResetPorts={noop}
-        onShowLogs={noop}
         onChanged={async () => {}}
         onError={noop}
         {...overrides}
@@ -126,6 +126,9 @@ describe("Sites", () => {
     renderSites([blog], { selectedId: "blog", onToggle });
     expect(screen.getByRole("combobox", { name: "PHP" })).toHaveValue("8.5");
     fireEvent.click(screen.getByRole("tab", { name: "Tools" }));
+    expect(screen.getByRole("heading", { name: "Database" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Cache" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Connections and environment values"));
     expect(screen.getByRole("combobox", { name: "Database" })).toHaveValue("pg");
     expect(screen.getByRole("combobox", { name: "Cache" })).toHaveValue("");
     expect(screen.getByText("blog", { selector: "td" })).toBeInTheDocument();
@@ -139,6 +142,27 @@ describe("Sites", () => {
     expect(screen.getByText(/asks for services you do not have yet/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create missing services" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Start/ })).toBeDisabled();
+  });
+
+  it("keeps project logs inside the detail and excludes unrelated projects and engines", async () => {
+    api.projectLogs.mockResolvedValue(["blog project log"]);
+    api.serviceLogs.mockResolvedValue(["shared database log"]);
+    renderSites([blog, { ...blog, id: "billing", name: "billing", links: {} }], {
+      selectedId: "blog",
+      instances: [postgres, { ...postgres, id: "other", name: "Unrelated engine" }],
+    });
+    fireEvent.click(screen.getByRole("tab", { name: "Logs" }));
+    expect(await screen.findByText("blog project log")).toBeInTheDocument();
+    const targets = screen.getByRole("combobox", { name: "Site" });
+    expect(
+      within(targets)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["blog", "PostgreSQL 18"]);
+    fireEvent.change(targets, { target: { value: "service:pg" } });
+    expect(await screen.findByText("shared database log")).toBeInTheDocument();
+    expect(api.serviceLogs).toHaveBeenCalledWith("pg");
+    expect(screen.getByText(/Shared engine logs can include activity/)).toBeInTheDocument();
   });
 
   it("links an existing project with the name and PHP read from it", async () => {

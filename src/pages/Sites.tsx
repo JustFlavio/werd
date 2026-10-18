@@ -44,10 +44,12 @@ import {
 } from "../api";
 import { CATEGORIES, instancesFor } from "../categories";
 import { AddSiteWizard } from "../components/AddSiteWizard";
+import { ProjectTools } from "../components/ProjectTools";
 import { Progress } from "../components/RuntimeTable";
 import { useT } from "../i18n";
 import type { Runtimes } from "../runtimes";
 import { CopyButton, EmptyState, Modal, PageHeader, Section, StatusDot } from "../ui";
+import { Logs } from "./Logs";
 
 export interface SitesProps {
   projects: Project[];
@@ -61,12 +63,11 @@ export interface SitesProps {
   onToggle: (project: Project) => void;
   onOpenSite: (project: Project) => void;
   onResetPorts: (project: Project) => void;
-  onShowLogs: (project: Project) => void;
   onChanged: () => Promise<void>;
   onError: (cause: unknown) => void;
 }
 
-type Tab = "general" | "services" | "information";
+type Tab = "general" | "services" | "information" | "logs";
 
 export function Sites(props: SitesProps) {
   const { projects, selectedId, onSelect, onAdded, runtimes } = props;
@@ -162,6 +163,7 @@ export function Sites(props: SitesProps) {
 
 function SiteDetail({
   project,
+  projects,
   editors,
   instances,
   runtimes,
@@ -169,7 +171,6 @@ function SiteDetail({
   onToggle,
   onOpenSite,
   onResetPorts,
-  onShowLogs,
   onChanged,
   onError,
   onSelect,
@@ -294,7 +295,7 @@ function SiteDetail({
       )}
 
       <div className="tabs" role="tablist">
-        {(["general", "services", "information"] as const).map((id) => (
+        {(["general", "services", "logs", "information"] as const).map((id) => (
           <button
             key={id}
             type="button"
@@ -315,13 +316,41 @@ function SiteDetail({
           busy={busy}
           onChanged={onChanged}
           onError={onError}
-          onShowLogs={onShowLogs}
+          onShowLogs={() => setTab("logs")}
           onResetPorts={onResetPorts}
           onRemove={() => setRemoving(true)}
         />
       )}
       {tab === "services" && (
-        <ServicesTab project={project} instances={instances} onChanged={onChanged} onError={onError} />
+        <>
+          <ProjectTools
+            project={project}
+            projects={projects}
+            instances={instances}
+            runtimes={runtimes}
+            onChanged={onChanged}
+            onError={onError}
+          />
+          <details className="advanced-panel">
+            <summary>{t.workspace.connections}</summary>
+            <p className="muted">{t.workspace.connectionsHint}</p>
+            <ServicesTab project={project} instances={instances} onChanged={onChanged} onError={onError} />
+          </details>
+        </>
+      )}
+      {tab === "logs" && (
+        <>
+          <p className="muted">{t.workspace.logHint}</p>
+          <Logs
+            embedded
+            projects={[project]}
+            instances={instances.filter((instance) =>
+              Object.values(project.links ?? {}).some((link) => link.instance === instance.id),
+            )}
+            projectId={project.id}
+            onProjectChange={() => {}}
+          />
+        </>
       )}
       {tab === "information" && <InformationTab project={project} />}
 

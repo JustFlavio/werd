@@ -265,10 +265,6 @@ export default function App() {
                 }}
                 onToggle={toggle}
                 onOpenSite={(project) => void openSite(project.id).catch(fail)}
-                onShowLogs={(project) => {
-                  setSelectedId(project.id);
-                  setPage("logs");
-                }}
                 onResetPorts={(project) =>
                   void run(project.id, async () => {
                     await resetPorts(project.id);
