@@ -25,10 +25,10 @@ On Windows the daemon joins a job object that kills its children when it exits, 
 
 | Screen | Main actions |
 | --- | --- |
-| Dashboard | See active projects, shared services, busy ports and problems to fix; start or stop a project. |
-| Sites | Add a folder, detect Laravel, choose PHP and domain, open the site and a terminal. |
-| Site details | Choose dependencies, start or stop worker/scheduler/Reverb, read the suggested `.env` and service status. |
-| Services | Install versions, configure and control PostgreSQL/pgvector, MySQL/MariaDB, Redis, Mailpit, RustFS and the other supported services. |
+| Home | See projects, their actual status and configuration issues; open a project or add one. |
+| Projects | Add a folder, detect Laravel, choose PHP and domain, open the site and a terminal. |
+| Project details | Manage the environment, connected tools and project logs. Show only configured tools, with an action to add another. Worker/scheduler/Reverb controls remain planned capabilities. |
+| Shared infrastructure (advanced settings) | Install versions, configure and control shared engines. Explain that changes can affect multiple projects. |
 | Databases and storage | Create databases, users and buckets; back up and restore. |
 | Diagnostics | Read logs, mail and dumps; see errors, ports, processes and repair actions. |
 | Settings | Manage PHP, Node, certificates, paths, launch at login, updates and language. |

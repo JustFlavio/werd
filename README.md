@@ -25,12 +25,12 @@ Application versions follow one sequence across operating systems: `0.1.0-alpha.
   - PostgreSQL 14–18 (pgvector optional), MySQL 8.0/8.4/9.x, MariaDB 10.11–13, MongoDB 7–8, Redis 7.2–8.x, Meilisearch;
   - Composer, Mailpit, RustFS and Caddy.
 - When a newer patch ships, **Update** replaces the installed one (e.g. PHP 8.4.25 → 8.4.26).
-- **Services** like Herd's: add PostgreSQL 17, MySQL 8.4 or Redis once, choose name, port and autostart, and share them between sites. Each site gets its own database inside them.
+- **Project tools:** add a database, cache, queue connection, mail, storage or search from the project. Only connected tools appear. Engines can be shared between projects; database links select a project database. Global engine controls remain in **Settings → Advanced settings and diagnostics → Shared infrastructure**.
 - **Add a site like in Herd:** link an existing project (Werd reads composer.json and proposes a PHP version that fits), or create a new one with the official Laravel installer and a starter kit (React, Vue, Svelte, Livewire or a community kit). From the site page, open it in a terminal, Tinker, VS Code, Cursor or PhpStorm.
 - **Sites** choose their PHP line and Node version and link a database, cache, queue, mail, storage and search service. An optional [`werd.yml`](docs/werd-yml.md) declares all of this for your team; missing services are created with one click.
 - `php`, `composer`, `node`, `npm` and `npx` on your PATH pick the version of the folder you are in (`werd.yml`, `.nvmrc`, the site settings), or your default.
-- Start a site with one action on `https://<name>.test`, with a local CA you can trust from the app. Werd keeps the domains in the hosts file (Windows asks for administrator approval) and every site also keeps a stable `https://localhost:<port>` address. If another program uses port 443, choose another HTTPS port in **General**.
-- Manage Vite per site from **Sites → General → Vite**: start, stop, view logs and optionally start it with the site. Assets and hot reload use HTTPS through Caddy. Stopping the site also stops Vite; frontend errors leave PHP available.
+- Start a site with one action on `https://<name>.test`, with a local CA you can trust from the app. Werd keeps the domains in the hosts file (Windows asks for administrator approval) and every site also keeps a stable `https://localhost:<port>` address. If another program uses port 443, choose another HTTPS port in **Settings**.
+- Manage Vite per site from **Projects → Overview → Vite**: start, stop, view logs and optionally start it with the site. Assets and hot reload use HTTPS through Caddy. Stopping the site also stops Vite; frontend errors leave PHP available.
 - Park a folder and every Laravel project inside it becomes a site, like Herd's paths. New projects appear on their own; deleted ones disappear.
 - Werd lives in the tray and can start at login, so services marked to start automatically are ready when you are. If Werd crashes, its PHP, Caddy and service processes stop with it instead of keeping ports busy.
 - See the `.env` values to paste into your project. Updating `APP_URL` in the site wizard is an explicit option; Werd does not silently rewrite service connection settings.
@@ -84,16 +84,16 @@ Werd keeps its data in `%LOCALAPPDATA%\Werd` on Windows and the equivalent local
 
 ## First project
 
-On its first start Werd downloads Caddy, the newest **stable** PHP available for the platform (made the global version) and Composer in the background; the Dashboard shows the progress. PHP alpha/beta/RC builds remain available for explicit installation. Internet is needed only to download versions and to create new projects; sites and services run offline.
+On its first start Werd downloads Caddy, the newest **stable** PHP available for the platform (made the global version) and Composer in the background; Home shows the progress. PHP alpha/beta/RC builds remain available for explicit installation. Internet is needed only to download versions and to create new projects; sites and services run offline.
 
 On Windows, Werd installs phpredis and the MongoDB PHP driver with each new PHP version and enables them in `php.ini`, so Laravel can use `REDIS_CLIENT=phpredis`.
 
-1. Install other PHP versions from the **PHP** page if you need them (or `werd php install 8.4`).
-2. Add the services you need in **Services → Add service** (or `werd service add postgresql@18 --with pgvector`). Building pgvector currently needs Visual Studio Build Tools.
-3. Add the folder in **Sites → Add site** (or `werd add`), link its services, start it, copy the `.env` values from the site page and run your migrations.
-4. To avoid browser warnings, trust the local CA in **General → HTTPS certificate** (or `werd trust-ca`).
+1. Add the folder in **Projects → Add project** (or `werd add`). If it needs another PHP version, install it from **Settings → Advanced settings and diagnostics → PHP** (or `werd php install 8.4`).
+2. Open **Tools → Add to project** to create and connect its dependencies. Under **Connections and environment values**, reuse existing engines or copy the suggested `.env` values. Building pgvector currently needs Visual Studio Build Tools.
+3. Start the project and run your migrations. Starting it starts its dependencies; stopping it stops PHP and Vite while leaving shared engines available. The project's **Logs** tab includes only that project and its linked engines; shared engine logs and Caddy logs can include other projects.
+4. To avoid browser warnings, trust the local CA in **Settings → HTTPS certificate** (or `werd trust-ca`).
 
-For Vite projects, install a compatible Node version from **Node** (or `werd node install 22`), select it for the site and install the project's npm dependencies before starting managed Vite.
+For Vite projects, install a compatible Node version from **Settings → Advanced settings and diagnostics → Node.js** (or `werd node install 22`), select it for the project and install the project's npm dependencies before starting managed Vite.
 
 Some Laravel packages you will need:
 - **MongoDB:** install `mongodb/laravel-mongodb` to use a MongoDB connection from Laravel.

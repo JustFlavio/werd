@@ -1,9 +1,15 @@
 # Database backups
 
 Current source supports local logical backups of a single PostgreSQL, MySQL or
-MariaDB database. In **Services → Database backups**, enter the source database
-name and create a backup. Werd runs it as a background job; the window may close
-while it continues. Completed backups appear in that dialog.
+MariaDB database. Open **Projects → Tools → Database backups** for the linked
+database. Its name is prefilled and fixed; the list shows only snapshots from
+that database and engine. Werd runs backups as background jobs, which continue
+if the window closes. While that engine version is busy, new operations wait;
+jobs from other projects are not shown as this project's results.
+
+For another database or compatible snapshots from another engine instance, use
+**Settings → Advanced settings and diagnostics → Shared infrastructure → Database backups**.
+That advanced dialog accepts a source database name and lists all compatible snapshots.
 
 To restore, select a backup and enter a **new database name**. The target service
 must be running and use the same engine and version line as the backup. Werd
