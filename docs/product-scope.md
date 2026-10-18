@@ -4,6 +4,8 @@
 
 The goal is to cover every publicly documented feature of Laravel Herd for Windows and macOS, Pro features included, with an independent implementation. Werd also targets Linux. Features and their priority are validated with real use cases, not by visual similarity alone.
 
+Werd is a complete replacement: its supported workflows must work on a machine where Herd has never been installed. Werd installs and manages its own runtimes and services and must not require Herd executables, configuration, a running Herd process or a Herd license. The full local toolset is free and open source, with no paid Werd tier for diagnostics or daily development features. Milestones divide delivery into verifiable increments; they do not reduce that final scope.
+
 The [README roadmap](../README.md#official-roadmap) is authoritative for milestone order, current status and the acceptance gates for `0.1.0`. Full local feature parity is a longer-term `1.0.0` goal; this document describes scope rather than claiming features are shipped.
 
 | Area | Required behavior |
@@ -18,7 +20,10 @@ The [README roadmap](../README.md#official-roadmap) is authoritative for milesto
 | Diagnostics | Show PHP and Laravel logs, capture `dump()`/`dd()`, manage Xdebug and show process status. |
 | Projects | Store a versionable per-project configuration; start and stop only the dependencies it needs; handle port collisions and shared resources. |
 | Frontend and background work | Supervise per-site Vite with HTTPS/HMR, queue workers, scheduler and Reverb; expose lifecycle, logs and actionable failures. |
-| Interfaces | A complete desktop app with dashboard, project details, service catalog, mail, logs and settings. The CLI exposes the same operations for automation. |
+| Interfaces | A complete desktop app with dashboard, project details, service catalog, mail, logs and settings. CLI and Werd's own MCP expose the same underlying Werd engine. |
+| Agent tools | Werd MCP provides project context, runtime/service operations and diagnostics without depending on Herd or an embedded LLM. |
+| Request diagnostics | Independently implement the useful Insights workflows: correlated dumps, queries, logs, jobs, HTTP and cache events, with GUI/CLI/MCP access. |
+| Workspaces and Studio workflows | Cover isolated branches/worktrees, domains, database choices and the documented browser/agent workflows in later milestones; these remain part of the full replacement assessment. |
 
 Integrations with external services, such as Forge or public sharing tools, need a separate review of the available APIs. They must not block parity on local features.
 
@@ -37,6 +42,8 @@ A Laravel/Inertia project on each declared Windows, macOS and Linux target uses 
 The same essential operations are available in the CLI. The first usable release includes both interfaces.
 
 This use case is a first milestone, not the limit of the product: parity with the features listed above remains the goal.
+
+The final replacement acceptance run starts without Herd installed. It must exercise daily development, troubleshooting, email, database recovery and agent tools through Werd alone on every declared target platform. No dependency on the reference product may be hidden behind a GUI, CLI or MCP command.
 
 ## Technical decisions to validate with prototypes
 
