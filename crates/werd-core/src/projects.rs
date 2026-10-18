@@ -697,7 +697,7 @@ mod tests {
         assert_eq!(
             env.matches("REDIS_PORT=6390").count(),
             1,
-            "shared keys appear once:\n{env}"
+            "shared Redis keys must appear once"
         );
         assert!(env.contains("CACHE_STORE=redis") && env.contains("QUEUE_CONNECTION=redis"));
 
