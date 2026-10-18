@@ -5,6 +5,8 @@
 
 Werd is a free, MIT-licensed local development environment for Laravel and PHP. It targets **Windows, macOS and Linux**, runs native processes without Docker or WSL, and aims to provide a complete alternative to [Laravel Herd](https://herd.laravel.com), including the local development tools offered by Herd Pro. Existing features and future work are listed separately below; Werd does not yet provide full Herd feature parity.
 
+The goal is to use Werd on a machine where Herd has never been installed. Werd manages its own runtimes and services; no Herd process, binaries or license are required. The full local toolset is intended to remain free and open source, including diagnostics and daily development features.
+
 A desktop app and a `werd` CLI share one Rust daemon. Sites run their own PHP FastCGI behind one shared Caddy, on `https://<name>.test`, and link to shared services you create once: PostgreSQL (with optional pgvector), MySQL, MariaDB, MongoDB, Redis, Mailpit, RustFS (S3) and Meilisearch.
 
 > **Status: `0.1.0-alpha.2`, available for Windows x64.** This is a new project with no public stable release. Windows x64 is the currently validated alpha platform; macOS support is partial and Linux still needs runtime coverage and validation. The first stable release will be gated by the [official roadmap](#official-roadmap), not by a date.
@@ -37,27 +39,30 @@ Application versions follow one sequence across operating systems: `0.1.0-alpha.
 
 ## Herd vs Werd
 
-This comparison describes documented Herd features and Werd's current source as of **2026-09-30**. **Current** means implemented, primarily exercised on Windows x64; **planned** means it is not available yet. A checked-in feature is not proof of support on every operating system.
+This comparison uses the **2026-09-30** baseline, with Herd 2's dev servers, AI integrations, Insights and workspaces reviewed on **2026-10-17**. **Current** means implemented, primarily exercised on Windows x64; **planned** means it is not available yet. A checked-in feature is not proof of support on every operating system. Proposed additions are research candidates, not changes to the official release gates.
 
 | Development need | Laravel Herd | Werd today | Werd target |
 | --- | --- | --- | --- |
 | Platforms | Windows and macOS | Windows x64 exercised; macOS partial; Linux pending | The same daily workflow on Windows, macOS and Linux |
 | Local `.test` sites and HTTPS | Available | Current: Caddy, local CA, linking and parking | Reliable setup, trust and recovery on every supported OS |
 | PHP, Composer and Node versions | Available, including per-site PHP isolation | Current: catalog, project-aware CLI shims, per-site PHP/Node | Tested runtime and extension compatibility matrix |
-| Laravel frontend with Vite | Node management documented; managed per-site Vite lifecycle is not documented in the reviewed pages | Current: start/stop, autostart, logs, HTTPS assets and HMR | Validate React, Vue, Svelte and Livewire flows across platforms |
+| Laravel frontend with Vite | With Studio enabled, manages `artisan dev` or the project's package-manager `dev` script, including idle shutdown | Current: direct Vite start/stop, autostart, logs, HTTPS assets and HMR; custom npm scripts/hooks are not executed | Validate React, Vue, Svelte and Livewire flows across platforms |
 | Databases, cache, search and S3 | Managed services in Pro | Current: PostgreSQL, MySQL, MariaDB, MongoDB, Redis, Meilisearch and RustFS | Backup/restore, safe upgrades, Reverb and additional engines |
 | PostgreSQL with pgvector | PostgreSQL service documented; pgvector packaging is not established by the reviewed docs | Current on Windows: optional build requiring Build Tools | Verified matching binaries without a compiler on the user's machine |
 | Project environment shared with a team | `herd.yml` | Current: `werd.yml`, linked services and environment suggestions | Schema validation, compatibility rules and reproducible setup |
 | Captured email | Pro mail server and integrated viewer | Current: Mailpit service and browser inbox | Mail inside Werd, grouped by project, with attachments and search |
-| `dump()` / `dd()` inspection | Pro dump viewer | Planned | Free structured dump viewer with source links |
+| `dump()` / `dd()` inspection | Pro Insights: dumps and request events, including queries, jobs, HTTP and cache; CLI/MCP access | Planned | Free structured dump viewer with source links; request diagnostics later |
 | Laravel logs | Integrated structured log viewer | Current: process/service logs; Laravel log viewer planned | Search, severity filters, rotation and stack-trace links |
 | Xdebug and profiling | Manual Xdebug in Free; automatic detection in Pro | Planned | Verified Xdebug/IDE setup first; profiling later |
-| Queue workers and scheduler | Reverb and service management documented; per-site worker/scheduler supervision is not established by the reviewed docs | Redis service linking exists; Artisan workers and scheduler planned | Named supervised processes, logs, restart and per-site lifecycle |
+| Queue workers and scheduler | Studio documents a queue listener and project dev processes; dedicated scheduler supervision is not established by the reviewed docs | Redis service linking exists; Artisan workers and scheduler planned | Named supervised processes, logs, restart and per-site lifecycle |
 | Plain PHP and other frameworks | Multiple framework drivers and custom drivers | Laravel-first site detection | Configurable document roots, plain PHP and Symfony validation |
 | GUI and automation | Desktop app and CLI, including service commands | Current: shared daemon, desktop UI and CLI with `--json` | Feature parity between GUI/CLI and actionable diagnostics |
+| AI tool access | Built-in MCP for coding agents | Planned: independent Werd MCP over the daemon API | Werd management and structured diagnostic workflows |
+| Isolated development workspaces | Branch copies on subdomains, existing Git worktree detection, shared/cloned/empty databases | Not available | Implement after routing, backup/restore and process lifecycle are dependable |
+| Agent workspace in the browser | Herd Studio: coding agents, preview, terminals, diffs and development tools | Not available | Cover the documented workflows in the full replacement assessment after the stable local environment |
 | Public sharing | Sharing through Expose | Planned, after the stable local workflow | Explicit opt-in temporary links and LAN access |
 
-Sources: Herd's [Windows installation](https://herd.laravel.com/docs/windows/getting-started/installation), [Node management](https://herd.laravel.com/docs/windows/technology/node-versions), [services](https://herd.laravel.com/docs/windows/herd-pro-services/services), [project manifest](https://herd.laravel.com/docs/windows/sites/herd-yaml), [mail](https://herd.laravel.com/docs/windows/herd-pro-services/mail), [dumps](https://herd.laravel.com/docs/windows/debugging/dumps), [logs](https://herd.laravel.com/docs/windows/debugging/logs), [Xdebug](https://herd.laravel.com/docs/windows/debugging/xdebug), [profiler](https://herd.laravel.com/docs/windows/debugging/profiler), [frameworks](https://herd.laravel.com/docs/windows/extending-herd/supported-frameworks) and [sharing](https://herd.laravel.com/docs/windows/sites/sharing-sites). “Not documented” is a limit of this review, not a claim that Herd cannot do it. Herd already covers many of these needs; Werd's intended additions are Linux support, free access to the whole local toolset and supervision of the frontend and background work alongside PHP.
+Sources: Herd's [Windows installation](https://herd.laravel.com/docs/windows/getting-started/installation), [Node management](https://herd.laravel.com/docs/windows/technology/node-versions), [services](https://herd.laravel.com/docs/windows/herd-pro-services/services), [project manifest](https://herd.laravel.com/docs/windows/sites/herd-yaml), [mail](https://herd.laravel.com/docs/windows/herd-pro-services/mail), [Insights](https://herd.laravel.com/docs/windows/debugging/insights), [logs](https://herd.laravel.com/docs/windows/debugging/logs), [Xdebug](https://herd.laravel.com/docs/windows/debugging/xdebug), [profiler](https://herd.laravel.com/docs/windows/debugging/profiler), [frameworks](https://herd.laravel.com/docs/windows/extending-herd/supported-frameworks), [sharing](https://herd.laravel.com/docs/windows/sites/sharing-sites), [AI integrations](https://herd.laravel.com/docs/windows/advanced-usage/ai-integrations), [Studio](https://herd.laravel.com/docs/windows/herd-studio/overview), [dev server](https://herd.laravel.com/docs/windows/herd-studio/dev-server) and [workspaces](https://herd.laravel.com/docs/windows/sites/workspaces). “Not documented” is a limit of this review, not a claim that Herd cannot do it. Herd already covers many of these needs; Werd's intended additions are Linux support and free access to the whole local toolset. The [Herd 2 investigation](docs/research/herd-v2.md) records the first artifact findings, limitations and proposed implementation order.
 
 ## Getting started (development)
 
@@ -204,6 +209,7 @@ These improvements do not block the first stable local environment:
 
 - A project task runner for Composer/Artisan commands, migrations/seeders and Pest/PHPUnit, with saved commands and readable results; integrate existing Laravel tooling rather than duplicate it.
 - Request diagnostics and profiling, with optional integrations for Telescope, Pulse and existing IDE tools; finish the remaining documented Herd local feature gaps.
+- Extend Werd MCP to management and structured diagnostics, and cover the documented workspace and Studio workflows as part of complete Herd replacement. Every interface must work without Herd installed.
 - Additional engines such as Typesense and Valkey, database clone/snapshots and a better seed-data workflow; keep the core service set dependable first.
 - Optional public sharing and LAN access, with clear lifetime and exposure controls; evaluate Forge and other external integrations independently.
 - More Linux distributions/architectures, custom framework drivers and project process definitions beyond Laravel.
