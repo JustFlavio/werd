@@ -50,6 +50,6 @@ pub use daemon::run_daemon;
 pub use model::{DoctorResult, Ports, Project, ProjectStatus, ServiceName, Snapshot};
 pub use paths::home;
 pub use process::LOG_SOURCES;
-pub use rpc::{daemon_executable, ensure_daemon, rpc, PROTOCOL_VERSION};
+pub use rpc::{daemon_executable, ensure_daemon, rpc, rpc_with_timeout, PROTOCOL_VERSION};
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

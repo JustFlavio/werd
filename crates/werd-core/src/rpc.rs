@@ -53,11 +53,16 @@ struct Response {
 
 /// Calls `method` on the daemon registered in `root`.
 pub(crate) fn call_at(root: &Path, method: &str, params: Value) -> Result<Value> {
+    call_at_with_timeout(root, method, params, CALL_TIMEOUT)
+}
+
+fn call_at_with_timeout(root: &Path, method: &str, params: Value, timeout: Duration) -> Result<Value> {
     let endpoint: Endpoint =
         serde_json::from_slice(&fs::read(endpoint_file(root)).context("The Werd daemon is not running")?)?;
     let address = format!("127.0.0.1:{}", endpoint.port).parse()?;
     let mut stream = TcpStream::connect_timeout(&address, Duration::from_secs(2))?;
-    stream.set_read_timeout(Some(CALL_TIMEOUT))?;
+    stream.set_read_timeout(Some(timeout))?;
+    stream.set_write_timeout(Some(timeout))?;
     let request = Request {
         token: endpoint.token,
         method: method.into(),
@@ -78,6 +83,12 @@ pub(crate) fn call_at(root: &Path, method: &str, params: Value) -> Result<Value>
 /// Calls `method` on the daemon of the current user.
 pub fn rpc(method: &str, params: Value) -> Result<Value> {
     call_at(&home()?, method, params)
+}
+
+/// Calls an already-running daemon with a caller-selected I/O timeout.
+/// This does not start the daemon or any of its services.
+pub fn rpc_with_timeout(method: &str, params: Value, timeout: Duration) -> Result<Value> {
+    call_at_with_timeout(&home()?, method, params, timeout)
 }
 
 /// Starts `executable` as the daemon unless one already answers.
@@ -193,6 +204,24 @@ fn failure(message: String) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn caller_timeout_bounds_a_daemon_that_does_not_reply() {
+        let root = tempfile::tempdir().unwrap();
+        let (listener, _) = listen(root.path()).unwrap();
+        let (release, hold) = std::sync::mpsc::channel();
+        let server = thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            let _ = hold.recv_timeout(Duration::from_secs(3));
+            drop(stream);
+        });
+        let started = Instant::now();
+        let response = call_at_with_timeout(root.path(), "ping", json!({}), Duration::from_millis(20));
+        release.send(()).unwrap();
+        server.join().unwrap();
+        assert!(response.is_err());
+        assert!(started.elapsed() < Duration::from_secs(2));
+    }
 
     /// Serves `connections` requests with an echo handler on a temporary home.
     fn echo_server(root: &Path, connections: usize) -> thread::JoinHandle<()> {

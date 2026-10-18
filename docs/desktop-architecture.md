@@ -6,6 +6,8 @@ The desktop shell is **Tauri 2** with a TypeScript/React frontend and a Rust bac
 
 The service manager (`werd-daemon`) lives in a process separate from the window, so closing the dashboard never stops databases or workers by accident. The GUI and the CLI talk to the same daemon through a local API: loopback TCP with a per-session token stored in the user's data directory. The daemon owns the project state, supervises processes, collects logs and runs health checks. Privileged operations, such as trusting a local CA or editing the hosts file, are isolated and only requested when needed.
 
+`werd mcp` is another client of this Werd daemon, served over stdio using the official MCP Rust SDK. Its initial tools expose selected read-only data with bounded log output and common credential filtering. It connects to the running daemon without starting it; protocol initialization and discovery do not require a running daemon. See [MCP](mcp.md). No interface delegates operations to Herd.
+
 On Windows the daemon joins a job object that kills its children when it exits, so a crash never leaves PHP, Caddy or a database holding its port. One Caddy serves every running site: each site keeps a stable `https://localhost:<port>` address and, when `.test` domains are on, also answers on `https://<name>.test`. Caddy runs with `--watch`, so starting or stopping a site rewrites its configuration without interrupting the others. The hosts file is updated by the clients, not the daemon, so the UAC prompt belongs to the window or terminal the user is looking at.
 
 ## Code layout
