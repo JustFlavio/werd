@@ -1,18 +1,8 @@
-import {
-  CircleCheck,
-  ExternalLink,
-  FileCode2,
-  FolderOpen,
-  Loader2,
-  Puzzle,
-  Sparkles,
-  TriangleAlert,
-} from "lucide-react";
+import { ArrowRight, CircleCheck, FileCode2, FolderOpen, Loader2, Puzzle, Sparkles, TriangleAlert } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   addProject,
   boostUpdate,
-  certificateStatus,
   createProject,
   domainsStatus,
   getSettings,
@@ -20,16 +10,12 @@ import {
   installRuntime,
   type Job,
   listJobs,
-  listProjects,
   listRuntimes,
   type NewProject,
-  openSite,
   type ProjectInfo,
   pickFolder,
   type StarterKit,
-  startProject,
   syncHosts,
-  trustCa,
 } from "../api";
 import { useT } from "../i18n";
 import type { Runtimes } from "../runtimes";
@@ -123,7 +109,6 @@ export function AddSiteWizard({
   const [showOutput, setShowOutput] = useState(false);
   const [opening, setOpening] = useState(false);
   const [phase, setPhase] = useState("");
-  const [needsTrust, setNeedsTrust] = useState(false);
   const [openError, setOpenError] = useState<string | null>(null);
   const [hostsSkipped, setHostsSkipped] = useState(false);
   const logBox = useRef<HTMLDivElement>(null);
@@ -223,38 +208,6 @@ export function AddSiteWizard({
     } catch (cause) {
       setHostsSkipped(true);
       log(`${w.hostsSkipped}: ${cause instanceof Error ? cause.message : String(cause)}`);
-    }
-  }
-
-  /** Starts the new site if needed, then opens it in the browser. */
-  async function openInBrowser(secure = false) {
-    if (!created) return;
-    setOpening(true);
-    setOpenError(null);
-    try {
-      let project = await startProject(created);
-      // The first start may download Caddy first; wait for the site to run.
-      for (let waited = 0; project.status === "starting" && waited < 180_000; waited += 1000) {
-        await delay(1000);
-        project = (await listProjects()).projects.find((candidate) => candidate.id === created) ?? project;
-      }
-      if (project.status !== "running") throw new Error(project.error ?? w.notStarted);
-      if (hostsSkipped) throw new Error(w.hostsSkippedHint);
-      const certificate = await certificateStatus();
-      if (!certificate.trusted) {
-        setNeedsTrust(true);
-        if (!secure) return;
-        await trustCa();
-        if (!(await certificateStatus()).trusted) throw new Error(w.trustIncomplete);
-        setNeedsTrust(false);
-      }
-      await openSite(created);
-    } catch (cause) {
-      setOpenError(cause instanceof Error ? cause.message : String(cause));
-      log(cause instanceof Error ? cause.message : String(cause));
-      setShowOutput(true);
-    } finally {
-      setOpening(false);
     }
   }
 
@@ -603,14 +556,6 @@ export function AddSiteWizard({
             </button>
           </div>
         )}
-        {needsTrust && (
-          <div className="callout callout-warn">
-            <p>{w.trustHint}</p>
-            <button type="button" className="button" disabled={opening} onClick={() => void openInBrowser(true)}>
-              {w.trustAndOpen}
-            </button>
-          </div>
-        )}
         {openError && (
           <p role="alert" className="callout callout-error">
             {openError}
@@ -678,16 +623,11 @@ export function AddSiteWizard({
           </button>
         )}
         {step === "progress" && outcome === "done" && (
-          <button
-            type="button"
-            className="button button-primary"
-            disabled={opening}
-            onClick={() => void openInBrowser()}
-          >
-            <ExternalLink size={14} /> {opening ? t.sites.starting : w.openInBrowser}
+          <button type="button" className="button button-primary" disabled={opening || !created} onClick={onClose}>
+            <ArrowRight size={14} /> {w.goToProject}
           </button>
         )}
-        {step === "progress" && (
+        {step === "progress" && outcome !== "done" && (
           <button type="button" className="button" disabled={outcome === "running"} onClick={onClose}>
             {t.common.close}
           </button>

@@ -70,6 +70,12 @@ export const it: Messages = {
     error: "Errore",
   },
   preparation: {
+    checking: "Verifica preparazione…",
+    preparing: "Preparazione in corso…",
+    checkFailed: "Verifica preparazione non disponibile",
+    continueSetup: "Completa preparazione",
+    startForHttps: "Avvia e configura HTTPS",
+    beforeOpen: "Completa la preparazione del progetto prima di aprire l’applicazione.",
     serverStatus: {
       running: "Server avviato",
       starting: "Avvio server…",
@@ -347,6 +353,7 @@ export const it: Messages = {
     showOutput: "Mostra output console",
     notStarted: "Il sito non è partito. Apri la sua pagina per vedere perché.",
     openInBrowser: "Apri nel browser",
+    goToProject: "Continua nel progetto",
   },
   php: {
     title: "PHP",
