@@ -277,6 +277,24 @@ export const it: Messages = {
     confirmUninstall: (label: string, line: string) =>
       `Disinstallare ${label} ${line}? I file scaricati vengono rimossi.`,
   },
+  backups: {
+    title: "Backup database",
+    hint: "Copie locali nella cartella dati di Werd. Copia la cartella backups su un altro disco per conservarle al sicuro.",
+    database: "Database da salvare",
+    create: "Crea backup",
+    loading: "Caricamento backup…",
+    empty: "Nessun backup compatibile disponibile.",
+    restore: "Ripristina in un nuovo database",
+    target: "Nome del nuovo database",
+    targetHint:
+      "I database esistenti vengono rifiutati. Usa lettere minuscole, cifre e underscore, iniziando con una lettera (massimo 63 caratteri).",
+    stopped: "Avvia il servizio prima di creare o ripristinare un backup.",
+    working: "Operazione in corso… Puoi chiudere questa finestra: il lavoro continua.",
+    created: "Backup completato.",
+    restored: (name: string) => `Ripristinato in ${name}. La connessione del sito non è stata modificata.`,
+    choose: "Backup",
+    lost: "Il daemon non riporta più questa operazione. Controlla l'elenco dei backup e il database di destinazione prima di riprovare.",
+  },
   services: {
     title: "Servizi",
     emptyTitle: "Servizi",

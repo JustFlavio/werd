@@ -571,6 +571,11 @@ export async function demoRpc(method: string, params: Record<string, unknown>): 
       return null;
     case "jobs.list":
       return jobs.map((job) => ({ ...job }));
+    case "backups.list":
+      return [];
+    case "backups.create":
+    case "backups.restore":
+      throw new Error("Database backups require the Werd desktop app and a running SQL service.");
     case "settings.get":
       return { ...settings };
     case "settings.set":
