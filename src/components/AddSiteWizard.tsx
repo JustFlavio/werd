@@ -12,6 +12,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   addProject,
   boostUpdate,
+  certificateStatus,
   createProject,
   domainsStatus,
   getSettings,
@@ -20,6 +21,7 @@ import {
   type Job,
   listJobs,
   listProjects,
+  listRuntimes,
   type NewProject,
   openSite,
   type ProjectInfo,
@@ -27,6 +29,7 @@ import {
   type StarterKit,
   startProject,
   syncHosts,
+  trustCa,
 } from "../api";
 import { useT } from "../i18n";
 import type { Runtimes } from "../runtimes";
@@ -110,8 +113,7 @@ export function AddSiteWizard({
   const [testing, setTesting] = useState<NewProject["testing"]>("pest");
   const [boost, setBoost] = useState(true);
   const [git, setGit] = useState(false);
-  const nodeInstalled = runtimes.rows.some((row) => row.product === "node" && row.installed);
-  const [npm, setNpm] = useState(nodeInstalled);
+  const [npm, setNpm] = useState(true);
   const [directory, setDirectory] = useState(savedLocation);
 
   // Progress.
@@ -120,6 +122,10 @@ export function AddSiteWizard({
   const [created, setCreated] = useState<string | null>(null);
   const [showOutput, setShowOutput] = useState(false);
   const [opening, setOpening] = useState(false);
+  const [phase, setPhase] = useState("");
+  const [needsTrust, setNeedsTrust] = useState(false);
+  const [openError, setOpenError] = useState<string | null>(null);
+  const [hostsSkipped, setHostsSkipped] = useState(false);
   const logBox = useRef<HTMLDivElement>(null);
 
   const phpRows = runtimes.rows.filter((row) => row.product === "php");
@@ -180,12 +186,32 @@ export function AddSiteWizard({
     }
   }
 
-  async function ensurePhp(line: string) {
-    if (installedPhp.some((row) => row.line === line)) return;
-    log(w.installingPhp(line));
-    const job = await installRuntime("php", line);
+  async function ensureRuntime(product: string, line: string) {
+    const message = w.installingRuntime(product === "php" ? "PHP" : "Node.js", line);
+    setPhase(message);
+    const setup = (await listJobs()).find((job) => job.product === "setup" && job.state === "running");
+    if (setup) await follow(setup, log);
+    if ((await listRuntimes()).some((row) => row.product === product && row.line === line && row.installed)) return;
+    log(message);
+    const active = (await listJobs()).find(
+      (job) => job.product === product && job.line === line && job.state === "running",
+    );
+    const job = active ?? (await installRuntime(product, line));
     runtimes.track(job);
-    await follow(job, () => {});
+    await follow(job, log);
+    await runtimes.refresh();
+  }
+
+  async function ensureNode() {
+    const rows = await listRuntimes();
+    if (rows.some((row) => row.product === "node" && row.installed)) return;
+    const recommended = rows
+      .filter(
+        (row) => row.product === "node" && row.lts && (!row.eol || row.eol >= new Date().toISOString().slice(0, 10)),
+      )
+      .sort((a, b) => b.line.localeCompare(a.line, undefined, { numeric: true }))[0];
+    if (!recommended) throw new Error(w.noNodeAvailable);
+    await ensureRuntime("node", recommended.line);
   }
 
   async function updateHosts() {
@@ -195,14 +221,16 @@ export function AddSiteWizard({
     try {
       await syncHosts();
     } catch (cause) {
+      setHostsSkipped(true);
       log(`${w.hostsSkipped}: ${cause instanceof Error ? cause.message : String(cause)}`);
     }
   }
 
   /** Starts the new site if needed, then opens it in the browser. */
-  async function openInBrowser() {
+  async function openInBrowser(secure = false) {
     if (!created) return;
     setOpening(true);
+    setOpenError(null);
     try {
       let project = await startProject(created);
       // The first start may download Caddy first; wait for the site to run.
@@ -211,8 +239,18 @@ export function AddSiteWizard({
         project = (await listProjects()).projects.find((candidate) => candidate.id === created) ?? project;
       }
       if (project.status !== "running") throw new Error(project.error ?? w.notStarted);
+      if (hostsSkipped) throw new Error(w.hostsSkippedHint);
+      const certificate = await certificateStatus();
+      if (!certificate.trusted) {
+        setNeedsTrust(true);
+        if (!secure) return;
+        await trustCa();
+        if (!(await certificateStatus()).trusted) throw new Error(w.trustIncomplete);
+        setNeedsTrust(false);
+      }
       await openSite(created);
     } catch (cause) {
+      setOpenError(cause instanceof Error ? cause.message : String(cause));
       log(cause instanceof Error ? cause.message : String(cause));
       setShowOutput(true);
     } finally {
@@ -239,7 +277,8 @@ export function AddSiteWizard({
 
   const link = () =>
     run(async () => {
-      await ensurePhp(php);
+      await ensureRuntime("php", php);
+      setPhase(w.linking(path));
       log(w.linking(path));
       const project = await addProject(path, name.trim(), php, updateEnv);
       if (updateEnv) log(w.envUpdated(project.domain ?? ""));
@@ -258,7 +297,9 @@ export function AddSiteWizard({
   const create = () =>
     run(async () => {
       rememberLocation(directory);
-      await ensurePhp(php);
+      await ensureRuntime("php", php);
+      if (npm) await ensureNode();
+      setPhase(w.creating);
       const job = await createProject({
         name: name.trim(),
         directory,
@@ -269,7 +310,7 @@ export function AddSiteWizard({
         testing,
         boost,
         git,
-        npm: npm && nodeInstalled,
+        npm,
         php,
       });
       const finished = await follow(job, log);
@@ -437,70 +478,6 @@ export function AddSiteWizard({
               </>
             )}
 
-            {starterKit && (
-              <>
-                <label htmlFor="wizard-auth">{w.auth}</label>
-                <select
-                  id="wizard-auth"
-                  className="select"
-                  value={auth}
-                  onChange={(event) => setAuth(event.target.value as NewProject["auth"])}
-                >
-                  <option value="laravel">{w.authLaravel}</option>
-                  <option value="workos">WorkOS</option>
-                  <option value="none">{w.authNone}</option>
-                </select>
-
-                <span>{w.teams}</span>
-                <label className="checkbox">
-                  <input type="checkbox" checked={teams} onChange={(event) => setTeams(event.target.checked)} />
-                  {w.teamsHint}
-                </label>
-              </>
-            )}
-
-            <label htmlFor="wizard-testing">{w.testing}</label>
-            <select
-              id="wizard-testing"
-              className="select"
-              value={testing}
-              onChange={(event) => setTesting(event.target.value as NewProject["testing"])}
-            >
-              <option value="pest">Pest</option>
-              <option value="phpunit">PHPUnit</option>
-            </select>
-
-            <span>{w.extras}</span>
-            <div className="checkbox-stack">
-              <label className="checkbox">
-                <input type="checkbox" checked={boost} onChange={(event) => setBoost(event.target.checked)} />
-                {w.boost}
-              </label>
-              <label className="checkbox">
-                <input type="checkbox" checked={git} onChange={(event) => setGit(event.target.checked)} />
-                {w.git}
-              </label>
-              <label className="checkbox" title={nodeInstalled ? undefined : w.npmNeedsNode}>
-                <input
-                  type="checkbox"
-                  checked={npm && nodeInstalled}
-                  disabled={!nodeInstalled}
-                  onChange={(event) => setNpm(event.target.checked)}
-                />
-                {nodeInstalled ? w.npm : w.npmNeedsNode}
-              </label>
-            </div>
-
-            <label htmlFor="wizard-new-php">PHP</label>
-            <select id="wizard-new-php" className="select" value={php} onChange={(event) => setPhp(event.target.value)}>
-              {phpRows.map((row) => (
-                <option key={row.line} value={row.line}>
-                  PHP {row.line}
-                  {row.installed ? "" : ` — ${w.willInstall}`}
-                </option>
-              ))}
-            </select>
-
             <label htmlFor="wizard-location">{w.location}</label>
             <div>
               <div className="inline-form">
@@ -525,6 +502,75 @@ export function AddSiteWizard({
               </div>
               <p className="field-hint">{w.locationHint}</p>
             </div>
+            <p className="form-span muted">{w.recommended(php)}</p>
+            <details className="form-span advanced-panel">
+              <summary>{w.customize}</summary>
+              <div className="form-grid">
+                {starterKit && (
+                  <>
+                    <label htmlFor="wizard-auth">{w.auth}</label>
+                    <select
+                      id="wizard-auth"
+                      className="select"
+                      value={auth}
+                      onChange={(event) => setAuth(event.target.value as NewProject["auth"])}
+                    >
+                      <option value="laravel">{w.authLaravel}</option>
+                      <option value="workos">WorkOS</option>
+                      <option value="none">{w.authNone}</option>
+                    </select>
+
+                    <span>{w.teams}</span>
+                    <label className="checkbox">
+                      <input type="checkbox" checked={teams} onChange={(event) => setTeams(event.target.checked)} />
+                      {w.teamsHint}
+                    </label>
+                  </>
+                )}
+
+                <label htmlFor="wizard-testing">{w.testing}</label>
+                <select
+                  id="wizard-testing"
+                  className="select"
+                  value={testing}
+                  onChange={(event) => setTesting(event.target.value as NewProject["testing"])}
+                >
+                  <option value="pest">Pest</option>
+                  <option value="phpunit">PHPUnit</option>
+                </select>
+
+                <span>{w.extras}</span>
+                <div className="checkbox-stack">
+                  <label className="checkbox">
+                    <input type="checkbox" checked={boost} onChange={(event) => setBoost(event.target.checked)} />
+                    {w.boost}
+                  </label>
+                  <label className="checkbox">
+                    <input type="checkbox" checked={git} onChange={(event) => setGit(event.target.checked)} />
+                    {w.git}
+                  </label>
+                  <label className="checkbox">
+                    <input type="checkbox" checked={npm} onChange={(event) => setNpm(event.target.checked)} />
+                    {w.npm}
+                  </label>
+                </div>
+
+                <label htmlFor="wizard-new-php">PHP</label>
+                <select
+                  id="wizard-new-php"
+                  className="select"
+                  value={php}
+                  onChange={(event) => setPhp(event.target.value)}
+                >
+                  {phpRows.map((row) => (
+                    <option key={row.line} value={row.line}>
+                      PHP {row.line}
+                      {row.installed ? "" : ` — ${w.willInstall}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </details>
           </div>
         )}
 
@@ -538,21 +584,57 @@ export function AddSiteWizard({
           </div>
         )}
 
+        {step === "progress" && outcome === "done" && hostsSkipped && (
+          <div className="callout callout-warn">
+            <p>{w.hostsSkippedHint}</p>
+            <button
+              type="button"
+              className="button"
+              disabled={opening}
+              onClick={() => {
+                setOpening(true);
+                void syncHosts()
+                  .then(() => setHostsSkipped(false))
+                  .catch((cause) => setOpenError(String(cause)))
+                  .finally(() => setOpening(false));
+              }}
+            >
+              {t.preparation.configureDomains}
+            </button>
+          </div>
+        )}
+        {needsTrust && (
+          <div className="callout callout-warn">
+            <p>{w.trustHint}</p>
+            <button type="button" className="button" disabled={opening} onClick={() => void openInBrowser(true)}>
+              {w.trustAndOpen}
+            </button>
+          </div>
+        )}
+        {openError && (
+          <p role="alert" className="callout callout-error">
+            {openError}
+          </p>
+        )}
+
         {step === "progress" && (outcome !== "done" || showOutput) && (
           <div className="wizard-progress">
             <p className={`wizard-status wizard-status-${outcome}`}>
               {outcome === "running" && <Loader2 size={16} className="spin" />}
               {outcome === "done" && <CircleCheck size={16} />}
               {outcome === "failed" && <TriangleAlert size={16} />}
-              {outcome === "running" ? w.working : outcome === "done" ? w.done : w.failed}
+              {outcome === "running" ? phase || w.working : outcome === "done" ? w.done : w.failed}
             </p>
-            <div ref={logBox} className="log-box mono" role="log" aria-live="polite">
-              {lines.map((line, index) => (
-                // Output lines can repeat; their position is their identity.
-                // biome-ignore lint/suspicious/noArrayIndexKey: append-only log
-                <div key={index}>{line || " "}</div>
-              ))}
-            </div>
+            <details className="advanced-panel" open={showOutput || undefined}>
+              <summary>{w.showOutput}</summary>
+              <div ref={logBox} className="log-box mono" role="log" aria-live="polite">
+                {lines.map((line, index) => (
+                  // Output lines can repeat; their position is their identity.
+                  // biome-ignore lint/suspicious/noArrayIndexKey: append-only log
+                  <div key={index}>{line || " "}</div>
+                ))}
+              </div>
+            </details>
           </div>
         )}
 
@@ -596,17 +678,17 @@ export function AddSiteWizard({
           </button>
         )}
         {step === "progress" && outcome === "done" && (
-          <button type="button" className="button" disabled={opening} onClick={() => void openInBrowser()}>
+          <button
+            type="button"
+            className="button button-primary"
+            disabled={opening}
+            onClick={() => void openInBrowser()}
+          >
             <ExternalLink size={14} /> {opening ? t.sites.starting : w.openInBrowser}
           </button>
         )}
         {step === "progress" && (
-          <button
-            type="button"
-            className={`button ${outcome === "done" ? "button-primary" : ""}`}
-            disabled={outcome === "running"}
-            onClick={onClose}
-          >
+          <button type="button" className="button" disabled={outcome === "running"} onClick={onClose}>
             {t.common.close}
           </button>
         )}

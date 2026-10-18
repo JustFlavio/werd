@@ -381,7 +381,6 @@ export default function App() {
           onDone={async (id) => {
             setSelectedId(id);
             await refresh();
-            setCreating(false);
             setPage("sites");
           }}
         />

@@ -14,6 +14,11 @@ vi.mock("./api", async (original) => {
     listRuntimes: () => demoRpc("runtimes.list", {}),
     listJobs: () => demoRpc("jobs.list", {}),
     getSettings: () => demoRpc("settings.get", {}),
+    inspectFolder: (path: string) => demoRpc("sites.inspect", { path }),
+    addProject: (path: string, name: string, php: string) => demoRpc("sites.add", { path, name, php }),
+    syncHosts: async () => {
+      await demoRpc("hosts.sync", {});
+    },
     systemInfo: () => demoRpc("system.info", {}),
     certificateStatus: async () => ({ exists: true, trusted: true }),
     setTrayLabels: async () => {},
@@ -22,6 +27,22 @@ vi.mock("./api", async (original) => {
 });
 
 describe("workspace navigation", () => {
+  it("keeps the completion screen when a project is added from Home", async () => {
+    render(
+      <I18nProvider locale="en">
+        <App />
+      </I18nProvider>,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Add project" }));
+    fireEvent.click(screen.getByRole("button", { name: /Link existing project/ }));
+    const dialog = within(screen.getByRole("dialog"));
+    fireEvent.change(dialog.getByRole("textbox", { name: "Project path" }), { target: { value: "/work/new-project" } });
+    fireEvent.blur(dialog.getByRole("textbox", { name: "Project path" }));
+    await dialog.findByDisplayValue("new-project");
+    fireEvent.click(dialog.getByRole("button", { name: "Add project" }));
+    expect(await screen.findByRole("button", { name: "Open in browser" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
   it("keeps infrastructure in advanced settings while preserving runtime and global service controls", async () => {
     render(
       <I18nProvider locale="en">
