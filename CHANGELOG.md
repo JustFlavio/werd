@@ -8,6 +8,57 @@ Pre-launch experiment tags were retired before the first alpha. This history kee
 the source changes, including earlier distribution experiments. See the
 [release policy](docs/releases.md) for the current version and channel rules.
 
+## [0.1.0-alpha.3] - 2026-10-19
+
+### Features
+- **cli:** Serve read-only Werd diagnostics over MCP
+- **services:** Add verified SQL backup and restore jobs
+- **cli:** Expose database backup and restore commands
+- **ui:** Manage database backups and restore progress
+- **ui:** Center home and navigation on projects
+- **ui:** Manage tools backups and logs within projects
+- **ui:** Guide project creation and prepare missing Node automatically
+- **core:** Prepare projects and apply reviewed environment changes
+- **ui:** Make project preparation actionable from the overview
+- **ui:** Align project preparation with navigation and opening
+- **ui:** Expose live frontend controls in project overview
+- **ui:** Explain starter choices and simplify project imports
+
+### Bug fixes
+- **core:** Adapt the PATH registry write to winreg 0.56 (#19)
+- **deps:** Replace vulnerable Rust dependencies and yanked derive
+- **deps-dev:** Update source-map-js to the patched release
+- **core:** Publish project metadata without unlinking saved state
+- **runtimes:** Preserve concurrent installs and registry updates
+- **services:** Preserve existing PostgreSQL data during initialization
+- **services:** Reject conflicting Redis cache and queue links
+- **core:** Terminate Windows workers after their parent exits
+- **core:** Unregister completed database tools
+- **cli:** Avoid logging secrets in redaction assertions
+- **ci:** Restrict workflow token to read-only contents
+- **core:** Omit environment credentials from test diagnostics
+- **ui:** Validate demo domains without ambiguous backtracking
+- **services:** Preserve requirements and roll back rejected creation
+- **core:** Preserve other package managers during project setup
+
+### Documentation
+- Link the published Windows alpha
+- Clarify independent replacement scope and Herd 2 research
+- Record core workflow review and validation boundaries
+- Document branch naming convention
+- Record remaining GTK security advisory
+- Describe protected release signing credentials
+- Describe project tools and advanced infrastructure
+- Describe guided project preparation and environment updates
+
+### Tests
+- **services:** Validate SQL restores and Laravel HTTPS end to end
+
+### Build and CI
+- **deps:** Refresh cargo, npm and actions dependencies (#17)
+- **release:** Require owner approval via the release environment
+- **runtimes:** Update runtime catalog
+
 ## [0.1.0-alpha.2] - 2026-09-29
 
 ### Bug fixes
