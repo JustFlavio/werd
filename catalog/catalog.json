@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated": "2026-10-12T15:18:01.007Z",
+  "generated": "2026-10-26T12:56:16.580Z",
   "products": {
     "cacert": {
       "kind": "tool",
@@ -11,11 +11,11 @@
             "any": {
               "format": "phar",
               "marker": "cacert.pem",
-              "sha256": "a41b5d356aea97a529fe27e0f7316d2f9d946d75927476cf9cf1b90637d00505",
+              "sha256": "796f1389bfea13c0ed78f663b765baaff54a508e5483786bd6ece73c5e3e3cbe",
               "url": "https://curl.se/ca/cacert.pem"
             }
           },
-          "latest": "2026.09.25"
+          "latest": "2026.10.20"
         }
       }
     },
@@ -78,11 +78,11 @@
             "windows-x64": {
               "format": "zip",
               "marker": "mailpit.exe",
-              "sha256": "9637e21c02b33185fe69268ba05317152a5d8ac7877115e8a70e29b7e199e8dc",
-              "url": "https://github.com/axllent/mailpit/releases/download/v1.31.5/mailpit-windows-amd64.zip"
+              "sha256": "16915767a6c95dca569336e8f561f91cf355e9a33c57b91deedcc10a4bba7fd4",
+              "url": "https://github.com/axllent/mailpit/releases/download/v1.32.0/mailpit-windows-amd64.zip"
             }
           },
-          "latest": "1.31.5"
+          "latest": "1.32.0"
         }
       }
     },
@@ -173,11 +173,11 @@
             "windows-x64": {
               "format": "file",
               "marker": "meilisearch.exe",
-              "sha256": "948535579776ea8aeeffd166ac824f26624468b4f82d6e46a613230d8c91e62a",
-              "url": "https://github.com/meilisearch/meilisearch/releases/download/v1.55.0/meilisearch-windows-amd64.exe"
+              "sha256": "916591c45ca5be5eeb6981f68d987032f90a557a182fc7bdfdb011b869b90578",
+              "url": "https://github.com/meilisearch/meilisearch/releases/download/v1.56.0/meilisearch-windows-amd64.exe"
             }
           },
-          "latest": "1.55.0"
+          "latest": "1.56.0"
         }
       }
     },
@@ -194,22 +194,22 @@
             "windows-x64": {
               "format": "zip",
               "marker": "bin/mongod.exe",
-              "sha256": "09b7893dc07fbb6d67d4c2690f6d1fa5b3039a0b3b5de34fb1d9096d55a2230f",
-              "url": "https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-7.0.43.zip"
+              "sha256": "7e3a435fa86e36e8ca4f2618fb41de06d75c28009c63725a20f9badd36eec6f6",
+              "url": "https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-7.0.45.zip"
             }
           },
-          "latest": "7.0.43"
+          "latest": "7.0.45"
         },
         "8.0": {
           "builds": {
             "windows-x64": {
               "format": "zip",
               "marker": "bin/mongod.exe",
-              "sha256": "5a0675fdec49b544cd5d374ad50a9a594cf5b3278b5ace658aa51cbb4df17177",
-              "url": "https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-8.0.32.zip"
+              "sha256": "6b021a0864494e4decf278b36477a29eb36072432773e4e62c2f42c302630db0",
+              "url": "https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-8.0.34.zip"
             }
           },
-          "latest": "8.0.32"
+          "latest": "8.0.34"
         },
         "8.2": {
           "builds": {
@@ -227,22 +227,22 @@
             "windows-x64": {
               "format": "zip",
               "marker": "bin/mongod.exe",
-              "sha256": "55574b06b41848207213a5e69575dd3487abf3cf07ecfe01b3aef1bab0084241",
-              "url": "https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-8.3.11.zip"
+              "sha256": "61fcc2b2ac3a295ba2d8c80f678f01502b96647d835f0159b694c507035b5238",
+              "url": "https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-8.3.13.zip"
             }
           },
-          "latest": "8.3.11"
+          "latest": "8.3.13"
         },
         "9.0": {
           "builds": {
             "windows-x64": {
               "format": "zip",
               "marker": "bin/mongod.exe",
-              "sha256": "2cabba2e80b90bcd1c1096845711975199104148c849a007984cb3ee4d237406",
-              "url": "https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-9.0.2.zip"
+              "sha256": "1e6234c8c33e75de3659a7e1104cb12f1cb68ae41cba60b625537c1ed9256d43",
+              "url": "https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-9.0.4.zip"
             }
           },
-          "latest": "9.0.2"
+          "latest": "9.0.4"
         }
       }
     },
@@ -271,11 +271,11 @@
             "windows-x64": {
               "format": "zip",
               "marker": "bin/mysqld.exe",
-              "sha256": "a492371d687d2bab088b0062581144a0044b8964baefdf4faa579292b423d25c",
-              "url": "https://cdn.mysql.com/Downloads/MySQL-8.4/mysql-8.4.11-winx64.zip"
+              "sha256": "e9cd98b1d23f122987b1afca26ad942efec5891481103d48ae3cde237fa3ea54",
+              "url": "https://cdn.mysql.com/Downloads/MySQL-8.4/mysql-8.4.13-winx64.zip"
             }
           },
-          "latest": "8.4.11",
+          "latest": "8.4.13",
           "lts": true
         },
         "9.7": {
@@ -283,11 +283,11 @@
             "windows-x64": {
               "format": "zip",
               "marker": "bin/mysqld.exe",
-              "sha256": "5592ea38e53edd67f5baa68303e7fcf2f0a40fc08978fdb4a7b0c38d12baea17",
-              "url": "https://cdn.mysql.com/Downloads/MySQL-9.7/mysql-9.7.2-winx64.zip"
+              "sha256": "641bdaf01004927194c561b956f14f915a3166c9b0f9b1b5464ae63152bf4b96",
+              "url": "https://cdn.mysql.com/Downloads/MySQL-9.7/mysql-9.7.4-winx64.zip"
             }
           },
-          "latest": "9.7.2",
+          "latest": "9.7.4",
           "lts": false
         }
       }
@@ -445,23 +445,23 @@
             "macos-arm64": {
               "format": "tar.gz",
               "marker": "bin/node",
-              "sha256": "23b25245dcfb9af7262f8ff142e9e2e0af025368117329e7a7458a51e5922f53",
-              "url": "https://nodejs.org/dist/v22.23.3/node-v22.23.3-darwin-arm64.tar.gz"
+              "sha256": "c9e1dbc748b33ed2d14f42445191ecaf14c56259c7a9a26d0042c49ec2b66428",
+              "url": "https://nodejs.org/dist/v22.23.4/node-v22.23.4-darwin-arm64.tar.gz"
             },
             "macos-x64": {
               "format": "tar.gz",
               "marker": "bin/node",
-              "sha256": "8a677b0219178efd6eb0e475457c4afb452b521a92f6e67845a73bd85727f2a8",
-              "url": "https://nodejs.org/dist/v22.23.3/node-v22.23.3-darwin-x64.tar.gz"
+              "sha256": "efcc2b0db6f94bf53eddb038fe2b370277a042bd29e4f19b8f8e23598795b819",
+              "url": "https://nodejs.org/dist/v22.23.4/node-v22.23.4-darwin-x64.tar.gz"
             },
             "windows-x64": {
               "format": "zip",
               "marker": "node.exe",
-              "sha256": "2b0ff57b049cda1bbcea2240eec20467018713c1efe1f7360c2681859b90ed71",
-              "url": "https://nodejs.org/dist/v22.23.3/node-v22.23.3-win-x64.zip"
+              "sha256": "cbc74b5e0982c9dbb41525fd8fb5dcd32fbee237863f7829072f4639a1ce5f20",
+              "url": "https://nodejs.org/dist/v22.23.4/node-v22.23.4-win-x64.zip"
             }
           },
-          "latest": "22.23.3",
+          "latest": "22.23.4",
           "lts": true
         },
         "23": {
@@ -493,23 +493,23 @@
             "macos-arm64": {
               "format": "tar.gz",
               "marker": "bin/node",
-              "sha256": "bed7eea5325e1108f32ce5228ddd6a5f0f08a499ee42aa7442aea583702f6057",
-              "url": "https://nodejs.org/dist/v24.21.0/node-v24.21.0-darwin-arm64.tar.gz"
+              "sha256": "89c682593d76cd44233fa53b1563264e7de9cbb189cad169135c5b4fadfbc0a7",
+              "url": "https://nodejs.org/dist/v24.22.1/node-v24.22.1-darwin-arm64.tar.gz"
             },
             "macos-x64": {
               "format": "tar.gz",
               "marker": "bin/node",
-              "sha256": "1462cb3b3046b815cf8ea436d3da450ec1a9f11dac7e5a46b0ada5305d7e8097",
-              "url": "https://nodejs.org/dist/v24.21.0/node-v24.21.0-darwin-x64.tar.gz"
+              "sha256": "d132557e7ee2b85af08b0c8c34338e65c6430f2238d01f727728ef42dc83b035",
+              "url": "https://nodejs.org/dist/v24.22.1/node-v24.22.1-darwin-x64.tar.gz"
             },
             "windows-x64": {
               "format": "zip",
               "marker": "node.exe",
-              "sha256": "158f7685b44de51f6c0df1d153526cbcd3e1bc739a8dfc607721cef75de9e541",
-              "url": "https://nodejs.org/dist/v24.21.0/node-v24.21.0-win-x64.zip"
+              "sha256": "d2046d28c2c3dcd211ac5145c0bf30e2047ef9dfb306693c8c6e2eccd8b95fa5",
+              "url": "https://nodejs.org/dist/v24.22.1/node-v24.22.1-win-x64.zip"
             }
           },
-          "latest": "24.21.0",
+          "latest": "24.22.1",
           "lts": true
         },
         "25": {
@@ -541,23 +541,23 @@
             "macos-arm64": {
               "format": "tar.gz",
               "marker": "bin/node",
-              "sha256": "d916511b55965e91be7a88e17f88d895b6793ceaba3e6c9b194aefe51c2c65ac",
-              "url": "https://nodejs.org/dist/v26.11.1/node-v26.11.1-darwin-arm64.tar.gz"
+              "sha256": "1901d539912c02afa10d1cc126943a8855a7eedebe830119463470db5e6c59e8",
+              "url": "https://nodejs.org/dist/v26.12.1/node-v26.12.1-darwin-arm64.tar.gz"
             },
             "macos-x64": {
               "format": "tar.gz",
               "marker": "bin/node",
-              "sha256": "9a8129bd9ab08039793dd1143a7aedee6b5d60ac06592ad938d8bddf36142f3a",
-              "url": "https://nodejs.org/dist/v26.11.1/node-v26.11.1-darwin-x64.tar.gz"
+              "sha256": "b85c2ea4420ad0bc4abf2dc6cf1f55130ed681f1cabf60cf3f526e4c9e2712ff",
+              "url": "https://nodejs.org/dist/v26.12.1/node-v26.12.1-darwin-x64.tar.gz"
             },
             "windows-x64": {
               "format": "zip",
               "marker": "node.exe",
-              "sha256": "97f36a8a9684ff0d3e35758b4610fef5b628a5880e96f2ccc11240e5daf9934e",
-              "url": "https://nodejs.org/dist/v26.11.1/node-v26.11.1-win-x64.zip"
+              "sha256": "b3efd5c70cba3308ed46e7e699a9b8aac075bbc6b027fcb39c84c31acc25e2b4",
+              "url": "https://nodejs.org/dist/v26.12.1/node-v26.12.1-win-x64.zip"
             }
           },
-          "latest": "26.11.1",
+          "latest": "26.12.1",
           "lts": false
         }
       }
@@ -674,115 +674,115 @@
             "macos-arm64": {
               "format": "tar.gz",
               "marker": "php-fpm",
-              "sha256": "1e008d1514b89348802b46494f545b740b2a1a32a807d0e5878ee3ee5349be5e",
-              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.2.34/php-8.2.34-macos-arm64.tar.gz"
+              "sha256": "8f8486ad7b776e8997221a7c18ed67e2b810dfa52c9818392f601ffda95fd290",
+              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.2.35/php-8.2.35-macos-arm64.tar.gz"
             },
             "macos-x64": {
               "format": "tar.gz",
               "marker": "php-fpm",
-              "sha256": "bb9bd0fcc78444867bf536b565b3c12e86e476df1c85d9d439e4b28603a00e0c",
-              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.2.34/php-8.2.34-macos-x64.tar.gz"
+              "sha256": "0cb4f937e25372d38d0b3fc6c46066168acc988ae7db08d0ddba17347c9e575e",
+              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.2.35/php-8.2.35-macos-x64.tar.gz"
             },
             "windows-x64": {
               "format": "zip",
               "marker": "php-cgi.exe",
-              "sha256": "03249b5c9414c6dbe30276f4a7598bd9d2a7417ee81f709b06b99e9c4a2aff4f",
-              "url": "https://downloads.php.net/~windows/releases/php-8.2.34-nts-Win32-vs16-x64.zip"
+              "sha256": "798ffa4b9ce22a820d57048e9695df7245bf917ed067917f256942a10918a8cc",
+              "url": "https://downloads.php.net/~windows/releases/php-8.2.35-nts-Win32-vs16-x64.zip"
             }
           },
-          "latest": "8.2.34"
+          "latest": "8.2.35"
         },
         "8.3": {
           "builds": {
             "macos-arm64": {
               "format": "tar.gz",
               "marker": "php-fpm",
-              "sha256": "1562d1922c8dca6df08a24ac799919d9654103e9f92b1a27b748cc1254fd69bb",
-              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.3.35/php-8.3.35-macos-arm64.tar.gz"
+              "sha256": "43114538cc3eaba978f8ea0d0615f9699adf2e5ac30153d46af5baf4249ecdc5",
+              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.3.36/php-8.3.36-macos-arm64.tar.gz"
             },
             "macos-x64": {
               "format": "tar.gz",
               "marker": "php-fpm",
-              "sha256": "14ead09c57afa5a5435235b44196d0c6b86be0e4298c91906acb43393c454748",
-              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.3.35/php-8.3.35-macos-x64.tar.gz"
+              "sha256": "ea80d5a482bb3fa81d7430607c70030a3b4a24378d8c9a77c50073c0f1fe7afd",
+              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.3.36/php-8.3.36-macos-x64.tar.gz"
             },
             "windows-x64": {
               "format": "zip",
               "marker": "php-cgi.exe",
-              "sha256": "25a8e2ac9ff30f1d768d1447c09a600617fa6e6082729f6e95f008b59c91fe45",
-              "url": "https://downloads.php.net/~windows/releases/php-8.3.35-nts-Win32-vs16-x64.zip"
+              "sha256": "3c9242622c7402b47c38d2ec2ed779cef3a290fd6f2bde6c35f9c482699e7900",
+              "url": "https://downloads.php.net/~windows/releases/php-8.3.36-nts-Win32-vs16-x64.zip"
             }
           },
-          "latest": "8.3.35"
+          "latest": "8.3.36"
         },
         "8.4": {
           "builds": {
             "macos-arm64": {
               "format": "tar.gz",
               "marker": "php-fpm",
-              "sha256": "b0ad49bb7529e1ff1a76c5e34ec4701a5207a7c3811b29376f1800dd66386006",
-              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.4.26/php-8.4.26-macos-arm64.tar.gz"
+              "sha256": "8fcc6565c48330414596b778a6f1b917f3f341de1576dbe8cd00357237e99fc3",
+              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.4.27/php-8.4.27-macos-arm64.tar.gz"
             },
             "macos-x64": {
               "format": "tar.gz",
               "marker": "php-fpm",
-              "sha256": "e471ac0cc37fe5b3aa742e377813048fdb722425ad49eba3033db3538f2bb0ad",
-              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.4.26/php-8.4.26-macos-x64.tar.gz"
+              "sha256": "b6856644bb3265d5ce3d2a18a134c471fc224d5998615eefef3a5113b6bc1a04",
+              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.4.27/php-8.4.27-macos-x64.tar.gz"
             },
             "windows-x64": {
               "format": "zip",
               "marker": "php-cgi.exe",
-              "sha256": "da68394f9193b7f6b89d0c76861a4034ae10efee7fd55a7255d8118c2acf70d7",
-              "url": "https://downloads.php.net/~windows/releases/php-8.4.26-nts-Win32-vs17-x64.zip"
+              "sha256": "93bd8a815a52156606fb906d0573437908c61f96e2cc52c03a51e36a41bf5236",
+              "url": "https://downloads.php.net/~windows/releases/php-8.4.27-nts-Win32-vs17-x64.zip"
             }
           },
-          "latest": "8.4.26"
+          "latest": "8.4.27"
         },
         "8.5": {
           "builds": {
             "macos-arm64": {
               "format": "tar.gz",
               "marker": "php-fpm",
-              "sha256": "55754b506bb196f5952ef4a388d4d7679eceaee401d4288c35d06fa321f31ba9",
-              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.5.11/php-8.5.11-macos-arm64.tar.gz"
+              "sha256": "2c96cf789518fe2cc326870a2e530785ba54ce1eca5eea1a09c40a75b2a620c8",
+              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.5.12/php-8.5.12-macos-arm64.tar.gz"
             },
             "macos-x64": {
               "format": "tar.gz",
               "marker": "php-fpm",
-              "sha256": "66b375e0c47c52d60c4cc37f88cc7e89e6df0cd51f9936ff5ab0279ebc9dbb80",
-              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.5.11/php-8.5.11-macos-x64.tar.gz"
+              "sha256": "868f9420d23952638e67bf41ae38e0549d7ce9fa7f62516601b71e9fae865b26",
+              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.5.12/php-8.5.12-macos-x64.tar.gz"
             },
             "windows-x64": {
               "format": "zip",
               "marker": "php-cgi.exe",
-              "sha256": "0ea96e0d2b9b737a6036f05cf4e95c49313faa6d0f27bd97edb2742503f0c043",
-              "url": "https://downloads.php.net/~windows/releases/php-8.5.11-nts-Win32-vs17-x64.zip"
+              "sha256": "2ab242af38d76bdf417cde5ec048b1bcd76a5a40f39a3d15d5f046f38571c477",
+              "url": "https://downloads.php.net/~windows/releases/php-8.5.12-nts-Win32-vs17-x64.zip"
             }
           },
-          "latest": "8.5.11"
+          "latest": "8.5.12"
         },
         "8.6": {
           "builds": {
             "macos-arm64": {
               "format": "tar.gz",
               "marker": "php-fpm",
-              "sha256": "987cdab65718c0362067f3df70c7c103defb7f125d542c6074f268bee3f06b3d",
-              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.6.0RC3/php-8.6.0RC3-macos-arm64.tar.gz"
+              "sha256": "71f98cafc0a200ebb844082ff5cdcd4534e4df670088b96a14d179d8cd6af96d",
+              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.6.0RC4/php-8.6.0RC4-macos-arm64.tar.gz"
             },
             "macos-x64": {
               "format": "tar.gz",
               "marker": "php-fpm",
-              "sha256": "8d7bb93cf7cd2543433ea8406581ff08b623e8ccf862e2077c69fcbd0c66ac9b",
-              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.6.0RC3/php-8.6.0RC3-macos-x64.tar.gz"
+              "sha256": "703f2d6f2e973abe9c6846b900de015d89d08abf75bb554f848809fa11f8d3e4",
+              "url": "https://github.com/JustFlavio/werd-runtimes/releases/download/php-8.6.0RC4/php-8.6.0RC4-macos-x64.tar.gz"
             },
             "windows-x64": {
               "format": "zip",
               "marker": "php-cgi.exe",
-              "sha256": "ed902df5ac33a696ce5e43f025550362d0644c077efd91a3eb3a366900fe9bfa",
-              "url": "https://downloads.php.net/~windows/qa/php-8.6.0RC3-nts-Win32-vs18-x64.zip"
+              "sha256": "68026900957f18f61d49726224ff0efc39bb0710c7e8adab94b7032f34974d9f",
+              "url": "https://downloads.php.net/~windows/qa/php-8.6.0RC4-nts-Win32-vs18-x64.zip"
             }
           },
-          "latest": "8.6.0RC3"
+          "latest": "8.6.0RC4"
         }
       }
     },
@@ -818,55 +818,55 @@
             "windows-x64": {
               "format": "zip",
               "marker": "php_mongodb.dll",
-              "sha256": "736e57b4665ed26795bc1018aa2ed3dc65706a5b3c445461b0d950c383bca1cc",
-              "url": "https://downloads.php.net/~windows/pecl/releases/mongodb/2.5.4/php_mongodb-2.5.4-8.1-nts-vs16-x64.zip"
+              "sha256": "5855e17dfb0ad85d6bbfffe8480eb276ad18b0327e83c8900a3bc7b602dda5f2",
+              "url": "https://downloads.php.net/~windows/pecl/releases/mongodb/2.5.5/php_mongodb-2.5.5-8.1-nts-vs16-x64.zip"
             }
           },
-          "latest": "2.5.4"
+          "latest": "2.5.5"
         },
         "8.2": {
           "builds": {
             "windows-x64": {
               "format": "zip",
               "marker": "php_mongodb.dll",
-              "sha256": "bc6695d529d1fa518c08694e2757a264d32d69b893802525f20d54d968f27bcb",
-              "url": "https://downloads.php.net/~windows/pecl/releases/mongodb/2.5.4/php_mongodb-2.5.4-8.2-nts-vs16-x64.zip"
+              "sha256": "1500376b50eef81ab7845cdb07fb24d92100396a9a115e9f5ae8d7b9be5c95d2",
+              "url": "https://downloads.php.net/~windows/pecl/releases/mongodb/2.5.5/php_mongodb-2.5.5-8.2-nts-vs16-x64.zip"
             }
           },
-          "latest": "2.5.4"
+          "latest": "2.5.5"
         },
         "8.3": {
           "builds": {
             "windows-x64": {
               "format": "zip",
               "marker": "php_mongodb.dll",
-              "sha256": "1d22a2d561a226d04d894ec0b5f7de4b5f1cbfeeb6ee3a3488e2e698d6695fae",
-              "url": "https://downloads.php.net/~windows/pecl/releases/mongodb/2.5.4/php_mongodb-2.5.4-8.3-nts-vs16-x64.zip"
+              "sha256": "f7488b01ca98dc83af0bcc50e6d209816564de4efea347c63004bd7583c1c384",
+              "url": "https://downloads.php.net/~windows/pecl/releases/mongodb/2.5.5/php_mongodb-2.5.5-8.3-nts-vs16-x64.zip"
             }
           },
-          "latest": "2.5.4"
+          "latest": "2.5.5"
         },
         "8.4": {
           "builds": {
             "windows-x64": {
               "format": "zip",
               "marker": "php_mongodb.dll",
-              "sha256": "055052d7b519ab94b263d2e6786ee534abb13c5ea47ecbd16f4beb47bb090082",
-              "url": "https://downloads.php.net/~windows/pecl/releases/mongodb/2.5.4/php_mongodb-2.5.4-8.4-nts-vs17-x64.zip"
+              "sha256": "5da2b97d10123e9046de6db4e84181ddaff0a9f9cc6d8b6ac141ca3a862d0493",
+              "url": "https://downloads.php.net/~windows/pecl/releases/mongodb/2.5.5/php_mongodb-2.5.5-8.4-nts-vs17-x64.zip"
             }
           },
-          "latest": "2.5.4"
+          "latest": "2.5.5"
         },
         "8.5": {
           "builds": {
             "windows-x64": {
               "format": "zip",
               "marker": "php_mongodb.dll",
-              "sha256": "b83909681314c829f9895382bc643a5cb1b5ab1e33d454ee9668948dd5160c0c",
-              "url": "https://downloads.php.net/~windows/pecl/releases/mongodb/2.5.4/php_mongodb-2.5.4-8.5-nts-vs17-x64.zip"
+              "sha256": "d69b375e230d3adb2859f157885c7500757046339a59dcac5b138216953e2ecd",
+              "url": "https://downloads.php.net/~windows/pecl/releases/mongodb/2.5.5/php_mongodb-2.5.5-8.5-nts-vs17-x64.zip"
             }
           },
-          "latest": "2.5.4"
+          "latest": "2.5.5"
         }
       }
     },
@@ -1136,11 +1136,11 @@
             "windows-x64": {
               "format": "zip",
               "marker": "rustfs.exe",
-              "sha256": "624259622524255d0000131e095f37a11299fd76926aabfd8f831a9dbe6a39f7",
-              "url": "https://github.com/rustfs/rustfs/releases/download/1.0.1/rustfs-windows-x86_64-v1.0.1.zip"
+              "sha256": "2e3af0b187dd70435dfdefe5f61aae7eede5a21fc9a2a2f07e289f727adbcfa6",
+              "url": "https://github.com/rustfs/rustfs/releases/download/1.0.4/rustfs-windows-x86_64-v1.0.4.zip"
             }
           },
-          "latest": "1.0.1"
+          "latest": "1.0.4"
         }
       }
     }
